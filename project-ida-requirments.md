@@ -1,4 +1,4 @@
-# TrendBridge — Project Idea & Requirements Analysis
+# growth studio — Project Idea & Requirements Analysis
 ### Team Next Wave · AI Content & Trend Recommendation · Jul 12–18, 2026
 
 ---
