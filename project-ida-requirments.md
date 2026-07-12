@@ -5,143 +5,228 @@
 
 ## 1. The Problem (Why This Exists)
 
-Programming Hero is a fast-growing edtech platform in Bangladesh. Their marketing team needs to:
-- Stay updated on the latest tech trends (AI, Web Dev, Career, Security)
-- Decide which trends matter for their students and brand
-- Create engaging social media content about those trends
-- Do this consistently, every day, across LinkedIn and Facebook
+Programming Hero is a fast-growing edtech platform in Bangladesh. Their marketing team manages content across Facebook, YouTube, and LinkedIn simultaneously. They face four compounding problems:
 
-**The reality:** They are non-technical. They cannot tell the difference between a trending AI paper that will affect their curriculum and a random security CVE that doesn't matter to them. They spend hours manually browsing HackerNews, Dev.to, Twitter — and still miss things. When they finally find something, writing a good Banglish post about it takes another hour.
+**Problem 1 — No visibility into what's trending:**
+They manually browse HackerNews, Dev.to, Twitter every day. Hours wasted. Still miss things. Competitors post trending content first.
 
-**The cost of this problem:**
+**Problem 2 — No understanding of their own audience:**
+They don't know which of their posts actually performed well, which topics their audience responds to, or what time to post. No single dashboard shows Facebook + YouTube + LinkedIn together.
+
+**Problem 3 — Content creation is slow and inconsistent:**
+Writing a good Banglish Facebook post takes an hour. Writing a YouTube script takes half a day. A LinkedIn post needs a different tone entirely. They can't keep up across all platforms consistently.
+
+**Problem 4 — No connection between trends and their own data:**
+Even if they find a trending topic, they don't know if *their audience* cares about it. A generic trending topic and a topic that their specific followers engage with are completely different things.
+
+**The cost:**
 - Trending topics missed → competitors post first
-- Irrelevant content posted → low engagement, brand damage
-- Hours wasted on research → less time on actual marketing work
-- Inconsistent posting schedule → algorithmic penalty on LinkedIn/Facebook
+- Wrong content posted → low engagement, wasted effort
+- Inconsistent posting → algorithmic penalty across all platforms
+- Hours on research and writing → less time on actual marketing strategy
+- No cross-platform view → blind decisions on what to create next
 
 ---
 
 ## 2. The Solution — TrendBridge
 
-> "TrendBridge closes the gap between what's happening in tech and what your marketing team should do about it — automatically."
+> "TrendBridge is the only tool that combines what's trending in tech with what works on YOUR channels — and turns it into a full week of content across every platform in 5 minutes."
 
-TrendBridge is an AI-powered dashboard that:
+TrendBridge is a **full marketing intelligence platform** that does four things:
 
-1. **Watches** multiple tech sources 24/7 (HackerNews, Dev.to, GitHub Trending, Reddit, RSS)
-2. **Filters** noise using a 4-layer pipeline — only relevant, non-duplicate, high-quality news reaches the surface
-3. **Scores** each item by relevance to Programming Hero's audience and business context
-4. **Explains** why each news item matters and what action to take (Impact Simulator)
-5. **Generates** ready-to-post LinkedIn and Facebook content in Banglish, in PH's brand voice, in one click
-6. **Answers** questions like "What AI news this week should we post about?" via a chat interface
+1. **Monitors** external tech trends 24/7 across HackerNews, Dev.to, GitHub, Reddit, RSS
+2. **Analyzes** your own Facebook page, YouTube channel, and LinkedIn performance over the last 30 days — reach, views, engagement, best times, top content
+3. **Cross-references** trending topics with your own audience data to surface the highest-opportunity content ideas ranked by what will work for YOUR specific followers
+4. **Generates** platform-specific content in one click: Facebook post (text + Reel script), LinkedIn post, YouTube video idea (title + hook + full chapter outline + thumbnail concept), and short captions — all in Banglish, in your brand voice, personalized to your page's own performance history
 
-The marketing team opens one dashboard. Everything they need is there. No technical knowledge required.
+The marketing team opens one dashboard. They see what's trending, what's working on their channels, and what to create next. Everything generated. Nothing left to guess.
 
 ---
 
 ## 3. Who Uses This (User Personas)
 
-### Persona 1: The Marketing Executive (Primary User)
+### Persona 1: The Content Creator / Marketing Lead (Primary User)
+- Name: Mursalin Bhai, Team Lead, Next Level Engineer
+- Manages: Facebook page + YouTube channel + LinkedIn simultaneously
+- Daily pain: Spends 3–4 hours deciding what to create, writing scripts, adapting content per platform — often publishes inconsistently because it takes too long
+- What he needs: One place that tells him what to create this week and generates the first draft for every format automatically
+- Success metric: Publishes 5× per week across all platforms consistently, with content that matches what his audience actually engages with
+
+### Persona 2: The Marketing Executive (Secondary User)
 - Name: Riya Apa, Marketing Team, Programming Hero
 - Technical level: Zero. She knows Facebook and Canva.
-- Daily pain: Spends 2 hours searching for "something to post about" and often gives up or reposts old content
+- Daily pain: Spends 2 hours searching for "something to post about" and gives up or reposts old content
 - What she needs: Open the app, see what's trending that matters to PH, click generate, copy the post, done in 5 minutes
-- Success metric: Posts 5x per week consistently without researching anything manually
+- Success metric: Posts 5× per week consistently without researching anything manually
 
-### Persona 2: The Content Strategist (Secondary User)
+### Persona 3: The Content Strategist (Tertiary User)
 - Name: Tanvir Bhai, Content & Growth, Programming Hero
-- Technical level: Moderate. Understands tech surface-level.
 - Daily pain: Has to brief the marketing team on what to post — takes time he doesn't have
-- What he needs: A dashboard that does the briefing automatically, with business context per item
-- Success metric: Team stops asking him "what should we post today?"
-
-### Persona 3: The Course Manager (Tertiary User)
-- Name: Sumaiya, Curriculum Team, Programming Hero
-- Technical level: Low-moderate
-- Occasional pain: Needs to know if a new framework or AI model should affect course content
-- What she needs: Weekly digest of "what changed in tech that might affect our courses"
-- Success metric: Never misses a major tech shift that should trigger a course update
+- What he needs: A weekly AI-generated strategy report showing what performed last month and what to prioritize next week
+- Success metric: Team stops asking him "what should we post today?" — the report answers it automatically
 
 ---
 
 ## 4. Core Features (MVP Scope)
 
-### Feature 1: Multi-Source News Aggregation
-**What it does:** Pulls tech news from 4 sources every 3 hours, automatically.
-**Sources:** HackerNews API, Dev.to API, OSS Insight (GitHub trending), Reddit (r/programming, r/webdev)
-**Why free sources only:** No budget risk for a hackathon; all are reliable and well-documented.
-**Output:** Raw news items stored in MongoDB with source, title, URL, snippet, engagement metrics.
+### Feature 1: Multi-Source External News Aggregation
+**What it does:** Pulls tech news from multiple free sources every 3 hours, automatically.
+**Sources:** HackerNews API, Dev.to API, OSS Insight (GitHub trending), Reddit (r/programming, r/webdev), RSS feeds (TechCrunch, The Verge, Smashing Magazine)
+**Output:** Raw news items stored in MongoDB with source, title, URL, snippet, engagement metrics, embedding vector.
 
 ---
 
-### Feature 2: 4-Layer AI-Cost Filter
-**What it does:** Reduces 200+ daily news items to the 20–30 that actually matter, before any AI model runs.
+### Feature 2: 4-Layer AI-Cost Filter Pipeline
+**What it does:** Reduces 200+ daily news items to the 20–30 that actually matter, before any LLM runs.
 **Layer 1 — Keyword pre-filter:** Drop items with zero PH-relevant keywords (AI, React, Node, career, hiring, JavaScript, Python, web dev, course, learning). Pure string matching, zero cost.
-**Layer 2 — Vector dedup (MongoDB Atlas Vector Search):** Generate a 768-dim embedding for each new item via `nomic-ai/nomic-embed-text` on OpenRouter (free). Run `$vectorSearch` against `news_items` collection. Cosine similarity > 0.9 with any existing item → same story, skip it. Embeddings stored directly on the MongoDB document — no separate vector DB, no new infrastructure.
+**Layer 2 — Vector dedup (MongoDB Atlas Vector Search):** Generate 768-dim embedding via `nomic-ai/nomic-embed-text` on OpenRouter (free). `$vectorSearch` against existing `news_items`. Cosine similarity > 0.9 → duplicate, skip. Zero API cost beyond embedding call.
 **Layer 3 — Redis cache check:** SHA256(title + URL) checked against Redis. If seen in last 24h, skip. Zero cost.
-**Layer 4 — Relevance gate:** Only items that pass layers 1–3 go to the LLM via OpenRouter. Items scoring below 4/10 after AI processing are stored but not surfaced or processed further.
-**Why this matters:** This is what separates a naive "call LLM on everything" approach from a production-grade system. AI cost stays $0 as volume scales — free OpenRouter models + Atlas Vector Search on already-free MongoDB M0 + aggressive Redis caching.
+**Layer 4 — Relevance gate:** Only survivors go to LLM via OpenRouter. Items scoring < 4/10 stored but never surfaced.
+**Why this matters:** AI cost stays $0 as volume scales — free OpenRouter models + Atlas Vector Search on already-free MongoDB M0 + Redis caching.
 
 ---
 
 ### Feature 3: AI Categorization + Relevance Scoring
-**What it does:** LLM via OpenRouter (batched, 10 items per API call) assigns each surviving news item:
+**What it does:** LLM via OpenRouter (batched, 10 items per call) assigns each surviving news item:
 - Category: AI / Web Dev / Career / Security / DevOps / Other
 - Relevance score: 1–10 (how much does this matter to PH's students and marketing?)
-- Impact note: One sentence — "Why this matters and what PH should consider."
-**Model:** Free tier via OpenRouter — `meta-llama/llama-3.1-8b-instruct:free` for classification (fast, free, capable). Falls back to `mistralai/mistral-7b-instruct:free` if unavailable.
-**Output:** Enriched news items in MongoDB, cached in Redis for 24h.
+- Impact note: One sentence on why this matters and what PH should do about it
+**Models:** `meta-llama/llama-3.1-8b-instruct:free` (primary), `mistralai/mistral-7b-instruct:free` (fallback), `google/gemma-2-9b-it:free` (secondary fallback)
+**Output:** Enriched news items in MongoDB, cached in Redis 24h.
 
 ---
 
 ### Feature 4: Trend Score (Zero AI Cost)
-**What it does:** Calculates a "trending potential" score from raw engagement signals — no AI involved.
-**Formula:**
+**What it does:** Calculates a "trending potential" score from raw engagement signals — pure math, no AI.
 ```
-trend_score = normalize(points, 500) × 4
+trend_score = normalize(points, 500)   × 4
             + normalize(comments, 200) × 3
-            + recency_decay × 3
+            + recency_decay            × 3
+
+recency_decay = max(0, 1 − hoursOld / 48)
 ```
-Where recency_decay = max(0, 1 − hoursOld/48)
-**Display:** 🔥 badge on cards when trend_score ≥ 7.
-**Why no AI:** Judges respect "we used AI only where it added value." Pure math for a math problem shows architecture judgment.
+**Display:** 🔥 badge when trend_score ≥ 7. Shows architecture judgment — AI used only where it adds value.
 
 ---
 
-### Feature 5: Impact Simulator
-**What it does:** Per high-relevance news item, AI generates one concrete business suggestion for PH.
-**Example output:** "React 19 released with built-in async transitions — consider updating the React module in Level 2 Web Course. Strong LinkedIn post angle: 'Bangladesh developers: here's what React 19 means for your job search.'"
-**Why it's a killer feature:** It's not just "what's happening" — it's "what should WE do about it." This is business intelligence, not news aggregation. Judges feel the difference.
+### Feature 5: Facebook Page Analytics (Meta Graph API)
+**What it does:** Pulls last 30 days of Next Level Engineer Facebook page data via Meta Graph API (free with page admin access).
+**Data collected:**
+- Post reach and impressions per post
+- Engagement breakdown (likes, comments, shares, reactions)
+- Top 10 performing posts by engagement rate
+- Best posting times (impressions by hour of day)
+- Follower growth over 30 days
+- Video vs text vs Reel performance comparison
+- Top performing post categories (career, tutorial, news reaction, etc.)
+**Stored in:** `platform_analytics.facebook` MongoDB collection, refreshed every 6 hours.
+**API permissions required:** `pages_read_engagement`, `pages_show_list`, `read_insights`
 
 ---
 
-### Feature 6: One-Click AI Post Generator
-**What it does:** Click "Generate Post" on any news card → OpenRouter LLM generates 3 variants:
-- LinkedIn post (professional Banglish, storytelling hook, 150–200 words)
-- Facebook post (casual Banglish, emoji-friendly, conversational)
-- Short caption (under 50 words, works for Instagram/any platform)
-**Brand voice baked into prompt:** Storytelling hook, no dashes, real examples, PH audience (students, job seekers), Banglish (not pure Bangla, not pure English).
-**Lazy generation:** Never pre-generated. Only fires when user clicks. Result cached in Redis 24h so clicking again is instant.
-**Copy to clipboard:** One click copies the post. Marketing team pastes into Facebook/LinkedIn directly.
+### Feature 6: YouTube Channel Analytics (YouTube Data API v3)
+**What it does:** Pulls last 30 days of YouTube channel data (free, 10,000 units/day).
+**Data collected:**
+- Total views and watch time
+- Average view duration and retention rate
+- Click-through rate (CTR) by video
+- Top 10 videos by views and by watch time
+- Topic/keyword analysis of top-performing videos
+- Subscriber growth
+- Best performing video formats (tutorial, news reaction, full course, short)
+**Stored in:** `platform_analytics.youtube` MongoDB collection, refreshed every 6 hours.
+**API required:** YouTube Data API v3 (Google Cloud Console, free tier)
 
 ---
 
-### Feature 7: "Ask TrendBridge" Chat Interface
-**What it does:** Marketing team types a question in plain language. TrendBridge answers using the real news database as context.
+### Feature 7: LinkedIn Page Analytics (LinkedIn API)
+**What it does:** Pulls last 30 days of LinkedIn page or personal profile data.
+**Data collected:**
+- Post impressions and engagement rate
+- Follower demographics (job title, industry)
+- Top performing posts
+- Profile/page visits from posts
+**API required:** `r_organization_social` + `r_basicprofile` permissions
+**Note:** LinkedIn API approval is strictest of the three — start this setup immediately.
+
+---
+
+### Feature 8: Cross-Platform 30-Day Performance Report
+**What it does:** Combines Facebook + YouTube + LinkedIn data into one unified AI-generated report. Runs on demand or auto-generates weekly.
+**Report sections:**
+1. **Overview metrics** — Total reach, total engagements, total video views, average engagement rate across all platforms with delta vs previous 30 days
+2. **Facebook performance** — Top posts, best times, content type breakdown (text/Reel/video/image), engagement rate trends
+3. **YouTube performance** — Top videos by views and watch time, CTR analysis, retention insights, topic performance breakdown
+4. **LinkedIn performance** — Impressions, engagement rate vs industry average, top posts, audience demographics
+5. **AI cross-platform insight** — What content themes worked across ALL platforms? Where is the biggest gap between your output and your audience's interest?
+6. **Content opportunity ranking** — This week's top 5 content ideas ranked by: (trend score × your historical engagement on that topic). Shows which format per idea (YouTube video, FB Reel, LinkedIn post).
+**Generated by:** OpenRouter LLM with all platform data as structured context. Output is a readable Banglish report, not raw numbers.
+**Cached:** Redis 6h (expensive to regenerate, rarely changes intraday).
+
+---
+
+### Feature 9: Impact Simulator
+**What it does:** Per high-relevance news item, AI generates one concrete business suggestion.
+**Example:** "React 19 released → your React content historically gets 3× your average engagement → HIGH PRIORITY. Suggested YouTube title: 'React 19 দিয়ে কি Job পাওয়া সহজ হবে? — Bangla Full Guide 2025'. Suggested FB hook: তুমি কি জানো React 19 তে এমন 3টা feature এসেছে...'"
+**Why it wins:** Not just "what's trending globally" — it's "what's trending + what works for YOUR audience specifically."
+
+---
+
+### Feature 10: Multi-Format AI Content Generator
+**What it does:** One trending topic → all content formats generated in one click, personalized to each platform's performance patterns.
+
+**Format 1 — Facebook text post:**
+Casual Banglish, emoji-friendly, storytelling hook, 100–150 words. Brand voice RAG: uses vector search to find 3 most similar high-engagement real posts from your page, injects as few-shot examples.
+
+**Format 2 — Facebook Reel script (60–90 sec):**
+Hook line (first 3 sec), 3 key points with timestamps, CTA. Structured for vertical video. Tone matched to your best-performing Reels.
+
+**Format 3 — LinkedIn post:**
+Professional Banglish, insight-driven, career angle, 150–200 words. Ends with a question to drive comments. Based on your LinkedIn engagement patterns.
+
+**Format 4 — YouTube video idea (full):**
+- Title (optimized for your channel's CTR patterns)
+- Hook script (first 30 seconds — most important for retention)
+- Chapter outline with timestamps (based on your average video length that holds retention)
+- Thumbnail concept (text + visual description, based on your highest-CTR thumbnails)
+- Tags and description outline
+
+**Format 5 — Short caption:**
+Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
+
+**All formats:** Lazy generation (fires only on click), cached Redis 24h, copy to clipboard.
+
+---
+
+### Feature 11: Brand Voice RAG
+**What it does:** Ensures all generated content sounds like YOUR brand, not generic AI Banglish.
+**How it works:**
+1. Marketing team collects 25–30 real high-engagement posts from their Facebook + LinkedIn pages → seeded into `brand_voice_examples` MongoDB collection with embeddings
+2. On every generation click → embed the news topic → `$vectorSearch` `brand_voice_examples` → fetch 3 most semantically similar real posts
+3. Inject as few-shot examples into the generation prompt
+4. LLM writes in your voice, not a generic voice
+**Why vector over keyword:** "React 19 Server Components" should match a brand voice example about "web dev career growth" — same audience intent, same tone needed. Vector similarity catches this; keyword matching misses it.
+**Pitch line:** "TrendBridge doesn't just write Banglish — it writes YOUR Banglish, learned from your own best-performing posts."
+
+---
+
+### Feature 12: "Ask TrendBridge" Chat Interface
+**What it does:** Marketing team asks questions in plain Banglish/English. TrendBridge answers using your real news database + your platform analytics as context.
 **Example questions:**
-- "এই সপ্তাহে AI নিয়ে কোন news আছে যেটা আমরা post করতে পারি?"
-- "What JavaScript news this week is relevant for our students?"
-- "Is there anything about job market trends I should know?"
-**How it works (RAG with MongoDB Atlas Vector Search):** User query → embed with `nomic-ai/nomic-embed-text` (free, OpenRouter) → `$vectorSearch` against `news_items` → top 5 semantically closest items → sent as context to OpenRouter LLM → plain language answer in Banglish. Semantic search means "AI tools for students" finds AI career news even if the exact words don't match.
-**Why it's the demo wow moment:** Live interaction. Judges can type their own question. Nothing is more convincing than a real-time, unpredictable demo that works.
+- "এই সপ্তাহে AI নিয়ে কোন news আছে যেটা আমাদের YouTube এ ভালো হবে?"
+- "আমাদের Facebook এ কোন ধরনের post সবচেয়ে বেশি engagement পায়?"
+- "React 19 নিয়ে কি YouTube video বানানো উচিত?"
+**How it works (RAG):** Query → embed → `$vectorSearch` news_items + platform_analytics context → top 5 relevant items → OpenRouter LLM → Banglish answer grounded in real data.
+**Demo wow factor:** Judge types a live question. Gets a real, data-grounded answer in seconds. Unpredictable and always impressive.
 
 ---
 
-### Feature 8: Dashboard UI
-**Style reference:** daily.dev — card-based, dark theme, tab filtering.
+### Feature 13: News Feed Dashboard UI
+**Style:** daily.dev — card-based, dark theme, tab filtering.
 **Tabs:** Headlines / AI / Web Dev / Career / Security
-**Each card shows:** Title, source, time ago, category badge, trend score 🔥, relevance score, 2-line impact note, "Generate Post" button.
+**Each card shows:** Title, source, time ago, category badge, trend score 🔥, relevance score, impact note, "Generate Content" button.
 **Sorting:** Latest / Most Relevant / Trending
-**Search:** Simple keyword search across stored titles and snippets.
+**Opportunity badge:** Cards matching your high-engagement topics get a "High opportunity for your audience" tag based on platform analytics cross-reference.
 
 ---
 
@@ -151,206 +236,243 @@ Where recency_decay = max(0, 1 − hoursOld/48)
 
 | ID | Requirement | Priority | Feature |
 |---|---|---|---|
-| FR-01 | System fetches news from ≥3 sources every 3 hours | Must Have | Aggregation |
-| FR-02 | Duplicate news items are not shown (exact + semantic dedup) | Must Have | Filter |
-| FR-03 | Each news item has a category, relevance score, and trend score | Must Have | AI + Trend |
-| FR-04 | Items with relevance < 4 are not surfaced to users | Must Have | Filter |
-| FR-05 | User can filter feed by category | Must Have | Dashboard |
-| FR-06 | User can sort feed by latest / relevance / trend | Must Have | Dashboard |
-| FR-07 | Each high-relevance item shows an Impact note | Must Have | Impact Simulator |
-| FR-08 | User can generate a LinkedIn post from any card in one click | Must Have | Post Generator |
-| FR-09 | User can generate a Facebook post and caption from any card | Must Have | Post Generator |
-| FR-10 | Generated post is in Banglish with storytelling hook | Must Have | Post Generator |
-| FR-11 | Generated post is cached — regenerating is instant | Should Have | Post Generator |
-| FR-12 | User can copy generated post to clipboard | Must Have | Post Generator |
-| FR-13 | User can ask a natural language question about current news | Should Have | Chat |
-| FR-14 | Chat answers are grounded in real news items via vector RAG | Should Have | Chat |
-| FR-15 | Post generator uses Brand Voice RAG — real PH posts as examples | Must Have | Post Generator |
-| FR-16 | Semantic dedup prevents duplicate stories via vector similarity | Must Have | Filter |
-| FR-17 | Dashboard shows a stats widget (items today, posts generated) | Nice to Have | Dashboard |
-| FR-18 | Admin can manually trigger an ingestion run | Should Have | Demo tool |
+| FR-01 | System fetches news from ≥3 sources every 3 hours | Must Have | News Aggregation |
+| FR-02 | Duplicate news items filtered via vector similarity | Must Have | Filter Pipeline |
+| FR-03 | Each news item has category, relevance score, trend score, impact note | Must Have | AI Scoring |
+| FR-04 | Items with relevance < 4 not surfaced to users | Must Have | Filter Pipeline |
+| FR-05 | User can filter feed by category and sort by latest/relevance/trend | Must Have | Dashboard |
+| FR-06 | System pulls Facebook page analytics via Meta Graph API (last 30 days) | Must Have | FB Analytics |
+| FR-07 | System pulls YouTube channel analytics via YouTube Data API v3 (last 30 days) | Must Have | YT Analytics |
+| FR-08 | System pulls LinkedIn analytics (last 30 days) | Should Have | LinkedIn Analytics |
+| FR-09 | 30-day cross-platform performance report generated on demand | Must Have | Report |
+| FR-10 | Report includes top posts, best times, engagement trends per platform | Must Have | Report |
+| FR-11 | Report includes AI-generated cross-platform insight in Banglish | Must Have | Report |
+| FR-12 | Content opportunity ranking: trends × your audience data | Must Have | Report |
+| FR-13 | User can generate Facebook text post from any news card | Must Have | Content Generator |
+| FR-14 | User can generate Facebook Reel script (60–90 sec) from any news card | Must Have | Content Generator |
+| FR-15 | User can generate LinkedIn post from any news card | Must Have | Content Generator |
+| FR-16 | User can generate full YouTube video idea (title + hook + chapters + thumbnail) | Must Have | Content Generator |
+| FR-17 | User can generate short caption from any news card | Should Have | Content Generator |
+| FR-18 | All generated content uses Brand Voice RAG (vector search on real posts) | Must Have | Brand Voice RAG |
+| FR-19 | Generated content personalized using platform analytics (what works for YOUR audience) | Must Have | Content Generator |
+| FR-20 | Generated content cached in Redis 24h — regenerating is instant | Should Have | Content Generator |
+| FR-21 | User can copy any generated content to clipboard | Must Have | Content Generator |
+| FR-22 | User can ask natural language questions about news + their analytics | Should Have | Chat |
+| FR-23 | Chat answers grounded in real news + real platform data via RAG | Should Have | Chat |
+| FR-24 | News cards show "High opportunity" badge when topic matches user's top engagement patterns | Should Have | Dashboard |
+| FR-25 | Admin can manually trigger news ingestion run | Should Have | Demo tool |
+| FR-26 | Admin can manually trigger platform analytics refresh | Should Have | Demo tool |
 
 ### Non-Functional Requirements
 
 | ID | Requirement | Target |
 |---|---|---|
-| NFR-01 | Feed load time | < 1.5 seconds (cached) |
-| NFR-02 | Post generation time | < 8 seconds |
+| NFR-01 | News feed load time | < 1.5 seconds (cached) |
+| NFR-02 | Content generation time (all formats) | < 10 seconds |
 | NFR-03 | Chat response time | < 6 seconds |
-| NFR-04 | Ingestion pipeline runs | Every 3 hours, unattended |
-| NFR-05 | Mobile responsive | Yes — marketing team uses phones |
-| NFR-06 | Works on demo day (Render cold start handled) | Yes — warm 5 min before |
-| NFR-07 | AI model cost | $0 — all LLMs + embeddings via OpenRouter free tier |
-| NFR-08 | No paid APIs or services required | Yes — all sources free, MongoDB M0, Upstash free, OpenRouter free |
-| NFR-09 | Vector search latency | < 200ms — MongoDB Atlas Vector Search on M0 |
-| NFR-10 | Embedding generation time per item | < 500ms — nomic-embed-text via OpenRouter |
+| NFR-04 | Report generation time | < 15 seconds |
+| NFR-05 | Platform analytics refresh | Every 6 hours |
+| NFR-06 | News ingestion pipeline | Every 3 hours, unattended |
+| NFR-07 | Mobile responsive | Yes — marketing team uses phones |
+| NFR-08 | AI model cost | $0 — all LLMs + embeddings via OpenRouter free tier |
+| NFR-09 | Platform API cost | $0 — Meta Graph API, YouTube Data API v3, LinkedIn API all free |
+| NFR-10 | Vector search latency | < 200ms — MongoDB Atlas Vector Search M0 |
+| NFR-11 | Embedding generation time | < 500ms — nomic-embed-text via OpenRouter |
+| NFR-12 | Works on demo day (cold start handled) | Yes — warm app 5 min before presenting |
 
 ---
-
 
 ## 5.5 AI Stack — OpenRouter Free Tier (Zero Cost)
 
-All LLM calls go through **OpenRouter** using free models only. No paid API keys required.
-
-### Model assignments
+All LLM and embedding calls via OpenRouter free tier. Zero paid APIs.
 
 | Task | Model | Why |
 |---|---|---|
-| Batch categorization (classification) | `meta-llama/llama-3.1-8b-instruct:free` | Fast, free, handles structured JSON output reliably |
-| Post generation (creative writing) | `mistralai/mistral-7b-instruct:free` | Strong instruction following, good Banglish output |
-| Chat / Ask TrendBridge | `meta-llama/llama-3.1-8b-instruct:free` | Fast responses, good context handling |
-| Fallback (if primary unavailable) | `google/gemma-2-9b-it:free` | Always-available backup |
+| Batch news categorization | `meta-llama/llama-3.1-8b-instruct:free` | Fast, structured JSON output |
+| Content generation (all formats) | `mistralai/mistral-7b-instruct:free` | Strong creative writing, good Banglish |
+| Report generation | `meta-llama/llama-3.1-8b-instruct:free` | Long context, analytical |
+| Chat / Ask TrendBridge | `meta-llama/llama-3.1-8b-instruct:free` | Fast, good context handling |
+| Embeddings (all flows) | `nomic-ai/nomic-embed-text` | 768-dim, free, same client |
+| Fallback | `google/gemma-2-9b-it:free` | Always-available backup |
 
-### OpenRouter free tier limits
-- Rate limit: ~20 requests/min per model on free tier
-- Context window: 8k–32k tokens depending on model
-- Mitigation: Redis caching means most requests never hit the API; batching (10 items/call) reduces total call count by 10×
+**Rate limit mitigation:** Redis caching means most requests never hit OpenRouter. Batching reduces call volume 10×. Platform analytics refreshed every 6h not per-request.
 
-### Brand Voice RAG (Banglish quality fix)
-Claude and other LLMs write "textbook Banglish" — grammatically okay but not how PH's audience actually talks on Facebook and LinkedIn. Fix: inject 3–5 real PH posts as few-shot examples in every generation call.
+---
 
-**How it works:**
-1. Marketing team manually collects 25–30 real PH Facebook/LinkedIn posts → stored in `brand_voice_examples` MongoDB collection with embeddings
-2. On every "Generate Post" click → embed the news title → `$vectorSearch` against `brand_voice_examples` → fetch 3 most semantically similar real PH posts
-3. Inject into system prompt: "Write in exactly this voice and style. Here are real examples from Programming Hero:"
-4. LLM mirrors real PH voice instead of generic Banglish
+## 5.6 Platform Data Sources — API Setup
 
-**Why vector search here beats keyword match:** A news item about "React 19 Server Components" should match a PH post about "web development career tips" — same audience, similar vibe. Keyword match misses this; vector similarity catches it.
+### Facebook (Meta Graph API)
+- **Setup owner:** Mursalin (page admin of Next Level Engineer)
+- **Steps:** Create Facebook Developer App → add Next Level Engineer page → generate long-lived Page Access Token → store in `.env`
+- **Permissions needed:** `pages_read_engagement`, `pages_show_list`, `read_insights`
+- **Cost:** Free
+- **Data endpoints:** `/page/insights`, `/page/posts?fields=insights`, `page_fans`, `page_impressions_by_hour`
 
-**Pitch line:** "Our AI doesn't just generate Banglish — it generates PH's Banglish, learned from their own real posts."
+### YouTube (YouTube Data API v3)
+- **Setup owner:** Mursalin (channel owner)
+- **Steps:** Google Cloud Console → enable YouTube Data API v3 → create API key → store in `.env`
+- **Cost:** Free (10,000 units/day — well within limits)
+- **Data endpoints:** `channels`, `videos`, `analytics/v1/reports`
 
-### `brand_voice_examples` schema
+### LinkedIn (LinkedIn API)
+- **Setup owner:** Mursalin (company page admin or personal profile)
+- **Steps:** LinkedIn Developer App → request `r_organization_social` + `r_basicprofile` → OAuth 2.0 flow
+- **Cost:** Free
+- **Warning:** LinkedIn API approval is slowest — submit today, may take 2–3 days
+- **Fallback if delayed:** Show Facebook + YouTube data only in demo, mention LinkedIn as "connected but pending approval"
+
+---
+
+## 5.7 Vector DB Architecture — MongoDB Atlas Vector Search
+
+All vector operations inside MongoDB Atlas M0 (free). No new infrastructure.
+
+### Three vector indexes
+
+**Index 1 — `news_items.embedding`** (768-dim, cosine)
+→ Used for: semantic dedup at ingestion + Ask TrendBridge RAG chat
+
+**Index 2 — `brand_voice_examples.embedding`** (768-dim, cosine)
+→ Used for: Brand Voice RAG at content generation time
+
+**Index 3 — `platform_analytics.posts.embedding`** (768-dim, cosine)
+→ Used for: opportunity scoring (find which stored posts are semantically similar to a trending news item, pull their engagement data, compute opportunity score)
+
+### Four RAG flows
+
+**Flow 1 — Semantic dedup (ingestion):**
+```
+New item → embed (nomic) → $vectorSearch news_items limit:1
+→ score > 0.9 → duplicate, skip
+→ score ≤ 0.9 → new, continue pipeline
+```
+
+**Flow 2 — Ask TrendBridge chat:**
+```
+User query → embed → $vectorSearch news_items limit:5
+→ top 5 items as context → OpenRouter LLM → Banglish answer → Redis 10min
+```
+
+**Flow 3 — Brand Voice RAG (content generation):**
+```
+News title → embed → $vectorSearch brand_voice_examples limit:3
+→ 3 real posts as few-shot examples → inject into generation prompt
+→ OpenRouter LLM → all 5 content formats → Redis 24h
+```
+
+**Flow 4 — Opportunity scoring (cross-reference):**
+```
+Trending news item → embed → $vectorSearch platform_analytics.posts limit:10
+→ fetch engagement metrics of similar past posts
+→ compute opportunity_score = trend_score × avg_engagement_of_similar_posts
+→ rank content ideas by opportunity_score, not just global trend
+```
+
+---
+
+## 5.8 Data Models
+
+### `news_items`
 ```js
 {
-  _id: ObjectId,
-  platform: "facebook" | "linkedin",
-  category: "ai" | "web" | "career" | "general",
-  content: String,           // the actual post text
-  embedding: [Number],       // 768-dim vector from nomic-embed-text (for $vectorSearch)
-  engagement_hint: String,   // optional: "high engagement" / "low"
-  added_by: String,
-  created_at: Date
+  _id, source, source_id, content_hash,
+  title, url, snippet, published_at,
+  engagement: { points, comments, stars_delta },
+  trend_score,                    // math formula, no AI
+  category, relevance_score, impact_note,  // AI-generated
+  embedding: [Number],            // 768-dim, nomic-embed-text
+  opportunity_score,              // trend_score × audience match
+  processed, created_at
 }
-// Vector index: { path: "embedding", numDimensions: 768, similarity: "cosine" }
 ```
 
-**Action item for Mursalin + Marketing team (today):**
-- Go to PH's Facebook page and LinkedIn page
-- Copy 30 recent posts that got good engagement
-- Paste into a Google Sheet with columns: platform, category, content
-- Give to Robayat to seed the MongoDB collection
-- This takes 1 hour and makes the AI output dramatically better
+### `platform_analytics`
+```js
+{
+  _id, platform: "facebook" | "youtube" | "linkedin",
+  period: { start: Date, end: Date },
+  overview: { reach, engagements, views, engagement_rate },
+  top_posts: [{ id, title, reach, engagement, format, published_at }],
+  best_times: [{ hour, day, avg_reach }],
+  content_breakdown: [{ format, avg_engagement_rate }],
+  fetched_at: Date
+}
+```
+
+### `platform_posts` (individual posts with embeddings for opportunity scoring)
+```js
+{
+  _id, platform, post_id, content_snippet,
+  embedding: [Number],            // for opportunity scoring flow
+  metrics: { reach, likes, comments, shares, views },
+  published_at, fetched_at
+}
+```
+
+### `generated_content`
+```js
+{
+  _id, news_id, formats: {
+    facebook_post: String,
+    facebook_reel_script: String,
+    linkedin_post: String,
+    youtube_idea: { title, hook, chapters, thumbnail_concept },
+    caption: String
+  },
+  opportunity_score, created_at
+}
+```
+
+### `brand_voice_examples`
+```js
+{
+  _id, platform, category,
+  content: String,
+  embedding: [Number],            // 768-dim
+  engagement_hint: String,
+  added_by, created_at
+}
+```
+
+### `reports`
+```js
+{
+  _id, period: { start, end },
+  overview: { total_reach, total_engagements, total_views, avg_engagement_rate },
+  platform_summaries: { facebook: {}, youtube: {}, linkedin: {} },
+  ai_insight: String,             // Banglish narrative
+  content_opportunities: [{ rank, topic, formats, opportunity_score, reason }],
+  generated_at: Date
+}
+```
 
 ---
 
-## 5.6 Vector DB Architecture — MongoDB Atlas Vector Search
-
-All vector operations run inside MongoDB Atlas M0 (free). Zero new infrastructure.
-
-### Two vector indexes (both on Atlas M0)
-
-**Index 1 — `news_items.embedding`**
-```json
-{
-  "fields": [{
-    "type": "vector",
-    "path": "embedding",
-    "numDimensions": 768,
-    "similarity": "cosine"
-  }]
-}
-```
-Used for: semantic dedup (ingestion pipeline) + Ask TrendBridge RAG chat
-
-**Index 2 — `brand_voice_examples.embedding`**
-```json
-{
-  "fields": [{
-    "type": "vector",
-    "path": "embedding",
-    "numDimensions": 768,
-    "similarity": "cosine"
-  }]
-}
-```
-Used for: Brand Voice RAG (fetching similar PH posts for post generation)
-
-### Embedding model
-`nomic-ai/nomic-embed-text` via OpenRouter free tier.
-- 768 dimensions
-- Same OpenRouter client already used for LLM calls — no new SDK
-- Called once per news item at ingestion time, result stored on document
-- Called once per user query at chat time (not stored)
-- Called once per "Generate Post" click for brand voice lookup (not stored)
-
-### Three RAG flows
-
-**Flow 1: Semantic dedup (ingestion)**
-```
-New item arrives
-  → embed title+snippet (nomic-embed-text, OpenRouter free)
-  → $vectorSearch news_items { numCandidates: 50, limit: 1 }
-  → if top result score > 0.9 → duplicate, skip
-  → else → new item, continue pipeline
-```
-
-**Flow 2: Ask TrendBridge chat**
-```
-User types question
-  → embed question (nomic-embed-text)
-  → $vectorSearch news_items { numCandidates: 100, limit: 5 }
-  → top 5 items (title + snippet + impact_note) as context
-  → send to OpenRouter LLM with question
-  → return Banglish answer
-  → cache in Redis 10 min (query hash as key)
-```
-
-**Flow 3: Brand Voice RAG (post generation)**
-```
-User clicks "Generate Post" on a news card
-  → embed news title (nomic-embed-text)
-  → $vectorSearch brand_voice_examples { numCandidates: 20, limit: 3 }
-  → top 3 real PH posts as few-shot examples
-  → inject into post generation system prompt
-  → OpenRouter LLM generates LinkedIn + Facebook + Caption
-  → cache result in Redis 24h
-```
-
-### Why this is better than keyword search
-Keyword search finds "React 19" posts when searching "React 19". Vector search finds the right brand voice example for "React 19 Server Components" even if the example post says "web dev career growth" — same audience intent, same tone needed. This is the difference between a hackathon toy and a real product.
-
----
-
-## 6. What Is Out of Scope (Stated as "Phase 2" in Pitch)
+## 6. What Is Out of Scope (Phase 2 talking points)
 
 - User authentication and multi-workspace
-- Publishing directly to LinkedIn/Facebook (API approvals take weeks)
-- Analytics charts and historical trend graphs
+- Auto-publishing directly to platforms (API approval + scheduling complexity)
+- Dedicated vector database (Pinecone, Weaviate) — Atlas covers all needs free
 - Slack/Discord notifications
-- Weekly digest email
-- Content calendar and scheduling
-- White-label version
-- Dedicated vector database (Pinecone, Weaviate) — MongoDB Atlas Vector Search covers all needs for free
-
-Mentioning these in the pitch as "what comes next" shows product vision without burning build time.
+- A/B testing content variants
+- Paid ad performance analytics
+- White-label version for agencies
 
 ---
 
 ## 7. Success Criteria for Judges
 
-The judges will evaluate:
+1. **Problem-solution fit**
+   → Real problem from inside PH. Three platforms, one dashboard, one source of truth. No team is solving this completely.
 
-1. **Problem-solution fit** — Is the problem real? Does this solve it completely?
-   → Yes. PH's own marketing team is the user. The problem statement came from inside the company.
+2. **Technical depth**
+   → 4-layer filter pipeline, 4 RAG flows, 3 vector indexes on MongoDB Atlas, cross-platform opportunity scoring (trend × your-data), Brand Voice RAG, OpenRouter free tier with fallback chain, lazy generation, Redis caching. Every decision defensible.
 
-2. **Technical depth** — Is this "just a ChatGPT wrapper"?
-   → No. 4-layer filter pipeline, MongoDB Atlas Vector Search for dedup + RAG, Brand Voice RAG with real PH posts as few-shot examples, Redis caching, batched LLM calls via OpenRouter free tier, lazy generation, Trend Score formula. Every decision is defensible and cost-justified.
+3. **Demo impact**
+   → Open dashboard: live news feed. Show 30-day report: real numbers from real page. Click "Generate Content": 5 formats appear in 10 seconds in Banglish. Ask a question in chat: data-grounded answer in 6 seconds. Judges see a working product, not a mockup.
 
-3. **Demo impact** — Does it work live? Is it impressive?
-   → Feed loads with real data. Impact note explains business context. Post generates in Banglish in < 8 seconds. Chat answers a live question from the judge.
+4. **Real-world scalability**
+   → $0 AI cost. $0 API cost. Platform analytics cached so 100 users cost same as 1. Architecture documented. Monorepo + OpenAPI spec = team worked like professionals.
 
-4. **Real-world scalability** — Would this survive actual use?
-   → Yes. $0 AI cost via OpenRouter free tier. Aggressive Redis caching means the 100th user costs nothing extra. Architecture is documented and clean.
-
-5. **Presentation clarity** — Can you explain it simply?
-   → One sentence: "TrendBridge turns tech news into ready-to-post content for non-technical marketing teams — in under 60 seconds."
+5. **Presentation clarity**
+   → One sentence: "TrendBridge combines what's trending in tech with what works on YOUR channels — and generates a full week of content across Facebook, YouTube, and LinkedIn in 5 minutes, for free."
