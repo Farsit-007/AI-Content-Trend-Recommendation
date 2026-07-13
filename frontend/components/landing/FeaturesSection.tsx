@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Newspaper, Filter, Mic, PenTool, BarChart2, MessageSquare, Flame, Target, Bolt } from "lucide-react"
+import { Newspaper, Filter, Mic, PenTool, BarChart2, MessageSquare, Flame, Target } from "lucide-react"
 
 type BentoFeature = {
   icon: React.ElementType

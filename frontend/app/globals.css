@@ -38,6 +38,10 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+    /* Semantic status tokens — enables text-success, bg-warning/10, etc. */
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-info: var(--info);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -54,7 +58,8 @@
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
+    /* Brand primary: violet-600 in light */
+    --primary: oklch(0.491 0.276 292.717);
     --primary-foreground: oklch(0.985 0 0);
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
@@ -74,12 +79,18 @@
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary: oklch(0.491 0.276 292.717);
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.97 0 0);
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    /* Brand gradient endpoint: cyan-600 in light */
+    --brand-to: oklch(0.575 0.143 208);
+    /* Semantic status: darker shades for legibility on white bg */
+    --success: oklch(0.527 0.154 150.069);
+    --warning: oklch(0.666 0.181 66.78);
+    --info: oklch(0.546 0.245 262.881);
 }
 
 .dark {
@@ -89,8 +100,9 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
+    /* Brand primary: violet-400 in dark */
+    --primary: oklch(0.702 0.183 293.541);
+    --primary-foreground: oklch(0.985 0 0);
     --secondary: oklch(0.269 0 0);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
@@ -108,12 +120,18 @@
     --chart-5: oklch(0.269 0 0);
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary: oklch(0.702 0.183 293.541);
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.269 0 0);
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    /* Brand gradient endpoint: cyan-400 in dark */
+    --brand-to: oklch(0.789 0.154 211.9);
+    /* Semantic status: lighter shades for legibility on dark bg */
+    --success: oklch(0.765 0.177 160.02);
+    --warning: oklch(0.828 0.189 86.047);
+    --info: oklch(0.707 0.165 254.624);
 }
 
 @layer base {
@@ -130,13 +148,35 @@
 }
 
 @layer utilities {
+  /* CSS variable-based — flips automatically between light/dark without dark: prefix */
   .gradient-text {
-    @apply bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent;
+    background: linear-gradient(to right, var(--primary), var(--brand-to));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
   }
+  /* Semantic card: uses --card and --border tokens that flip automatically */
   .glass-card {
-    @apply bg-white/5 backdrop-blur-sm border border-white/10;
+    @apply bg-card border border-border shadow-sm;
   }
   .btn-glow {
-    @apply shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:shadow-[0_0_50px_rgba(139,92,246,0.6)] transition-shadow;
+    box-shadow: 0 0 30px color-mix(in oklch, var(--primary) 40%, transparent);
+    transition: box-shadow 0.2s;
+    &:hover {
+      box-shadow: 0 0 50px color-mix(in oklch, var(--primary) 60%, transparent);
+    }
   }
+  /* Avatar / hero gradient using brand tokens */
+  .brand-gradient {
+    background: linear-gradient(135deg, var(--primary), var(--brand-to));
+  }
+}
+
+/* Dark-mode glass card — restore glassy look on dark surfaces */
+.dark .glass-card {
+  background-color: oklch(1 0 0 / 0.05);
+  border-color: oklch(1 0 0 / 0.1);
+  box-shadow: none;
+  backdrop-filter: blur(8px);
 }
