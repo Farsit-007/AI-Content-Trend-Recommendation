@@ -16,7 +16,8 @@
     "format": "prettier . --write",
     "db:create-indexes": "ts-node src/scripts/createVectorIndexes.ts",
     "db:verify-indexes": "ts-node src/scripts/verifyVectorIndexes.ts",
-    "verify:credentials": "ts-node src/scripts/verifyPlatformCredentials.ts"
+    "verify:credentials": "ts-node src/scripts/verifyPlatformCredentials.ts",
+    "seed:admin": "ts-node src/scripts/seedAdmin.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

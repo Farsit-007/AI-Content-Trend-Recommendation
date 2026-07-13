@@ -99,6 +99,7 @@ export const PlatformPost = {
   type: 'object',
   properties: {
     _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
     platform: { type: 'string' },
     post_id: { type: 'string' },
     content_snippet: { type: 'string' },
@@ -107,12 +108,13 @@ export const PlatformPost = {
     published_at: { type: 'string', format: 'date-time' },
     fetched_at: { type: 'string', format: 'date-time' },
   },
-  required: ['platform', 'post_id'],
+  required: ['team_id', 'platform', 'post_id'],
 } as const;
 
 export const PlatformPostCreate = {
   type: 'object',
   properties: {
+    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
     platform: { type: 'string' },
     post_id: { type: 'string' },
     content_snippet: { type: 'string' },
@@ -120,7 +122,7 @@ export const PlatformPostCreate = {
     published_at: { type: 'string', format: 'date-time' },
     embedding,
   },
-  required: ['platform', 'post_id'],
+  required: ['team_id', 'platform', 'post_id'],
 } as const;
 
 export const PlatformPostUpdate = {
@@ -136,6 +138,7 @@ export const BrandVoiceExample = {
   type: 'object',
   properties: {
     _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
     platform: { type: 'string' },
     category: { type: 'string' },
     content: { type: 'string' },
@@ -144,12 +147,13 @@ export const BrandVoiceExample = {
     added_by: { type: 'string' },
     created_at: { type: 'string', format: 'date-time' },
   },
-  required: ['platform', 'content'],
+  required: ['team_id', 'platform', 'content'],
 } as const;
 
 export const BrandVoiceExampleCreate = {
   type: 'object',
   properties: {
+    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
     platform: { type: 'string' },
     category: { type: 'string' },
     content: { type: 'string' },
@@ -157,7 +161,96 @@ export const BrandVoiceExampleCreate = {
     added_by: { type: 'string' },
     embedding,
   },
-  required: ['platform', 'content'],
+  required: ['team_id', 'platform', 'content'],
+} as const;
+
+export const User = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    email: { type: 'string', format: 'email' },
+    name: { type: 'string' },
+    role: { type: 'string', enum: ['admin', 'user'] },
+    created_at: { type: 'string', format: 'date-time' },
+  },
+  required: ['email', 'name', 'role'],
+} as const;
+
+export const UserCreate = {
+  type: 'object',
+  properties: {
+    email: { type: 'string', format: 'email' },
+    password: { type: 'string', minLength: 8 },
+    name: { type: 'string' },
+    role: { type: 'string', enum: ['admin', 'user'], default: 'user' },
+    team_ids: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['email', 'password', 'name'],
+} as const;
+
+export const LoginRequest = {
+  type: 'object',
+  properties: {
+    email: { type: 'string', format: 'email' },
+    password: { type: 'string' },
+  },
+  required: ['email', 'password'],
+} as const;
+
+export const Team = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    name: { type: 'string' },
+    description: { type: 'string' },
+    created_by: { type: 'string' },
+    created_at: { type: 'string', format: 'date-time' },
+  },
+  required: ['name', 'created_by'],
+} as const;
+
+export const TeamCreate = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    description: { type: 'string' },
+    member_ids: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['name'],
+} as const;
+
+export const PlatformCredential = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    team_id: { type: 'string' },
+    platform: {
+      type: 'string',
+      example: 'facebook',
+      description: 'Any social platform slug, e.g. facebook, youtube, linkedin, reddit, twitter, instagram, tiktok.',
+    },
+    token_last4: { type: 'string', example: '••••ab12' },
+    account_id: { type: 'string' },
+    added_by: { type: 'string' },
+    created_at: { type: 'string', format: 'date-time' },
+    updated_at: { type: 'string', format: 'date-time' },
+  },
+  description: 'The real token is never returned here — it is stored encrypted (AES-256-GCM) and only ever decrypted by the explicit reveal endpoint.',
+  required: ['team_id', 'platform', 'token_last4'],
+} as const;
+
+export const PlatformCredentialCreate = {
+  type: 'object',
+  properties: {
+    platform: {
+      type: 'string',
+      example: 'facebook',
+      description: 'Any social platform slug, e.g. facebook, youtube, linkedin, reddit, twitter, instagram, tiktok.',
+    },
+    token: { type: 'string', description: 'Plaintext platform token/API key — encrypted at rest, never logged.' },
+    account_id: { type: 'string' },
+  },
+  required: ['platform', 'token'],
 } as const;
 
 export const BrandVoiceExampleUpdate = {

@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
+const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a valid MongoDB ObjectId');
+
 const createBrandVoiceExampleValidation = z.object({
   body: z.object({
+    team_id: objectId,
     platform: z.string({ required_error: 'platform is required' }),
     category: z.string().optional(),
     content: z.string({ required_error: 'content is required' }),

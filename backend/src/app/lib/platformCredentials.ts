@@ -1,32 +1,42 @@
 import AppError from '../errors/AppError';
 import { httpStatus } from '../utils/httpStatus';
 import config from '../config';
+import { decrypt } from './crypto';
+import { isKnownPlatform, KNOWN_PLATFORMS, KnownPlatform, Platform } from './platforms';
+import { PlatformCredential } from '../modules/PlatformCredential/platformCredential.model';
 
-export type Platform = 'facebook' | 'youtube' | 'linkedin';
+export { Platform, KnownPlatform, KNOWN_PLATFORMS };
 
-export const PLATFORMS: Platform[] = ['facebook', 'youtube', 'linkedin'];
+const findStoredToken = async (platform: Platform, teamId?: string): Promise<string | null> => {
+  if (!teamId) return null;
+  const credential = await PlatformCredential.findOne({ team_id: teamId, platform }).select('+encrypted_token');
+  return credential ? decrypt(credential.encrypted_token) : null;
+};
+
+/** Only the 3 platforms with a fixed `.env` var have a bootstrap fallback — anything else a team adds has none. */
+const getBootstrapToken = (platform: Platform): string | undefined =>
+  isKnownPlatform(platform) ? config.platforms[platform].bootstrapToken : undefined;
 
 /**
  * The single accessor every analytics change uses to get a platform token.
  * Nothing downstream should read `process.env` or touch the credential collection directly.
  *
- * Resolution order (see design.md Decision #5):
- *   1. the given user's stored credential          (wired in task 5.5)
- *   2. the most recent active credential           (wired in task 5.5)
- *   3. the `.env` bootstrap token                  <- keeps analytics unblocked with zero users
- *   4. throw a typed, catchable "not connected"
+ * Resolution order:
+ *   1. the given team's stored credential (encrypted at rest, decrypted here)
+ *   2. the `.env` bootstrap token, for the 3 known platforms only <- keeps analytics unblocked
+ *      with zero teams configured
+ *   3. throw a typed, catchable "not connected"
  *
- * Step 3 is what lets `facebook-analytics` / `youtube-analytics` / `linkedin-analytics`
- * run against a cold database, before anyone has completed an OAuth flow.
+ * Step 2 is what lets `facebook-analytics` / `youtube-analytics` / `linkedin-analytics`
+ * run against a cold database, before any team has submitted its own credential.
  */
-export const getPlatformToken = async (
-  platform: Platform,
-  // Part of the contract downstream analytics changes already import against; steps 1-2 of the
-  // resolution order start reading it once the credential collection exists (task 5.5).
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
-  userId?: string,
-): Promise<string> => {
-  const bootstrapToken = config.platforms[platform].bootstrapToken;
+export const getPlatformToken = async (platform: Platform, teamId?: string): Promise<string> => {
+  const storedToken = await findStoredToken(platform, teamId);
+  if (storedToken) {
+    return storedToken;
+  }
+
+  const bootstrapToken = getBootstrapToken(platform);
   if (bootstrapToken) {
     return bootstrapToken;
   }
@@ -38,5 +48,7 @@ export const getPlatformToken = async (
 };
 
 /** Whether a platform can currently be authenticated at all — lets callers degrade instead of throwing. */
-export const isPlatformConfigured = (platform: Platform): boolean =>
-  Boolean(config.platforms[platform].bootstrapToken);
+export const isPlatformConfigured = async (platform: Platform, teamId?: string): Promise<boolean> => {
+  if (await findStoredToken(platform, teamId)) return true;
+  return Boolean(getBootstrapToken(platform));
+};

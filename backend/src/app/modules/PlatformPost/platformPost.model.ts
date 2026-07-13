@@ -2,6 +2,7 @@ import { Schema, model } from 'mongoose';
 import { IPlatformPost } from './platformPost.interface';
 
 const platformPostSchema = new Schema<IPlatformPost>({
+  team_id: { type: String, required: true },
   platform: { type: String, required: true },
   post_id: { type: String, required: true },
   content_snippet: { type: String },
@@ -24,7 +25,7 @@ const platformPostSchema = new Schema<IPlatformPost>({
   fetched_at: { type: Date, default: Date.now },
 });
 
-platformPostSchema.index({ platform: 1, post_id: 1 }, { unique: true });
+platformPostSchema.index({ team_id: 1, platform: 1, post_id: 1 }, { unique: true });
 
 export const PlatformPost = model<IPlatformPost>(
   'PlatformPost',

@@ -1,152 +1,545 @@
 {
   "info": {
     "_postman_id": "a5ef7aad-5314-485b-b5f8-658f485658d4",
-    "name": "Hackathon process",
+    "name": "Growth Studio API",
+    "description": "AI Content & Trend Intelligence Platform — REST API. Multi-team, role-based: admins manage teams/users/credentials across every team; regular users only see their own team(s) data. Run \"Login as Admin\" or \"Login as Team User\" first (or seed one via `npm run seed:admin`) — the {{token}} collection variable is set automatically from the response and used as the bearer token on every other request.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "39338033"
   },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [],
+  "variable": [
+    {
+      "key": "url",
+      "value": "http://localhost:3001/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "teamId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "teamId2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "platform",
+      "value": "facebook",
+      "type": "string"
+    },
+    {
+      "key": "newsItemId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "platformPostId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "brandVoiceExampleId",
+      "value": "",
+      "type": "string"
+    }
+  ],
   "item": [
     {
-      "name": "Users",
+      "name": "Auth",
+      "description": "Login and current-user session. Self-registration was removed — only admins create accounts (see Users folder).",
       "item": [
         {
-          "name": "create User",
+          "name": "Login as Admin",
           "request": {
             "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "{{",
+                "key": "Content-Type",
+                "value": "application/json",
                 "type": "text"
               }
             ],
+            "url": {
+              "raw": "{{url}}/auth/login",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Logs in the seed admin (created via `npm run seed:admin -- admin@growthstudio.test ChangeMe123! 'Studio Admin'`). Sets {{token}} for subsequent requests.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"name\": \"Super Admin\",\r\n    \"phone\": \"01632216145\",\r\n    \"email\": \"superadmin@gmail.com\",\r\n    \"password\": \"123456\",\r\n    \"role\": \"SUPER_ADMIN\"\r\n}\r\n",
+              "raw": "{\n  \"email\": \"admin@growthstudio.test\",\n  \"password\": \"ChangeMe123!\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "if (result?.data?.token) {",
+                  "    pm.collectionVariables.set('token', result.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Team User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
             "url": {
-              "raw": "{{url}}/api/v1/users/",
+              "raw": "{{url}}/auth/login",
               "host": [
                 "{{url}}"
               ],
               "path": [
-                "api",
-                "v1",
-                "users",
-                ""
+                "auth",
+                "login"
               ]
+            },
+            "description": "Logs in a regular (non-admin) team member created earlier via POST /users. Sets {{token}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"member@growthstudio.test\",\n  \"password\": \"ChangeMe123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "if (result?.data?.token) {",
+                  "    pm.collectionVariables.set('token', result.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/auth/me",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Returns the authenticated user plus the list of team ids they belong to."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Admin-only account management. There is no public self-registration — every account is created deliberately by an admin, with a role and (usually) a team assignment.",
+      "item": [
+        {
+          "name": "Create User (admin only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/users",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": "Requires an admin bearer token. `role` defaults to \"user\" if omitted; `team_ids` is optional. Run \"Create Team\" first to populate {{teamId}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"member@growthstudio.test\",\n  \"password\": \"ChangeMe123!\",\n  \"name\": \"Nadia Rahman\",\n  \"role\": \"user\",\n  \"team_ids\": [\n    \"{{teamId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "const id = result?.data?._id;",
+                  "if (id) { pm.collectionVariables.set('userId', id); }"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Admin User (admin only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/users",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": "Admins can create other admins. An admin does not need a team_ids assignment — admins see every team regardless of membership.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"second-admin@growthstudio.test\",\n  \"password\": \"ChangeMe123!\",\n  \"name\": \"Second Admin\",\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "response": []
         },
         {
-          "name": "Update User Role",
+          "name": "List Users (admin only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/users?team_id={{teamId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "team_id",
+                  "value": "{{teamId}}",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Lists every user. Pass `?team_id=<id>` to see only one team's roster."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Teams",
+      "description": "Growth teams and their membership. Membership is many-to-many — a user can belong to more than one team. Admins can manage every team; regular users can only view teams they belong to.",
+      "item": [
+        {
+          "name": "Create Team (admin only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/teams",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams"
+              ]
+            },
+            "description": "`member_ids` is optional — members can also be added later via \"Add Member\".",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Growth Team Alpha\",\n  \"description\": \"Owns the Facebook, YouTube, and Reddit growth channels.\",\n  \"member_ids\": [\n    \"{{userId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "const id = result?.data?._id;",
+                  "if (id) { pm.collectionVariables.set('teamId', id); }"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Second Team (admin only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/teams",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams"
+              ]
+            },
+            "description": "A second team, used to demonstrate that Team Alpha members cannot see Team Beta data.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Growth Team Beta\",\n  \"description\": \"Owns the Instagram and Twitter/X growth channels.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "const id = result?.data?._id;",
+                  "if (id) { pm.collectionVariables.set('teamId2', id); }"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams"
+              ]
+            },
+            "description": "Admins see every team; regular users see only the teams they belong to."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Team by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}"
+              ]
+            },
+            "description": "Returns the team plus its member roster. 403 if the caller isn't an admin or a member of this team."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Team (admin only)",
           "request": {
             "method": "PATCH",
             "header": [
               {
-                "key": "Authorization",
-                "value": "{{",
+                "key": "Content-Type",
+                "value": "application/json",
                 "type": "text"
               }
             ],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"role\": \"ADMIN\",\r\n    \"isBlock\": false\r\n}",
+              "raw": "{\n  \"name\": \"Growth Team Alpha (Renamed)\",\n  \"description\": \"Updated description.\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
-            "url": {
-              "raw": "{{url}}/api/v1/users/21s651df651df16dssf",
-              "host": [
-                "{{url}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "users",
-                "21s651df651df16dssf"
-              ]
             }
           },
           "response": []
         },
         {
-          "name": "Get All Users",
-          "protocolProfileBehavior": {
-            "disableBodyPruning": true
-          },
+          "name": "Add Member to Team (admin only)",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "{{",
+                "key": "Content-Type",
+                "value": "application/json",
                 "type": "text"
               }
             ],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/members",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "members"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "",
+              "raw": "{\n  \"user_id\": \"{{userId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
-            "url": {
-              "raw": "{{url}}/api/v1/users/",
-              "host": [
-                "{{url}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "users",
-                ""
-              ]
             }
           },
           "response": []
         },
         {
-          "name": "Delete User",
+          "name": "Remove Member from Team (admin only)",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "{{",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "header": [],
             "url": {
-              "raw": "{{url}}/api/v1/users/65416s51dfsdfsd",
+              "raw": "{{url}}/teams/{{teamId}}/members/{{userId}}",
               "host": [
                 "{{url}}"
               ],
               "path": [
-                "api",
-                "v1",
-                "users",
-                "65416s51dfsdfsd"
+                "teams",
+                "{{teamId}}",
+                "members",
+                "{{userId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Team (admin only)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}"
               ]
             }
           },
@@ -155,119 +548,614 @@
       ]
     },
     {
-      "name": "Auth",
+      "name": "Platform Credentials",
+      "description": "Encrypted, team-scoped social platform credentials — any platform a team uses (Facebook, YouTube, LinkedIn, Reddit, Twitter/X, Instagram, TikTok, etc.), not a fixed list. Tokens are AES-256-GCM encrypted at rest; list views only ever show a masked `token_last4`. Only team members (of that team) or admins can access these.",
       "item": [
         {
-          "name": "Login",
+          "name": "Save/Rotate Platform Credential (Facebook)",
           "request": {
             "method": "POST",
             "header": [
               {
-                "key": "Api-Key",
-                "value": "gILUSMhf9er8mRT3HVesr9MUSxhf9fozdSFGmfig",
+                "key": "Content-Type",
+                "value": "application/json",
                 "type": "text"
               }
             ],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/credentials",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "credentials"
+              ]
+            },
+            "description": "Upserts by (team, platform) — submitting again for the same platform rotates the stored token in place.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"email\": \"superadmin@gmail.com\",\r\n  \"password\": \"123456\"\r\n}\r\n",
+              "raw": "{\n  \"platform\": \"facebook\",\n  \"token\": \"EAABsbCS1example...redacted...token\",\n  \"account_id\": \"1234567890\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
-            "url": {
-              "raw": "{{url}}/api/v1/auth/login",
-              "host": [
-                "{{url}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "auth",
-                "login"
-              ]
             }
           },
           "response": []
         },
         {
-          "name": "Change Password",
+          "name": "Save Platform Credential (Reddit example)",
           "request": {
             "method": "POST",
             "header": [
               {
-                "key": "Api-Key",
-                "value": "gILUSMhf9er8mRT3HVesr9MUSxhf9fozdSFGmfig",
+                "key": "Content-Type",
+                "value": "application/json",
                 "type": "text"
               }
             ],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/credentials",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "credentials"
+              ]
+            },
+            "description": "Demonstrates that `platform` is not restricted to facebook/youtube/linkedin — any lowercase slug works (letters, numbers, hyphens, underscores).",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"oldPassword\": \"\",\r\n    \"newPassword\": \"\"\r\n}",
+              "raw": "{\n  \"platform\": \"reddit\",\n  \"token\": \"reddit-oauth-token-example\",\n  \"account_id\": \"growthstudio_bot\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
-            "url": {
-              "raw": "{{url}}/api/v1/auth/change-password",
-              "host": [
-                "{{url}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "auth",
-                "change-password"
-              ]
             }
           },
           "response": []
         },
         {
-          "name": "Refresh Token",
+          "name": "List Team's Platform Credentials (masked)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/credentials",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "credentials"
+              ]
+            },
+            "description": "Returns metadata + a masked `token_last4` only — never the real token."
+          },
+          "response": []
+        },
+        {
+          "name": "Reveal Platform Credential Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/credentials/{{platform}}/reveal",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "credentials",
+                "{{platform}}",
+                "reveal"
+              ]
+            },
+            "description": "Explicit, separate action that decrypts and returns the real plaintext token. Replace `{{platform}}` with e.g. `facebook`."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Platform Credential",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/credentials/{{platform}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "credentials",
+                "{{platform}}"
+              ]
+            },
+            "description": "Replace `{{platform}}` with the platform slug to remove, e.g. `facebook` or `reddit`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "News Items",
+      "description": "Ingested news/trend items with engagement and scoring. Global — not team-scoped, since this is external trend data shared by every team.",
+      "item": [
+        {
+          "name": "Create News Item",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/news-items",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "news-items"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source\": \"hackernews\",\n  \"source_id\": \"hn-123456\",\n  \"content_hash\": \"a1b2c3d4e5f6\",\n  \"title\": \"React 19 released with new compiler\",\n  \"url\": \"https://news.ycombinator.com/item?id=123456\",\n  \"snippet\": \"The React team has shipped React 19 with a new compiler that removes the need for manual memoization.\",\n  \"published_at\": \"2026-07-10T08:00:00.000Z\",\n  \"engagement\": {\n    \"points\": 512,\n    \"comments\": 214,\n    \"stars_delta\": 0\n  },\n  \"category\": \"web-development\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
                   "const result = pm.response.json();",
-                  "pm.collectionVariables.set('USER_TOKEN', result?.data?.accessToken);"
+                  "const id = result?.data?._id;",
+                  "if (id) { pm.collectionVariables.set('newsItemId', id); }"
                 ],
                 "type": "text/javascript",
                 "packages": {}
               }
             }
-          ],
+          ]
+        },
+        {
+          "name": "List News Items",
           "request": {
-            "method": "POST",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/news-items?searchTerm=react&sort=-trend_score&page=1&limit=10",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "news-items"
+              ],
+              "query": [
+                {
+                  "key": "searchTerm",
+                  "value": "react",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-trend_score",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get News Item by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/news-items/{{newsItemId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "news-items",
+                "{{newsItemId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update News Item",
+          "request": {
+            "method": "PATCH",
             "header": [
               {
-                "key": "Authorization",
-                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2Nzg5NGFlMDkxMDg0NDkxNzdhMzY2OTIiLCJuYW1lIjoiUmFmc2FuIFJhbmEiLCJlbWFpbCI6InJhbmFAbWFpbC5jb20iLCJoYXNTaG9wIjp0cnVlLCJpc0FjdGl2ZSI6dHJ1ZSwicm9sZSI6InVzZXIiLCJpYXQiOjE3NDAxNTgzNzIsImV4cCI6MTc3MTcxNTk3Mn0.Wv6Ezd9q1oqFVp1wd6qNRavjXblQucTBcBxx5EGpZKI",
+                "key": "Content-Type",
+                "value": "application/json",
                 "type": "text"
               }
             ],
+            "url": {
+              "raw": "{{url}}/news-items/{{newsItemId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "news-items",
+                "{{newsItemId}}"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "",
+              "raw": "{\n  \"trend_score\": 87.5,\n  \"relevance_score\": 0.92,\n  \"impact_note\": \"High relevance to our React content audience.\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete News Item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
             "url": {
-              "raw": "{{URL}}/auth/refresh-token",
+              "raw": "{{url}}/news-items/{{newsItemId}}",
               "host": [
-                "{{URL}}"
+                "{{url}}"
               ],
               "path": [
-                "auth",
-                "refresh-token"
+                "news-items",
+                "{{newsItemId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Platform Posts",
+      "description": "Historical platform posts and their metrics, scoped per team. Requires auth; non-admins only see their own team(s)' posts.",
+      "item": [
+        {
+          "name": "Create Platform Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/platform-posts",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platform-posts"
+              ]
+            },
+            "description": "`team_id` must be one of the caller's own teams (or the caller must be an admin) — otherwise 403.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": \"{{teamId}}\",\n  \"platform\": \"facebook\",\n  \"post_id\": \"fb-987654321\",\n  \"content_snippet\": \"React 19 dropped today — here's what it means for your stack.\",\n  \"metrics\": {\n    \"reach\": 15230,\n    \"likes\": 842,\n    \"comments\": 96,\n    \"shares\": 54,\n    \"views\": 0\n  },\n  \"published_at\": \"2026-07-10T12:00:00.000Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "const id = result?.data?._id;",
+                  "if (id) { pm.collectionVariables.set('platformPostId', id); }"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Platform Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/platform-posts?searchTerm=react&sort=-fetched_at&page=1&limit=10",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platform-posts"
+              ],
+              "query": [
+                {
+                  "key": "searchTerm",
+                  "value": "react",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-fetched_at",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Non-admins only ever see posts belonging to their own team(s)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Platform Post by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/platform-posts/{{platformPostId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platform-posts",
+                "{{platformPostId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Platform Post",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/platform-posts/{{platformPostId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platform-posts",
+                "{{platformPostId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metrics\": {\n    \"reach\": 18420,\n    \"likes\": 1005,\n    \"comments\": 121,\n    \"shares\": 70,\n    \"views\": 0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Platform Post",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/platform-posts/{{platformPostId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platform-posts",
+                "{{platformPostId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Brand Voice Examples",
+      "description": "Reference examples of the desired brand voice, scoped per team. Requires auth; non-admins only see their own team(s)' examples.",
+      "item": [
+        {
+          "name": "Create Brand Voice Example",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/brand-voice-examples",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "brand-voice-examples"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": \"{{teamId}}\",\n  \"platform\": \"facebook\",\n  \"category\": \"product-announcement\",\n  \"content\": \"Big news! We just shipped a feature you’ve been asking for — here’s how it works 👇\",\n  \"engagement_hint\": \"Posts with a direct question in the last line get 2–3x more comments.\",\n  \"added_by\": \"{{userId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "const id = result?.data?._id;",
+                  "if (id) { pm.collectionVariables.set('brandVoiceExampleId', id); }"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Brand Voice Examples",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/brand-voice-examples?searchTerm=launch&page=1&limit=10",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "brand-voice-examples"
+              ],
+              "query": [
+                {
+                  "key": "searchTerm",
+                  "value": "launch",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Brand Voice Example by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/brand-voice-examples/{{brandVoiceExampleId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "brand-voice-examples",
+                "{{brandVoiceExampleId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Brand Voice Example",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/brand-voice-examples/{{brandVoiceExampleId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "brand-voice-examples",
+                "{{brandVoiceExampleId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"engagement_hint\": \"Updated hint based on the last 30 days of data.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Brand Voice Example",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/brand-voice-examples/{{brandVoiceExampleId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "brand-voice-examples",
+                "{{brandVoiceExampleId}}"
               ]
             }
           },

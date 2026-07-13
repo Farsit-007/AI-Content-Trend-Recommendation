@@ -6,7 +6,7 @@ import sendResponse from '../../utils/sendResponse';
 import { BrandVoiceExampleService } from './brandVoiceExample.service';
 
 const createBrandVoiceExample = catchAsync(async (req: Request, res: Response) => {
-  const result = await BrandVoiceExampleService.createBrandVoiceExample(req.body);
+  const result = await BrandVoiceExampleService.createBrandVoiceExample(req.body, req.user!);
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
@@ -16,7 +16,7 @@ const createBrandVoiceExample = catchAsync(async (req: Request, res: Response) =
 });
 
 const getAllBrandVoiceExamples = catchAsync(async (req: Request, res: Response) => {
-  const { meta, result } = await BrandVoiceExampleService.getAllBrandVoiceExamples(req.query);
+  const { meta, result } = await BrandVoiceExampleService.getAllBrandVoiceExamples(req.query, req.user!);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -27,7 +27,7 @@ const getAllBrandVoiceExamples = catchAsync(async (req: Request, res: Response) 
 });
 
 const getSingleBrandVoiceExample = catchAsync(async (req: Request, res: Response) => {
-  const result = await BrandVoiceExampleService.getSingleBrandVoiceExample(req.params.id as string);
+  const result = await BrandVoiceExampleService.getSingleBrandVoiceExample(req.params.id as string, req.user!);
   if (!result) {
     throw new AppError(httpStatus.NOT_FOUND, 'Brand voice example not found');
   }
@@ -40,7 +40,11 @@ const getSingleBrandVoiceExample = catchAsync(async (req: Request, res: Response
 });
 
 const updateBrandVoiceExample = catchAsync(async (req: Request, res: Response) => {
-  const result = await BrandVoiceExampleService.updateBrandVoiceExample(req.params.id as string, req.body);
+  const result = await BrandVoiceExampleService.updateBrandVoiceExample(
+    req.params.id as string,
+    req.body,
+    req.user!,
+  );
   if (!result) {
     throw new AppError(httpStatus.NOT_FOUND, 'Brand voice example not found');
   }
@@ -53,7 +57,7 @@ const updateBrandVoiceExample = catchAsync(async (req: Request, res: Response) =
 });
 
 const deleteBrandVoiceExample = catchAsync(async (req: Request, res: Response) => {
-  const result = await BrandVoiceExampleService.deleteBrandVoiceExample(req.params.id as string);
+  const result = await BrandVoiceExampleService.deleteBrandVoiceExample(req.params.id as string, req.user!);
   if (!result) {
     throw new AppError(httpStatus.NOT_FOUND, 'Brand voice example not found');
   }

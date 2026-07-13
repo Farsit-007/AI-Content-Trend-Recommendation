@@ -4,12 +4,22 @@ import { httpStatus } from '../../utils/httpStatus';
 import sendResponse from '../../utils/sendResponse';
 import { UserService } from './user.service';
 
-const register = catchAsync(async (req: Request, res: Response) => {
-  const result = await UserService.register(req.body);
+const createUser = catchAsync(async (req: Request, res: Response) => {
+  const result = await UserService.createUser(req.body);
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
-    message: 'Account created successfully',
+    message: 'User created successfully',
+    data: result,
+  });
+});
+
+const listUsers = catchAsync(async (req: Request, res: Response) => {
+  const result = await UserService.listUsers(req.query.team_id as string | undefined);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Users retrieved successfully',
     data: result,
   });
 });
@@ -35,7 +45,8 @@ const getMe = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const UserController = {
-  register,
+  createUser,
+  listUsers,
   login,
   getMe,
 };

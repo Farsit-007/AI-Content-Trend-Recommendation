@@ -6,7 +6,7 @@ import sendResponse from '../../utils/sendResponse';
 import { PlatformPostService } from './platformPost.service';
 
 const createPlatformPost = catchAsync(async (req: Request, res: Response) => {
-  const result = await PlatformPostService.createPlatformPost(req.body);
+  const result = await PlatformPostService.createPlatformPost(req.body, req.user!);
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
@@ -16,7 +16,7 @@ const createPlatformPost = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllPlatformPosts = catchAsync(async (req: Request, res: Response) => {
-  const { meta, result } = await PlatformPostService.getAllPlatformPosts(req.query);
+  const { meta, result } = await PlatformPostService.getAllPlatformPosts(req.query, req.user!);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -27,7 +27,7 @@ const getAllPlatformPosts = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getSinglePlatformPost = catchAsync(async (req: Request, res: Response) => {
-  const result = await PlatformPostService.getSinglePlatformPost(req.params.id as string);
+  const result = await PlatformPostService.getSinglePlatformPost(req.params.id as string, req.user!);
   if (!result) {
     throw new AppError(httpStatus.NOT_FOUND, 'Platform post not found');
   }
@@ -40,7 +40,7 @@ const getSinglePlatformPost = catchAsync(async (req: Request, res: Response) => 
 });
 
 const updatePlatformPost = catchAsync(async (req: Request, res: Response) => {
-  const result = await PlatformPostService.updatePlatformPost(req.params.id as string, req.body);
+  const result = await PlatformPostService.updatePlatformPost(req.params.id as string, req.body, req.user!);
   if (!result) {
     throw new AppError(httpStatus.NOT_FOUND, 'Platform post not found');
   }
@@ -53,7 +53,7 @@ const updatePlatformPost = catchAsync(async (req: Request, res: Response) => {
 });
 
 const deletePlatformPost = catchAsync(async (req: Request, res: Response) => {
-  const result = await PlatformPostService.deletePlatformPost(req.params.id as string);
+  const result = await PlatformPostService.deletePlatformPost(req.params.id as string, req.user!);
   if (!result) {
     throw new AppError(httpStatus.NOT_FOUND, 'Platform post not found');
   }

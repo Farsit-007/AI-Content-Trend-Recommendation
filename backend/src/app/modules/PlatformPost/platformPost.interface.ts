@@ -1,4 +1,5 @@
 export interface IPlatformPost {
+  team_id: string;
   platform: string;
   post_id: string;
   content_snippet?: string;

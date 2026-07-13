@@ -10,14 +10,14 @@
 import {
   getPlatformToken,
   isPlatformConfigured,
-  PLATFORMS,
-  Platform,
+  KNOWN_PLATFORMS,
+  KnownPlatform,
 } from '../app/lib/platformCredentials';
 import config from '../app/config';
 
 type Outcome = 'PASS' | 'FAIL' | 'SKIP';
 
-const identityUrl = (platform: Platform, token: string): string => {
+const identityUrl = (platform: KnownPlatform, token: string): string => {
   switch (platform) {
     case 'facebook':
       return `https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${encodeURIComponent(token)}`;
@@ -34,8 +34,8 @@ const identityUrl = (platform: Platform, token: string): string => {
   }
 };
 
-const verify = async (platform: Platform): Promise<{ outcome: Outcome; detail: string }> => {
-  if (!isPlatformConfigured(platform)) {
+const verify = async (platform: KnownPlatform): Promise<{ outcome: Outcome; detail: string }> => {
+  if (!(await isPlatformConfigured(platform))) {
     return {
       outcome: 'SKIP',
       detail: 'not configured (no stored credential, no bootstrap token in .env)',
@@ -65,7 +65,7 @@ const main = async () => {
   console.log('Verifying platform credentials...\n');
   const results: Record<string, Outcome> = {};
 
-  for (const platform of PLATFORMS) {
+  for (const platform of KNOWN_PLATFORMS) {
     const { outcome, detail } = await verify(platform);
     results[platform] = outcome;
     console.log(`  ${outcome.padEnd(4)} ${platform.padEnd(9)} ${detail}`);

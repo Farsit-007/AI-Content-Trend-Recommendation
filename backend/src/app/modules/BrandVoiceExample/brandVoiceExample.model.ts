@@ -2,6 +2,7 @@ import { Schema, model } from 'mongoose';
 import { IBrandVoiceExample } from './brandVoiceExample.interface';
 
 const brandVoiceExampleSchema = new Schema<IBrandVoiceExample>({
+  team_id: { type: String, required: true },
   platform: { type: String, required: true },
   category: { type: String },
   content: { type: String, required: true },

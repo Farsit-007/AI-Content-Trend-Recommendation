@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import { requireAuth } from '../../middleware/auth';
 import { validation } from '../../middleware/validation';
 import { BrandVoiceExampleController } from './brandVoiceExample.controller';
 import { BrandVoiceExampleValidation } from './brandVoiceExample.validation';
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.post(
   '/',

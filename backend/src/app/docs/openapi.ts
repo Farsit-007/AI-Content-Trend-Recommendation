@@ -10,16 +10,24 @@ import {
   SuccessEnvelope,
 } from './components';
 import { buildResourcePaths } from './paths';
+import { authTeamPaths } from './authTeamPaths';
 import {
   BrandVoiceExample,
   BrandVoiceExampleCreate,
   BrandVoiceExampleUpdate,
+  LoginRequest,
   NewsItem,
   NewsItemCreate,
   NewsItemUpdate,
+  PlatformCredential,
+  PlatformCredentialCreate,
   PlatformPost,
   PlatformPostCreate,
   PlatformPostUpdate,
+  Team,
+  TeamCreate,
+  User,
+  UserCreate,
 } from './schemas';
 
 export const openApiDocument = {
@@ -32,11 +40,16 @@ export const openApiDocument = {
   },
   servers: [{ url: '/api/v1', description: 'API v1 base path' }],
   tags: [
+    { name: 'Auth', description: 'Login and current-user session.' },
+    { name: 'Users', description: 'Admin-only user account management.' },
+    { name: 'Teams', description: 'Growth teams and their membership.' },
+    { name: 'Platform Credentials', description: "Encrypted, team-scoped social platform credentials." },
     { name: 'News Items', description: 'Ingested news/trend items with engagement and scoring.' },
-    { name: 'Platform Posts', description: 'Historical platform posts and their metrics.' },
-    { name: 'Brand Voice Examples', description: 'Reference examples of the desired brand voice.' },
+    { name: 'Platform Posts', description: 'Historical platform posts and their metrics, scoped per team.' },
+    { name: 'Brand Voice Examples', description: 'Reference examples of the desired brand voice, scoped per team.' },
   ],
   paths: {
+    ...authTeamPaths,
     ...buildResourcePaths('/news-items', {
       singular: 'news item',
       tag: 'News Items',
@@ -54,10 +67,20 @@ export const openApiDocument = {
     }),
   },
   components: {
+    securitySchemes: {
+      bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+    },
     schemas: {
       Meta,
       SuccessEnvelope,
       ErrorEnvelope,
+      User,
+      UserCreate,
+      LoginRequest,
+      Team,
+      TeamCreate,
+      PlatformCredential,
+      PlatformCredentialCreate,
       NewsItem,
       NewsItemCreate,
       NewsItemUpdate,

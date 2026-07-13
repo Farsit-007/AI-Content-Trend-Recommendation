@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import { requireAuth } from '../../middleware/auth';
 import { validation } from '../../middleware/validation';
 import { PlatformPostController } from './platformPost.controller';
 import { PlatformPostValidation } from './platformPost.validation';
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.post(
   '/',
