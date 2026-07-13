@@ -1,17 +1,20 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config({ path: path.join((process.cwd(), '.env')) });
+dotenv.config({ path: path.join(process.cwd(), '.env') });
+
 export default {
-  port:  process.env.PORT,
+  node_env: process.env.NODE_ENV,
+  port: process.env.PORT,
+  web_url: process.env.WEB_URL,
+
   database_url: process.env.DATABASE_URL,
-  jwt_access_secret : process.env.JWT_ACCESS_SECRET,
-  jwt_refresh_secret : process.env.JWT_REFRESH_SECRET,
-  NODE_ENV: process.env.NODE_ENV,
-  cloudinary_cloud_name : process.env.CLOUDINARY_CLOUD_NAME,
-  cloudinary_api_key : process.env.CLOUDINARY_API_KEY,
-  cloudinary_api_secret:process.env.CLOUDINARY_API_SECRET,
-  smtp_email : process.env.SMTP_EMAIL,
-  smtp_password : process.env.SMTP_PASSWORD,
-  web_url : process.env.WEB_URL,
-}
+  redis_url: process.env.REDIS_URL,
+
+  openrouter_api_key: process.env.OPENROUTER_API_KEY,
+  llm_model_standard: process.env.LLM_MODEL_STANDARD,
+  llm_model_content: process.env.LLM_MODEL_CONTENT,
+  llm_model_fallback: process.env.LLM_MODEL_FALLBACK,
+
+  embedding_model: process.env.EMBEDDING_MODEL,
+};

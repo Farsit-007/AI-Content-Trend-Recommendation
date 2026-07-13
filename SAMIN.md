@@ -11,13 +11,13 @@
 ### ⚡ July 13 FIRST — Critical Architecture Fixes (before any code)
 | Status | Task | Notes |
 |--------|------|-------|
-| ⬜ Todo | Fix MongoDB setup | `docker-compose.yml` uses `mongo:7-jammy` — **`$vectorSearch` is Atlas-only and will fail**. Either point `DATABASE_URL` at a real Atlas M0 cloud cluster or swap image to `mongodb/mongodb-atlas-local`. |
-| ⬜ Todo | Verify embedding provider | OpenRouter may not serve an embeddings API. Test with one curl. Fallbacks: Gemini embedding free tier, Jina AI, Nomic Atlas API, local Ollama. **All 4 RAG flows depend on this.** |
+| ✅ Done | Fix MongoDB setup | Atlas M0 cluster created; `DATABASE_URL` points at it; `$vectorSearch` confirmed live (no "unknown stage" error); local `mongodb` service removed from `docker-compose.yml`. |
+| ✅ Done | Verify embedding provider | `nomic-ai/nomic-embed-text` isn't served on OpenRouter (400 "Model does not exist"), but `openai/text-embedding-3-small` is — confirmed live (200 OK, 1536-dim vector). Chosen provider: **OpenRouter**, via the `openai` SDK — no local model runtime (Ollama) needed. |
 
 ### July 13 (Today) — Foundation
 | Status | Change | Branch | Notes |
 |--------|--------|--------|-------|
-| ⬜ Todo | `backend-scaffold` | `feat/backend-scaffold` | Node + TS server, Mongo/Redis, LLM client, env config. **Do this first — everyone needs it.** |
+| 🔄 In Progress | `backend-scaffold` | `ravi/feat/backend-scaffold` | Node + TS server, Mongo/Redis, OpenRouter LLM + embeddings client (via `openai` SDK), env config, startup connectivity check. Implemented and live-verified end-to-end (typecheck passes; `npm run dev` connects to Atlas/Redis/OpenRouter and logs `OK` for all four checks; a broken env var exits with a clear error). **Not yet committed/PR'd to `main`.** |
 | ⬜ Todo | `db-vector-indexes` | `feat/db-vector-indexes` | 3 Atlas Vector Search indexes + collection schemas |
 
 ### July 14 — Ingestion Pipeline + Brand Voice
@@ -54,7 +54,7 @@
 
 ## Independence Notes
 - You are **fully independent** — no one blocks you.
-- Share your `.env` values (Mongo URI, Redis URL, OpenRouter key) with Robayat as soon as scaffold is done — that's the only handoff.
+- Share your `.env` values (Mongo URI, Redis URL, OpenRouter key) with Robayat as soon as scaffold is done — that's the only handoff. **Scaffold is functionally done and live-verified — share the values now; still pending: commit/PR/merge `ravi/feat/backend-scaffold` to `main`.**
 - Robayat and Mehedi can work in parallel from Day 1 without needing your features to be complete.
 
 ---
@@ -82,3 +82,4 @@ gh pr create --fill
 
 ## Notes
 <!-- Add blockers, decisions, or progress notes here -->
+- **2026-07-13**: Critical fixes #1 (Atlas Mongo) and #2 (embedding provider) resolved and live-verified. `backend-scaffold` implemented: Redis client (`ioredis`), OpenRouter LLM + embeddings client (`openai` SDK), env config, startup `verifyConnections()` check. Old Auth/User/Cloudinary/Email boilerplate removed. Not yet committed — next step is to commit, push, and open the PR.
