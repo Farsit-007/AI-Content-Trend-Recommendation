@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"]
+      "command": "node",
+      "args": ["--env-file=.env", ".claude/mcp-github.mjs"]
     }
   }
 }
