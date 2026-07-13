@@ -28,11 +28,11 @@ Even if they find a trending topic, they don't know if *their audience* cares ab
 
 ---
 
-## 2. The Solution — TrendBridge
+## 2. The Solution — Growth Studio
 
-> "TrendBridge is the only tool that combines what's trending in tech with what works on YOUR channels — and turns it into a full week of content across every platform in 5 minutes."
+> "Growth Studio is the only tool that combines what's trending in tech with what works on YOUR channels — and turns it into a full week of content across every platform in 5 minutes."
 
-TrendBridge is a **full marketing intelligence platform** that does four things:
+Growth Studio is a **full marketing intelligence platform** that does four things:
 
 1. **Monitors** external tech trends 24/7 across HackerNews, Dev.to, GitHub, Reddit, RSS
 2. **Analyzes** your own Facebook page, YouTube channel, and LinkedIn performance over the last 30 days — reach, views, engagement, best times, top content
@@ -206,12 +206,12 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 3. Inject as few-shot examples into the generation prompt
 4. LLM writes in your voice, not a generic voice
 **Why vector over keyword:** "React 19 Server Components" should match a brand voice example about "web dev career growth" — same audience intent, same tone needed. Vector similarity catches this; keyword matching misses it.
-**Pitch line:** "TrendBridge doesn't just write Banglish — it writes YOUR Banglish, learned from your own best-performing posts."
+**Pitch line:** "Growth Studio doesn't just write Banglish — it writes YOUR Banglish, learned from your own best-performing posts."
 
 ---
 
-### Feature 12: "Ask TrendBridge" Chat Interface
-**What it does:** Marketing team asks questions in plain Banglish/English. TrendBridge answers using your real news database + your platform analytics as context.
+### Feature 12: "Ask Growth Studio" Chat Interface
+**What it does:** Marketing team asks questions in plain Banglish/English. Growth Studio answers using your real news database + your platform analytics as context.
 **Example questions:**
 - "এই সপ্তাহে AI নিয়ে কোন news আছে যেটা আমাদের YouTube এ ভালো হবে?"
 - "আমাদের Facebook এ কোন ধরনের post সবচেয়ে বেশি engagement পায়?"
@@ -291,7 +291,7 @@ All LLM and embedding calls via OpenRouter free tier. Zero paid APIs.
 | Batch news categorization | `meta-llama/llama-3.1-8b-instruct:free` | Fast, structured JSON output |
 | Content generation (all formats) | `mistralai/mistral-7b-instruct:free` | Strong creative writing, good Banglish |
 | Report generation | `meta-llama/llama-3.1-8b-instruct:free` | Long context, analytical |
-| Chat / Ask TrendBridge | `meta-llama/llama-3.1-8b-instruct:free` | Fast, good context handling |
+| Chat / Ask Growth Studio | `meta-llama/llama-3.1-8b-instruct:free` | Fast, good context handling |
 | Embeddings (all flows) | `nomic-ai/nomic-embed-text` | 768-dim, free, same client |
 | Fallback | `google/gemma-2-9b-it:free` | Always-available backup |
 
@@ -330,7 +330,7 @@ All vector operations inside MongoDB Atlas M0 (free). No new infrastructure.
 ### Three vector indexes
 
 **Index 1 — `news_items.embedding`** (768-dim, cosine)
-→ Used for: semantic dedup at ingestion + Ask TrendBridge RAG chat
+→ Used for: semantic dedup at ingestion + Ask Growth Studio RAG chat
 
 **Index 2 — `brand_voice_examples.embedding`** (768-dim, cosine)
 → Used for: Brand Voice RAG at content generation time
@@ -347,7 +347,7 @@ New item → embed (nomic) → $vectorSearch news_items limit:1
 → score ≤ 0.9 → new, continue pipeline
 ```
 
-**Flow 2 — Ask TrendBridge chat:**
+**Flow 2 — Ask Growth Studio chat:**
 ```
 User query → embed → $vectorSearch news_items limit:5
 → top 5 items as context → OpenRouter LLM → Banglish answer → Redis 10min
@@ -475,4 +475,4 @@ Trending news item → embed → $vectorSearch platform_analytics.posts limit:10
    → $0 AI cost. $0 API cost. Platform analytics cached so 100 users cost same as 1. Architecture documented. Monorepo + OpenAPI spec = team worked like professionals.
 
 5. **Presentation clarity**
-   → One sentence: "TrendBridge combines what's trending in tech with what works on YOUR channels — and generates a full week of content across Facebook, YouTube, and LinkedIn in 5 minutes, for free."
+   → One sentence: "Growth Studio combines what's trending in tech with what works on YOUR channels — and generates a full week of content across Facebook, YouTube, and LinkedIn in 5 minutes, for free."

@@ -21,7 +21,7 @@ export default function Navbar() {
         <a href="#" className="flex items-center gap-2 font-bold text-lg">
           <TrendingUp className="size-5 text-violet-500" />
           <span className="bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-            TrendBridge
+            Growth Studio
           </span>
         </a>
 
@@ -39,7 +39,7 @@ export default function Navbar() {
 
         <div className="hidden md:block">
           <Button size="sm" className="bg-violet-600 text-white hover:bg-violet-700">
-            Try TrendBridge
+            Try Growth Studio
           </Button>
         </div>
 
@@ -66,7 +66,7 @@ export default function Navbar() {
               </a>
             ))}
             <Button size="sm" className="mt-2 bg-violet-600 text-white hover:bg-violet-700">
-              Try TrendBridge
+              Try Growth Studio
             </Button>
           </nav>
         </div>

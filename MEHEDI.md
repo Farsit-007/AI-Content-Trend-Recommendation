@@ -40,7 +40,7 @@ const data = await fetch('/api/news').then(r => r.json())
 | Status | Change | Branch | FRs | Notes |
 |--------|--------|--------|-----|-------|
 | ⬜ Todo | `report-ui` | `feat/report-ui` | FR-09–11 | 30-day report: overview, per-platform charts, AI insight — **use mock data** |
-| ⬜ Todo | `chat-ui` | `feat/chat-ui` | FR-22 | Ask TrendBridge chat panel — **use mock data** |
+| ⬜ Todo | `chat-ui` | `feat/chat-ui` | FR-22 | Ask Growth Studio chat panel — **use mock data** |
 | ⬜ Todo | `admin-triggers-ui` | `feat/admin-triggers-ui` | FR-25, FR-26 | "Run ingestion" + "Refresh analytics" buttons — **use mock data** |
 
 ### July 15 — Wire Up Real API

@@ -30,7 +30,7 @@
 ### July 16 — Chat + Integration
 | Status | Change | Branch | FRs | Notes |
 |--------|--------|--------|-----|-------|
-| ⬜ Todo | `ask-trendbridge-chat` | `feat/ask-trendbridge-chat` | FR-22, FR-23 | RAG chat: embed query → vectorSearch → grounded Banglish answer |
+| ⬜ Todo | `ask-growth-studio-chat` | `feat/ask-growth-studio-chat` | FR-22, FR-23 | RAG chat: embed query → vectorSearch → grounded Banglish answer |
 
 ---
 

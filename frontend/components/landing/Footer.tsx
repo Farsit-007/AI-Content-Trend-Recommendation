@@ -18,7 +18,7 @@ export default function Footer() {
           <div className="flex items-center gap-2">
             <TrendingUp className="size-5 text-violet-500" />
             <span className="font-bold bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-              TrendBridge
+              Growth Studio
             </span>
           </div>
           <nav className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground sm:justify-end">
@@ -42,7 +42,7 @@ export default function Footer() {
 
         <div className="text-center text-xs text-muted-foreground">
           <p className="font-medium text-foreground/60">
-            TrendBridge &middot; Team Next Wave &middot; AI Content &amp; Trend Recommendation
+            Growth Studio &middot; Team Next Wave &middot; AI Content &amp; Trend Recommendation
           </p>
           <p className="mt-1">Hackathon Project &middot; Jul 12–18, 2026</p>
         </div>

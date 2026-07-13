@@ -1,4 +1,4 @@
-# How to Use OpenSpec — TrendBridge Team Guide
+# How to Use OpenSpec — Growth Studio Team Guide
 
 ---
 

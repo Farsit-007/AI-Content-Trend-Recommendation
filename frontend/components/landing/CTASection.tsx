@@ -18,7 +18,7 @@ export default function CTASection() {
               </span>
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-muted-foreground">
-              TrendBridge gives the Programming Hero marketing team a full week of content ideas —
+              Growth Studio gives the Programming Hero marketing team a full week of content ideas —
               personalized, platform-specific, in Banglish — in 5 minutes. Zero cost. Always on.
             </p>
             <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">

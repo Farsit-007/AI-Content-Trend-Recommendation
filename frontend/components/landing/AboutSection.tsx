@@ -3,7 +3,7 @@ const values = [
     icon: "🎯",
     title: "Signal over noise",
     description:
-      "We believe marketing teams shouldn't drown in 200+ daily headlines. TrendBridge exists to surface the handful of trends that actually matter for your audience.",
+      "We believe marketing teams shouldn't drown in 200+ daily headlines. Growth Studio exists to surface the handful of trends that actually matter for your audience.",
   },
   {
     icon: "🤝",
@@ -41,7 +41,7 @@ export default function AboutSection() {
           <span className="mb-4 inline-block rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
             About Us
           </span>
-          <h2 className="mb-4 text-3xl font-bold sm:text-4xl">Why we built TrendBridge</h2>
+          <h2 className="mb-4 text-3xl font-bold sm:text-4xl">Why we built Growth Studio</h2>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
             We&apos;re a small team of builders and marketers who watched content teams spend hours
             hunting for what to post next. So we built the tool we wished we had — one dashboard that

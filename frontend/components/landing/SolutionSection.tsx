@@ -37,7 +37,7 @@ export default function SolutionSection() {
           <span className="mb-4 inline-block rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
             The Solution
           </span>
-          <h2 className="mb-4 text-3xl font-bold sm:text-4xl">Meet TrendBridge</h2>
+          <h2 className="mb-4 text-3xl font-bold sm:text-4xl">Meet Growth Studio</h2>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
             The only tool that combines what&apos;s trending in tech with what works on YOUR
             channels — and turns it into a full week of content in 5 minutes.

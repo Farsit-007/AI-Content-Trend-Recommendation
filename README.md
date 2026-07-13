@@ -1,4 +1,4 @@
-# TrendBridge
+# Growth Studio
 
 > **AI Content & Trend Intelligence Platform** — combines what's trending in tech with what works on *your* channels, and turns it into a full week of content across Facebook, YouTube, and LinkedIn in 5 minutes. Zero AI cost, zero API cost.
 
@@ -34,7 +34,7 @@ The Programming Hero marketing team runs content across **Facebook, YouTube, and
 
 ## The Solution
 
-TrendBridge is a marketing-intelligence platform that does four things:
+Growth Studio is a marketing-intelligence platform that does four things:
 
 | # | Capability | What it does |
 |---|-----------|--------------|
@@ -47,7 +47,7 @@ TrendBridge is a marketing-intelligence platform that does four things:
 
 ## System Architecture
 
-TrendBridge is a **monorepo** with three logical planes: two unattended background pipelines that keep data fresh, and an on-demand serving layer that powers the dashboard.
+Growth Studio is a **monorepo** with three logical planes: two unattended background pipelines that keep data fresh, and an on-demand serving layer that powers the dashboard.
 
 ```mermaid
 flowchart TB
@@ -78,7 +78,7 @@ flowchart TB
 
     subgraph Serve["Backend API (on demand)"]
         FEED[News feed]; GEN[Content generator]
-        REP[Report generator]; CHAT[Ask TrendBridge]
+        REP[Report generator]; CHAT[Ask Growth Studio]
         ADMIN[Admin triggers]
     end
 
@@ -129,7 +129,7 @@ Pulls 30 days from **Meta Graph API** (FB), **YouTube Data API v3**, and **Linke
 - **News feed** — filter by category, sort by latest/relevance/trend, "High opportunity" badges
 - **Content generator** — lazy (fires on click), 5 formats, Brand Voice RAG, cached 24h
 - **Report generator** — unified 30-day cross-platform report with AI insight
-- **Ask TrendBridge** — natural-language RAG chat grounded in real data
+- **Ask Growth Studio** — natural-language RAG chat grounded in real data
 - **Admin triggers** — manually run ingestion / analytics refresh (demo tooling)
 
 ### 4. Frontend (Next.js 16)
@@ -144,7 +144,7 @@ daily.dev-style dark dashboard: card feed with tabs, one-click generation, repor
 | Flow | Trigger | Path |
 |------|---------|------|
 | **Semantic dedup** | Ingestion | embed → `$vectorSearch news_items` limit 1 → score > 0.9 = skip |
-| **Ask TrendBridge** | User question | embed query → `$vectorSearch news_items` limit 5 → LLM → Banglish answer |
+| **Ask Growth Studio** | User question | embed query → `$vectorSearch news_items` limit 5 → LLM → Banglish answer |
 | **Brand Voice RAG** | Generate click | embed topic → `$vectorSearch brand_voice_examples` limit 3 → few-shot into prompt |
 | **Opportunity scoring** | Cross-reference | embed trend → `$vectorSearch platform_posts` limit 10 → `opportunity_score = trend_score × avg_engagement_of_similar_posts` |
 
@@ -265,4 +265,4 @@ Auth & multi-workspace · auto-publishing · dedicated vector DB (Pinecone/Weavi
 | Mehedi Imun | Developer |
 | Robayat Kalam Farsit | Developer |
 
-> One-liner for judges: *"TrendBridge combines what's trending in tech with what works on YOUR channels — and generates a full week of content across Facebook, YouTube, and LinkedIn in 5 minutes, for free."*
+> One-liner for judges: *"Growth Studio combines what's trending in tech with what works on YOUR channels — and generates a full week of content across Facebook, YouTube, and LinkedIn in 5 minutes, for free."*

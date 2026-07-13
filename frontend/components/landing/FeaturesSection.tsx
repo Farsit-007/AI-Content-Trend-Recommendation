@@ -36,7 +36,7 @@ const features = [
   },
   {
     icon: "💬",
-    title: "Ask TrendBridge Chat",
+    title: "Ask Growth Studio Chat",
     description:
       'Ask questions in plain Banglish/English. Get data-grounded answers from your real news database and platform analytics in seconds via RAG.',
     badge: "AI",

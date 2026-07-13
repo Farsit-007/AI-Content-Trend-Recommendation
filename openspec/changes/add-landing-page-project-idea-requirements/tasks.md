@@ -7,13 +7,13 @@
 
 ## 2. Layout & Navigation
 
-- [x] 2.1 Create `src/components/Navbar.jsx` with TrendBridge logo/wordmark and nav links (Problem, Features, How It Works)
+- [x] 2.1 Create `src/components/Navbar.jsx` with Growth Studio logo/wordmark and nav links (Problem, Features, How It Works)
 - [x] 2.2 Create `src/pages/LandingPage.jsx` that composes all section components top-to-bottom
 - [x] 2.3 Update `src/App.jsx` to render `LandingPage`
 
 ## 3. Hero Section
 
-- [x] 3.1 Create `src/components/Hero.jsx` with headline "TrendBridge", tagline, and CTA button
+- [x] 3.1 Create `src/components/Hero.jsx` with headline "Growth Studio", tagline, and CTA button
 - [x] 3.2 Add gradient background or subtle animated background to hero
 - [x] 3.3 Ensure hero is full-viewport height with centered content
 
@@ -25,13 +25,13 @@
 
 ## 5. Solution Section
 
-- [x] 5.1 Create `src/components/SolutionSection.jsx` listing TrendBridge's four capabilities
+- [x] 5.1 Create `src/components/SolutionSection.jsx` listing Growth Studio's four capabilities
 - [x] 5.2 Use a 2-column or numbered list layout with icons
 
 ## 6. Features Grid
 
 - [x] 6.1 Create `src/components/FeaturesSection.jsx` with a responsive grid
-- [x] 6.2 Add at least 6 feature cards: News Feed Dashboard, 4-Layer AI Filter, Content Generator, Brand Voice RAG, Cross-Platform Analytics, Ask TrendBridge Chat
+- [x] 6.2 Add at least 6 feature cards: News Feed Dashboard, 4-Layer AI Filter, Content Generator, Brand Voice RAG, Cross-Platform Analytics, Ask Growth Studio Chat
 - [x] 6.3 Each card has an emoji/icon, title, and one-line description
 - [x] 6.4 Grid uses `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` for responsiveness
 
@@ -44,7 +44,7 @@
 ## 8. CTA & Footer
 
 - [x] 8.1 Create `src/components/CTASection.jsx` with a final call-to-action block
-- [x] 8.2 Create `src/components/Footer.jsx` with "TrendBridge · Team Next Wave · AI Content & Trend Recommendation"
+- [x] 8.2 Create `src/components/Footer.jsx` with "Growth Studio · Team Next Wave · AI Content & Trend Recommendation"
 - [x] 8.3 Footer includes hackathon context (Jul 12–18, 2026)
 
 ## 9. Polish & Verification

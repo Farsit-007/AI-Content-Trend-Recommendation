@@ -13,7 +13,7 @@ const fontMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "TrendBridge — AI Content & Trend Intelligence",
+  title: "Growth Studio — AI Content & Trend Intelligence",
   description:
     "Combines what's trending in tech with what works on YOUR channels. Generate a full week of content across Facebook, YouTube, and LinkedIn in 5 minutes — for free.",
 }

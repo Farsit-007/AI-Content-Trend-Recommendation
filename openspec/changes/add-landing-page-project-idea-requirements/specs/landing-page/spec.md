@@ -1,11 +1,11 @@
 ## ADDED Requirements
 
 ### Requirement: Landing page renders hero section
-The page SHALL display a full-viewport hero section with TrendBridge's headline, subheadline, and a primary CTA button.
+The page SHALL display a full-viewport hero section with Growth Studio's headline, subheadline, and a primary CTA button.
 
 #### Scenario: Hero section visible on load
 - **WHEN** a user opens the landing page
-- **THEN** the hero section SHALL be the first visible content with the headline "TrendBridge" and the tagline "Combines what's trending in tech with what works on YOUR channels"
+- **THEN** the hero section SHALL be the first visible content with the headline "Growth Studio" and the tagline "Combines what's trending in tech with what works on YOUR channels"
 
 #### Scenario: CTA button present
 - **WHEN** the hero section is rendered
@@ -19,18 +19,18 @@ The page SHALL include a problem section that presents the four core problems fa
 - **THEN** four problem cards SHALL be displayed covering: trend visibility, audience understanding, content creation speed, and trend-audience connection gap
 
 ### Requirement: Landing page presents the solution
-The page SHALL include a solution section explaining how TrendBridge addresses the four problems.
+The page SHALL include a solution section explaining how Growth Studio addresses the four problems.
 
 #### Scenario: Solution overview visible
 - **WHEN** the user scrolls to the solution section
 - **THEN** four solution points SHALL be listed: Monitors trends, Analyzes platform performance, Cross-references trends with audience data, Generates multi-format content
 
 ### Requirement: Landing page highlights core features
-The page SHALL display a feature grid showcasing TrendBridge's key capabilities.
+The page SHALL display a feature grid showcasing Growth Studio's key capabilities.
 
 #### Scenario: Feature cards rendered
 - **WHEN** the user scrolls to the features section
-- **THEN** at least six feature cards SHALL be visible covering: News Feed, AI Filter Pipeline, Content Generator, Brand Voice RAG, Cross-Platform Analytics, and Ask TrendBridge chat
+- **THEN** at least six feature cards SHALL be visible covering: News Feed, AI Filter Pipeline, Content Generator, Brand Voice RAG, Cross-Platform Analytics, and Ask Growth Studio chat
 
 #### Scenario: Features use icons or badges
 - **WHEN** each feature card is rendered
@@ -48,7 +48,7 @@ The page SHALL render correctly on mobile viewports (≥320px width) and desktop
 - **THEN** all text SHALL be readable and buttons SHALL be tappable without horizontal scrolling
 
 ### Requirement: Landing page uses a dark theme
-The page SHALL use a dark color scheme consistent with TrendBridge's tech-focused brand.
+The page SHALL use a dark color scheme consistent with Growth Studio's tech-focused brand.
 
 #### Scenario: Background and text contrast
 - **WHEN** the page renders
@@ -59,4 +59,4 @@ The page SHALL include a footer with the project name, team name (Team Next Wave
 
 #### Scenario: Footer content
 - **WHEN** the user scrolls to the bottom of the page
-- **THEN** the footer SHALL display "TrendBridge · Team Next Wave · AI Content & Trend Recommendation"
+- **THEN** the footer SHALL display "Growth Studio · Team Next Wave · AI Content & Trend Recommendation"

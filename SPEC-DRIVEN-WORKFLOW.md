@@ -1,6 +1,6 @@
 # Spec-Driven Workflow — Working as a Team Without Conflicts
 
-**Team Next Wave** · How 3 developers build TrendBridge in parallel using OpenSpec + Git, with the fewest possible merge conflicts.
+**Team Next Wave** · How 3 developers build Growth Studio in parallel using OpenSpec + Git, with the fewest possible merge conflicts.
 
 > **Read this before your first commit.** Follow the golden rules and you will almost never hit a conflict.
 
@@ -146,7 +146,7 @@ Every feature in [`project-ida-requirments.md`](./project-ida-requirments.md) is
 | 3 | `ai-categorization-scoring` | FR-03 | Batched LLM categorize + relevance + impact note; **trend_score** math | 2 |
 | 4 | `brand-voice-rag` | FR-18 | Seed `brand_voice_examples`, embed, `$vectorSearch` few-shot retrieval | indexes |
 | 5 | `content-generator` | FR-13–17, 19–21 | 5 formats (FB post, Reel, LinkedIn, YouTube idea, caption), lazy + Redis 24h | 4 |
-| 6 | `ask-trendbridge-chat` | FR-22, FR-23 | RAG chat: embed query → `$vectorSearch news_items` → grounded Banglish answer | 3 |
+| 6 | `ask-growth-studio-chat` | FR-22, FR-23 | RAG chat: embed query → `$vectorSearch news_items` → grounded Banglish answer | 3 |
 
 ### 📊 Robayat Kalam Farsit — Analytics & Reporting
 
@@ -165,7 +165,7 @@ Every feature in [`project-ida-requirments.md`](./project-ida-requirments.md) is
 | 1 | `news-feed-dashboard` | FR-05, FR-24 | daily.dev-style card feed, tabs, sort, trend 🔥 + "High opportunity" badges | api-contract |
 | 2 | `content-generator-ui` | FR-13–17, 21 | Generate button → 5 format panels, copy-to-clipboard | api-contract |
 | 3 | `report-ui` | FR-09–11 | 30-day report view: overview, per-platform, AI insight | api-contract |
-| 4 | `chat-ui` | FR-22 | Ask TrendBridge chat panel | api-contract |
+| 4 | `chat-ui` | FR-22 | Ask Growth Studio chat panel | api-contract |
 | 5 | `admin-triggers-ui` | FR-25, FR-26 | Manual "run ingestion" / "refresh analytics" buttons (demo tooling) | api-contract |
 | ✅ | `landing-page`, `about-us` | — | *Done* | — |
 
@@ -184,7 +184,7 @@ Every feature in [`project-ida-requirments.md`](./project-ida-requirments.md) is
 | FR-09–12 | Cross-platform report | Robayat (BE) + Mehedi (UI) |
 | FR-13–17, 19–21 | Content generator | Samin (BE) + Mehedi (UI) |
 | FR-18 | Brand Voice RAG | Samin |
-| FR-22, 23 | Ask TrendBridge chat | Samin (BE) + Mehedi (UI) |
+| FR-22, 23 | Ask Growth Studio chat | Samin (BE) + Mehedi (UI) |
 | FR-25 | Admin trigger — ingestion run | Samin (BE) + Mehedi (UI) |
 | FR-26 | Admin trigger — analytics refresh | Robayat (BE) + Mehedi (UI) |
 | NFR-08, 09 | $0 AI + $0 API cost | Everyone (design constraint) |

@@ -4,7 +4,7 @@ const steps = [
     icon: "📡",
     title: "Monitor",
     description:
-      "TrendBridge continuously pulls tech news from 5+ sources every 3 hours. A 4-layer filter pipeline reduces 200+ items to the 20–30 that actually matter for your audience.",
+      "Growth Studio continuously pulls tech news from 5+ sources every 3 hours. A 4-layer filter pipeline reduces 200+ items to the 20–30 that actually matter for your audience.",
   },
   {
     number: "02",
@@ -39,7 +39,7 @@ export default function HowItWorks() {
           </span>
           <h2 className="mb-4 text-3xl font-bold sm:text-4xl">From trend to content in 5 minutes</h2>
           <p className="mx-auto max-w-2xl text-muted-foreground">
-            TrendBridge runs automatically in the background. When you open the dashboard, everything
+            Growth Studio runs automatically in the background. When you open the dashboard, everything
             is already done.
           </p>
         </div>

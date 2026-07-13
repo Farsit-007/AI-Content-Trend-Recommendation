@@ -1,4 +1,4 @@
-# TrendBridge — Master Plan
+# Growth Studio — Master Plan
 **Deadline: July 16, 2026** · 3 developers · 4 days
 
 ---
@@ -45,7 +45,7 @@
 
 | Developer | Tasks |
 |-----------|-------|
-| **Samin** | `ask-trendbridge-chat` + integration testing |
+| **Samin** | `ask-growth-studio-chat` + integration testing |
 | **Robayat** | Final report polish + integration testing |
 | **Mehedi** | UI polish, loading states, error handling + demo run-through |
 
@@ -65,7 +65,7 @@
 | FR-09–12 | Cross-platform report | Robayat | report-ui |
 | FR-13–17, FR-19–21 | Content generator | Samin | content-generator-ui |
 | FR-18 | Brand voice RAG | Samin | (internal) |
-| FR-22, FR-23 | Ask TrendBridge chat | Samin | chat-ui |
+| FR-22, FR-23 | Ask Growth Studio chat | Samin | chat-ui |
 | FR-24 | Opportunity scoring | Robayat | "High opportunity" badge |
 | FR-25 | Manual ingestion trigger | Samin | admin-triggers-ui |
 | FR-26 | Manual analytics refresh | Robayat | admin-triggers-ui |
@@ -95,7 +95,7 @@ main (protected)
  ├─ feat/content-generator         → Samin   (Jul 15)
  ├─ feat/opportunity-scoring       → Robayat (Jul 15)
  ├─ feat/cross-platform-report     → Robayat (Jul 15)
- └─ feat/ask-trendbridge-chat      → Samin   (Jul 16)
+ └─ feat/ask-growth-studio-chat      → Samin   (Jul 16)
 ```
 
 ---
