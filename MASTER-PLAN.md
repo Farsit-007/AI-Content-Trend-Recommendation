@@ -3,6 +3,17 @@
 
 ---
 
+## Status Key
+
+| Symbol | Meaning |
+|--------|---------|
+| ⬜ Todo | Not started |
+| 🔄 In Progress | Branch open, work ongoing |
+| 👀 In Review | PR open, awaiting review |
+| ✅ Done | Merged to `main` |
+
+---
+
 ## Independence Strategy
 
 | Developer | How they stay unblocked |
@@ -15,39 +26,56 @@
 
 ---
 
-## Day-by-Day Schedule
+## July 13 (Today) — Foundation
 
-### July 13 (Today) — Foundation
+| Developer | Change | Branch | Status | Notes |
+|-----------|--------|--------|--------|-------|
+| **Samin** | `backend-scaffold` | `feat/backend-scaffold` | ⬜ Todo | Node + TS, Mongo/Redis, OpenRouter. Do this first — everyone needs it. |
+| **Samin** | `db-vector-indexes` | `feat/db-vector-indexes` | ⬜ Todo | 3 Atlas Vector Search indexes + collection schemas |
+| **Robayat** | `api-contract-openapi` | `feat/api-contract-openapi` | ⬜ Todo | REST endpoints + stub server so Mehedi can build immediately |
+| **Robayat** | `platform-api-credentials` | `feat/platform-api-credentials` | ⬜ Todo | Meta / YouTube / LinkedIn tokens. Start LinkedIn NOW — slowest approval. |
+| **Mehedi** | `news-feed-dashboard` | `feat/news-feed-dashboard` | ⬜ Todo | daily.dev-style feed, tabs, sort, trend + "High opportunity" badges — mock data |
+| **Mehedi** | `content-generator-ui` | `feat/content-generator-ui` | ⬜ Todo | Generate button → 5 format panels, copy-to-clipboard — mock data |
 
-| Developer | Tasks |
-|-----------|-------|
-| **Samin** | `backend-scaffold` → `db-vector-indexes` |
-| **Robayat** | `api-contract-openapi` (stub server) + `platform-api-credentials` (start LinkedIn approval now — slowest) |
-| **Mehedi** | `news-feed-dashboard` + `content-generator-ui` — **all with mock data** |
+---
 
-### July 14 — Core Features
+## July 14 — Core Features
 
-| Developer | Tasks |
-|-----------|-------|
-| **Samin** | `news-ingestion-pipeline` → `filter-pipeline` |
-| **Robayat** | `facebook-analytics` → `youtube-analytics` → `linkedin-analytics` |
-| **Mehedi** | `report-ui` + `chat-ui` + `admin-triggers-ui` — **all with mock data** |
+| Developer | Change | Branch | Status | Notes |
+|-----------|--------|--------|--------|-------|
+| **Samin** | `news-ingestion-pipeline` | `feat/news-ingestion-pipeline` | ⬜ Todo | HackerNews, Dev.to, GitHub, Reddit, RSS fetchers; 3h cron |
+| **Samin** | `filter-pipeline` | `feat/filter-pipeline` | ⬜ Todo | 4 layers: keyword → vector dedup → Redis cache → relevance gate |
+| **Robayat** | `facebook-analytics` | `feat/facebook-analytics` | ⬜ Todo | Meta Graph API: reach, engagement, top posts, best times; 6h refresh |
+| **Robayat** | `youtube-analytics` | `feat/youtube-analytics` | ⬜ Todo | YouTube Data API v3: views, watch time, CTR, top videos |
+| **Robayat** | `linkedin-analytics` | `feat/linkedin-analytics` | ⬜ Todo | LinkedIn API: impressions, engagement, demographics |
+| **Mehedi** | `report-ui` | `feat/report-ui` | ⬜ Todo | 30-day report: overview, per-platform charts, AI insight — mock data |
+| **Mehedi** | `chat-ui` | `feat/chat-ui` | ⬜ Todo | Ask Growth Studio chat panel — mock data |
+| **Mehedi** | `admin-triggers-ui` | `feat/admin-triggers-ui` | ⬜ Todo | "Run ingestion" + "Refresh analytics" buttons — mock data |
 
-### July 15 — AI Layer + Wire Up
+---
 
-| Developer | Tasks |
-|-----------|-------|
-| **Samin** | `ai-categorization-scoring` → `brand-voice-rag` → `content-generator` |
-| **Robayat** | `opportunity-scoring` → `cross-platform-report` |
-| **Mehedi** | **Swap all mock data → real API calls** across every UI screen |
+## July 15 — AI Layer + Wire Up
 
-### July 16 — Integration + Demo
+| Developer | Change | Branch | Status | Notes |
+|-----------|--------|--------|--------|-------|
+| **Samin** | `ai-categorization-scoring` | `feat/ai-categorization-scoring` | ⬜ Todo | Batched LLM categorize + relevance + trend_score math |
+| **Samin** | `brand-voice-rag` | `feat/brand-voice-rag` | ⬜ Todo | Seed brand_voice_examples, embed, vectorSearch few-shot |
+| **Samin** | `content-generator` | `feat/content-generator` | ⬜ Todo | 5 formats: FB post, Reel, LinkedIn, YouTube idea, caption |
+| **Robayat** | `opportunity-scoring` | `feat/opportunity-scoring` | ⬜ Todo | Embed posts → vectorSearch → opportunity_score = trend × audience |
+| **Robayat** | `cross-platform-report` | `feat/cross-platform-report` | ⬜ Todo | Unified 30-day report + AI insight + content-opportunity ranking |
+| **Mehedi** | `api-wiring` | `feat/api-wiring` | ⬜ Todo | Swap all mock data → real `fetch()` calls across every UI screen |
 
-| Developer | Tasks |
-|-----------|-------|
-| **Samin** | `ask-growth-studio-chat` + integration testing |
-| **Robayat** | Final report polish + integration testing |
-| **Mehedi** | UI polish, loading states, error handling + demo run-through |
+---
+
+## July 16 — Integration + Demo
+
+| Developer | Change | Branch | Status | Notes |
+|-----------|--------|--------|--------|-------|
+| **Samin** | `ask-growth-studio-chat` | `feat/ask-growth-studio-chat` | ⬜ Todo | RAG chat: embed query → vectorSearch → grounded Banglish answer |
+| **Samin** | Integration testing | — | ⬜ Todo | Verify ingestion → scoring → generation pipeline end-to-end |
+| **Robayat** | Integration testing | — | ⬜ Todo | Verify analytics data flows into Mehedi's report-ui correctly |
+| **Mehedi** | UI polish | — | ⬜ Todo | Loading states, error handling, empty states, responsive check |
+| **Mehedi** | Demo run-through | — | ⬜ Todo | Full happy-path walkthrough with team |
 
 ---
 
@@ -57,7 +85,7 @@
 |----|---------|----------------|-------------------|
 | FR-01 | News ingestion | Samin | news-feed-dashboard |
 | FR-02, FR-04 | Filter pipeline | Samin | (internal, no UI) |
-| FR-03 | AI categorization | Samin | trend 🔥 badges in feed |
+| FR-03 | AI categorization | Samin | trend badges in feed |
 | FR-05 | Trend feed | Samin | news-feed-dashboard |
 | FR-06 | Facebook analytics | Robayat | report-ui |
 | FR-07 | YouTube analytics | Robayat | report-ui |
@@ -72,34 +100,6 @@
 
 ---
 
-## Branch State
-
-```
-main (protected)
- ├─ feat/backend-scaffold          → Samin   (Jul 13)
- ├─ feat/db-vector-indexes         → Samin   (Jul 13)
- ├─ feat/api-contract-openapi      → Robayat (Jul 13)
- ├─ feat/platform-api-credentials  → Robayat (Jul 13)
- ├─ feat/news-feed-dashboard       → Mehedi  (Jul 13)
- ├─ feat/content-generator-ui      → Mehedi  (Jul 13)
- ├─ feat/news-ingestion-pipeline   → Samin   (Jul 14)
- ├─ feat/filter-pipeline           → Samin   (Jul 14)
- ├─ feat/facebook-analytics        → Robayat (Jul 14)
- ├─ feat/youtube-analytics         → Robayat (Jul 14)
- ├─ feat/linkedin-analytics        → Robayat (Jul 14)
- ├─ feat/report-ui                 → Mehedi  (Jul 14)
- ├─ feat/chat-ui                   → Mehedi  (Jul 14)
- ├─ feat/admin-triggers-ui         → Mehedi  (Jul 14)
- ├─ feat/ai-categorization-scoring → Samin   (Jul 15)
- ├─ feat/brand-voice-rag           → Samin   (Jul 15)
- ├─ feat/content-generator         → Samin   (Jul 15)
- ├─ feat/opportunity-scoring       → Robayat (Jul 15)
- ├─ feat/cross-platform-report     → Robayat (Jul 15)
- └─ feat/ask-growth-studio-chat      → Samin   (Jul 16)
-```
-
----
-
 ## Rules
 
 1. One change = one branch = one owner. Never share a branch.
@@ -107,3 +107,4 @@ main (protected)
 3. Merge branches the same day you open the PR — don't let them age.
 4. Pull + rebase every morning: `git checkout main && git pull --rebase origin main`
 5. Async standup daily: post which branch you're on so nobody overlaps.
+6. Update your row's Status column here whenever it changes.
