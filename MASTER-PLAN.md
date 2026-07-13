@@ -41,7 +41,7 @@
 | Developer | Change | Branch | Status | Notes |
 |-----------|--------|--------|--------|-------|
 | **Samin** | ⚡ Critical fixes #1 + #2 | — | ✅ Done | Atlas cluster + `$vectorSearch` confirmed live; OpenRouter confirmed as embedding provider (`openai/text-embedding-3-small`) |
-| **Samin** | `backend-scaffold` | `ravi/feat/backend-scaffold` | 🔄 In Progress | Node + TS, Mongo/Redis, OpenRouter LLM + embeddings client, env config, startup connectivity check — implemented and live-verified (typecheck, `npm run dev` connects to Atlas/Redis/OpenRouter). Not yet committed/PR'd to `main`. |
+| **Samin** | `backend-scaffold` | `ravi/feat/backend-scaffold` | ✅ Done | Node + TS, Mongo/Redis, OpenRouter LLM + embeddings client, env config, startup connectivity check — implemented and live-verified (typecheck, `npm run dev` connects to Atlas/Redis/OpenRouter). Merged to `main` via PR #6. |
 | **Samin** | `db-vector-indexes` | `feat/db-vector-indexes` | ⬜ Todo | 3 Atlas Vector Search indexes + collection schemas |
 
 | **Robayat** | ⚡ Critical fix #3 | — | ⬜ Todo | Ping Mursalin for tokens; submit LinkedIn app NOW |

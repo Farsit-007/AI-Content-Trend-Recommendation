@@ -17,7 +17,7 @@
 ### July 13 (Today) — Foundation
 | Status | Change | Branch | Notes |
 |--------|--------|--------|-------|
-| 🔄 In Progress | `backend-scaffold` | `ravi/feat/backend-scaffold` | Node + TS server, Mongo/Redis, OpenRouter LLM + embeddings client (via `openai` SDK), env config, startup connectivity check. Implemented and live-verified end-to-end (typecheck passes; `npm run dev` connects to Atlas/Redis/OpenRouter and logs `OK` for all four checks; a broken env var exits with a clear error). **Not yet committed/PR'd to `main`.** |
+| ✅ Done | `backend-scaffold` | `ravi/feat/backend-scaffold` | Node + TS server, Mongo/Redis, OpenRouter LLM + embeddings client (via `openai` SDK), env config, startup connectivity check. Implemented and live-verified end-to-end (typecheck passes; `npm run dev` connects to Atlas/Redis/OpenRouter and logs `OK` for all four checks; a broken env var exits with a clear error). **Merged to `main` via PR #6.** |
 | ⬜ Todo | `db-vector-indexes` | `feat/db-vector-indexes` | 3 Atlas Vector Search indexes + collection schemas |
 
 ### July 14 — Ingestion Pipeline + Brand Voice
@@ -54,7 +54,7 @@
 
 ## Independence Notes
 - You are **fully independent** — no one blocks you.
-- Share your `.env` values (Mongo URI, Redis URL, OpenRouter key) with Robayat as soon as scaffold is done — that's the only handoff. **Scaffold is functionally done and live-verified — share the values now; still pending: commit/PR/merge `ravi/feat/backend-scaffold` to `main`.**
+- Share your `.env` values (Mongo URI, Redis URL, OpenRouter key) with Robayat as soon as scaffold is done — that's the only handoff. **`ravi/feat/backend-scaffold` is merged to `main` (PR #6) — only remaining step is sharing the `.env` values with Robayat (tasks.md 7.4).**
 - Robayat and Mehedi can work in parallel from Day 1 without needing your features to be complete.
 
 ---
@@ -83,3 +83,4 @@ gh pr create --fill
 ## Notes
 <!-- Add blockers, decisions, or progress notes here -->
 - **2026-07-13**: Critical fixes #1 (Atlas Mongo) and #2 (embedding provider) resolved and live-verified. `backend-scaffold` implemented: Redis client (`ioredis`), OpenRouter LLM + embeddings client (`openai` SDK), env config, startup `verifyConnections()` check. Old Auth/User/Cloudinary/Email boilerplate removed. Not yet committed — next step is to commit, push, and open the PR.
+- **2026-07-14**: `ravi/feat/backend-scaffold` (PR #6) merged into `main`. All `openspec/changes/backend-scaffold/tasks.md` items are checked off except 7.4 (share `.env` values with Robayat — manual, do this next). Next up: `db-vector-indexes`.
