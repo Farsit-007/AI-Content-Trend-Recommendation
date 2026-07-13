@@ -8,18 +8,23 @@
 
 ## Task Board
 
+### ⚡ July 13 FIRST — External Dependency (before any code)
+| Status | Task | Notes |
+|--------|------|-------|
+| ⬜ Todo | Ping Mursalin for platform tokens | **Mursalin (page admin) is not on the dev team** — he must generate the Meta page token, YouTube API key, and LinkedIn app access. This blocks all three analytics changes. Chase TODAY. |
+
 ### July 13 (Today) — API Contract + Credentials
 | Status | Change | Branch | Notes |
 |--------|--------|--------|-------|
 | ⬜ Todo | `api-contract-openapi` | `feat/api-contract-openapi` | Define all REST endpoints + **stub server** so Mehedi can build UI immediately. Merge ASAP. |
-| ⬜ Todo | `platform-api-credentials` | `feat/platform-api-credentials` | Meta / YouTube / LinkedIn app setup. **Start LinkedIn NOW — approval takes days.** |
+| ⬜ Todo | `platform-api-credentials` | `feat/platform-api-credentials` | Meta / YouTube / LinkedIn app setup. **Submit LinkedIn app NOW — approval takes 2–3 days.** |
 
 ### July 14 — Platform Analytics
 | Status | Change | Branch | FRs | Notes |
 |--------|--------|--------|-----|-------|
-| ⬜ Todo | `facebook-analytics` | `feat/facebook-analytics` | FR-06 | Meta Graph API: reach, engagement, top posts, best times; 6h refresh |
+| ⬜ Todo | `facebook-analytics` | `feat/facebook-analytics` | FR-06, FR-26 | Meta Graph API: reach, engagement, top posts, best times; 6h refresh. **Include manual refresh endpoint (FR-26) for Mehedi's admin UI. Start here — slowest API.** |
 | ⬜ Todo | `youtube-analytics` | `feat/youtube-analytics` | FR-07 | YouTube Data API v3: views, watch time, CTR, top videos |
-| ⬜ Todo | `linkedin-analytics` | `feat/linkedin-analytics` | FR-08 | LinkedIn API: impressions, engagement, demographics |
+| ⬜ Todo | `linkedin-analytics` | `feat/linkedin-analytics` | FR-08 | LinkedIn API: impressions, engagement, demographics. **Cut first if behind — Should Have, approval may not arrive.** |
 
 ### July 15 — Scoring + Reporting
 | Status | Change | Branch | FRs | Notes |

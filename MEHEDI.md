@@ -9,15 +9,17 @@
 ## Independence Strategy — Mock Data First
 
 > **You don't wait on anyone.** Build every screen with realistic hardcoded mock data from Day 1.  
-> On **July 15**, do one pass to swap `mockData` → `fetch('/api/...')` across all screens.  
+> On **July 15**, do one pass to swap `mockData` → `fetch('/api/...')` across all screens — behind a `USE_MOCK` flag.  
 > This way your UI is 100% done before the backend even needs to be finished.
 
 ```ts
 // Day 1–2: use this pattern
 const data = MOCK_NEWS_ITEMS   // hardcoded realistic data
 
-// Day 3: swap to this
-const data = await fetch('/api/news').then(r => r.json())
+// Day 3: swap to this — with mock fallback for demo day
+const data = process.env.NEXT_PUBLIC_USE_MOCK === "true"
+  ? MOCK_NEWS_ITEMS
+  : await fetch('/api/news').then(r => r.json())
 ```
 
 ---
@@ -42,17 +44,18 @@ const data = await fetch('/api/news').then(r => r.json())
 | ⬜ Todo | `report-ui` | `feat/report-ui` | FR-09–11 | 30-day report: overview, per-platform charts, AI insight — **use mock data** |
 | ⬜ Todo | `chat-ui` | `feat/chat-ui` | FR-22 | Ask Growth Studio chat panel — **use mock data** |
 | ⬜ Todo | `admin-triggers-ui` | `feat/admin-triggers-ui` | FR-25, FR-26 | "Run ingestion" + "Refresh analytics" buttons — **use mock data** |
+| ⬜ Todo | Brand-voice seed posts | — | FR-18 | Collect 25–30 real high-engagement posts from PH Facebook/LinkedIn (needs Mursalin's access) — **unblocks Samin's RAG work tomorrow** |
 
 ### July 15 — Wire Up Real API
 | Status | Change | Branch | Notes |
 |--------|--------|--------|-------|
-| ⬜ Todo | `api-wiring` | `feat/api-wiring` | Replace all mock data with real `fetch()` calls to Robayat's API. One PR covers all screens. |
+| ⬜ Todo | `api-wiring` | `feat/api-wiring` | Swap mock data → real `fetch()` calls behind a `USE_MOCK` env flag. One PR covers all screens. **Keep the mock folder — it's the demo-day fallback.** |
 
-### July 16 — Polish + Demo
+### July 16 — Polish + Demo (NO feature work)
 | Status | Change | Branch | Notes |
 |--------|--------|--------|-------|
 | ⬜ Todo | UI polish | — | Loading states, error handling, empty states, responsive check |
-| ⬜ Todo | Demo run-through | — | Full happy-path walkthrough with team |
+| ⬜ Todo | Demo script + run-through | — | Write the walkthrough script; full happy-path run with team; warm app 5 min before presenting |
 
 ---
 
@@ -75,7 +78,7 @@ frontend/lib/mock/
 ├─ content.ts       # mock generated content
 └─ chat.ts          # mock chat responses
 ```
-On July 15, delete this folder after wiring real API calls.
+**Do NOT delete this folder on July 15** — keep it as the `USE_MOCK` fallback for demo day. Remove only after the demo.
 
 ---
 
