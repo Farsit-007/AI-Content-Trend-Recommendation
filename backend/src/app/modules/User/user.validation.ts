@@ -7,7 +7,7 @@ const createUserValidation = z.object({
     email: z.string().email('A valid email is required'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     name: z.string().min(1, 'Name is required'),
-    role: z.enum(['admin', 'user']).optional(),
+    role: z.enum(['super_admin', 'admin', 'user']).optional(),
     team_ids: z.array(objectId).optional(),
   }),
 });

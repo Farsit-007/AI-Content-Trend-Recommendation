@@ -2,6 +2,7 @@ import AppError from '../../errors/AppError';
 import { decrypt, encrypt } from '../../lib/crypto';
 import { Platform } from '../../lib/platforms';
 import { httpStatus } from '../../utils/httpStatus';
+import { PlatformCatalogService } from '../PlatformCatalog/platformCatalog.service';
 import { PlatformCredential } from './platformCredential.model';
 
 const upsertCredential = async (
@@ -9,6 +10,8 @@ const upsertCredential = async (
   payload: { platform: Platform; token: string; account_id?: string },
   addedBy: string,
 ) => {
+  await PlatformCatalogService.assertTeamPlatformEnabled(teamId, payload.platform);
+
   const encrypted_token = encrypt(payload.token);
   const token_last4 = payload.token.slice(-4);
 

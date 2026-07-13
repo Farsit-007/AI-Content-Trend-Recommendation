@@ -35,23 +35,31 @@ export const requireAuth = catchAsync(async (req: Request, _res: Response, next:
   next();
 });
 
-/** Gate for admin-only routes. Must run after `requireAuth`. */
+/** Gate for admin-only routes. A super_admin can do everything an admin can. Must run after `requireAuth`. */
 export const requireAdmin = (req: Request, _res: Response, next: NextFunction) => {
-  if (req.user?.role !== 'admin') {
+  if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
     throw new AppError(httpStatus.FORBIDDEN, 'Admin access required');
   }
   next();
 };
 
+/** Gate for super_admin-only routes, e.g. managing the platform catalog. Must run after `requireAuth`. */
+export const requireSuperAdmin = (req: Request, _res: Response, next: NextFunction) => {
+  if (req.user?.role !== 'super_admin') {
+    throw new AppError(httpStatus.FORBIDDEN, 'Super admin access required');
+  }
+  next();
+};
+
 /**
- * Gate for team-scoped routes, e.g. `/teams/:teamId/...`. Admins pass regardless of membership;
- * everyone else must be a member of the team named by `req.params[paramName]`. Must run after
- * `requireAuth`.
+ * Gate for team-scoped routes, e.g. `/teams/:teamId/...`. Admins and super_admins pass regardless
+ * of membership; everyone else must be a member of the team named by `req.params[paramName]`.
+ * Must run after `requireAuth`.
  */
 export const requireTeamAccess =
   (paramName = 'teamId') =>
   (req: Request, _res: Response, next: NextFunction) => {
-    if (req.user?.role === 'admin') {
+    if (req.user?.role === 'admin' || req.user?.role === 'super_admin') {
       return next();
     }
 

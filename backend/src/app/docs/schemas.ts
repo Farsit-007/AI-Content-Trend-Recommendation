@@ -170,7 +170,7 @@ export const User = {
     _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
     email: { type: 'string', format: 'email' },
     name: { type: 'string' },
-    role: { type: 'string', enum: ['admin', 'user'] },
+    role: { type: 'string', enum: ['super_admin', 'admin', 'user'] },
     created_at: { type: 'string', format: 'date-time' },
   },
   required: ['email', 'name', 'role'],
@@ -182,9 +182,10 @@ export const UserCreate = {
     email: { type: 'string', format: 'email' },
     password: { type: 'string', minLength: 8 },
     name: { type: 'string' },
-    role: { type: 'string', enum: ['admin', 'user'], default: 'user' },
+    role: { type: 'string', enum: ['super_admin', 'admin', 'user'], default: 'user' },
     team_ids: { type: 'array', items: { type: 'string' } },
   },
+  description: 'Only an existing super_admin may create/promote another super_admin.',
   required: ['email', 'password', 'name'],
 } as const;
 
@@ -250,7 +251,46 @@ export const PlatformCredentialCreate = {
     token: { type: 'string', description: 'Plaintext platform token/API key — encrypted at rest, never logged.' },
     account_id: { type: 'string' },
   },
+  description: 'The team must have enabled this platform first (see Platform Catalog) — otherwise this is rejected with a 400.',
   required: ['platform', 'token'],
+} as const;
+
+export const PlatformCatalog = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    name: {
+      type: 'string',
+      example: 'facebook',
+      description: 'Any social platform slug, e.g. facebook, youtube, linkedin, reddit, twitter, instagram, tiktok.',
+    },
+    label: { type: 'string', example: 'Facebook' },
+    is_enabled: { type: 'boolean', description: 'Global on/off switch — disabling immediately blocks every team from using this platform.' },
+    created_by: { type: 'string' },
+    created_at: { type: 'string', format: 'date-time' },
+    updated_at: { type: 'string', format: 'date-time' },
+  },
+  required: ['name', 'is_enabled', 'created_by'],
+} as const;
+
+export const PlatformCatalogCreate = {
+  type: 'object',
+  properties: {
+    name: { type: 'string', example: 'facebook' },
+    label: { type: 'string', example: 'Facebook' },
+    is_enabled: { type: 'boolean', default: true },
+  },
+  required: ['name'],
+} as const;
+
+export const TeamPlatform = {
+  type: 'object',
+  properties: {
+    name: { type: 'string', example: 'facebook' },
+    label: { type: 'string', example: 'Facebook' },
+    team_enabled: { type: 'boolean', description: 'Whether this specific team currently has the platform turned on.' },
+  },
+  required: ['name', 'team_enabled'],
 } as const;
 
 export const BrandVoiceExampleUpdate = {

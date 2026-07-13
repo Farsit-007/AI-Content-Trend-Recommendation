@@ -221,4 +221,108 @@ export const authTeamPaths = {
       },
     },
   },
+  '/platforms': {
+    post: {
+      tags: ['Platform Catalog'],
+      summary: 'Add a platform to the catalog (super_admin only)',
+      security: bearerAuth,
+      requestBody: jsonBody('PlatformCatalogCreate'),
+      responses: {
+        '201': { description: 'Platform added', content: { 'application/json': { schema: singleEnvelope('PlatformCatalog') } } },
+        '403': errorResponse('Super admin access required'),
+        '409': errorResponse('Platform already exists in the catalog'),
+      },
+    },
+    get: {
+      tags: ['Platform Catalog'],
+      summary: 'List platforms — every entry for super_admin, only enabled ones otherwise',
+      security: bearerAuth,
+      responses: {
+        '200': { description: 'Platforms', content: { 'application/json': { schema: listEnvelope('PlatformCatalog') } } },
+      },
+    },
+  },
+  '/platforms/{name}/enable': {
+    patch: {
+      tags: ['Platform Catalog'],
+      summary: 'Enable a platform globally (super_admin only)',
+      security: bearerAuth,
+      parameters: [{ name: 'name', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: {
+        '200': { description: 'Platform enabled', content: { 'application/json': { schema: singleEnvelope('PlatformCatalog') } } },
+        '403': errorResponse('Super admin access required'),
+        '404': errorResponse('Platform is not in the catalog'),
+      },
+    },
+  },
+  '/platforms/{name}/disable': {
+    patch: {
+      tags: ['Platform Catalog'],
+      summary: 'Disable a platform globally — immediately blocks every team from using it (super_admin only)',
+      security: bearerAuth,
+      parameters: [{ name: 'name', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: {
+        '200': { description: 'Platform disabled', content: { 'application/json': { schema: singleEnvelope('PlatformCatalog') } } },
+        '403': errorResponse('Super admin access required'),
+        '404': errorResponse('Platform is not in the catalog'),
+      },
+    },
+  },
+  '/platforms/{name}': {
+    delete: {
+      tags: ['Platform Catalog'],
+      summary: 'Remove a platform from the catalog (super_admin only)',
+      security: bearerAuth,
+      parameters: [{ name: 'name', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: {
+        '200': { description: 'Platform removed', content: { 'application/json': { schema: singleEnvelope('PlatformCatalog') } } },
+        '403': errorResponse('Super admin access required'),
+        '404': errorResponse('Platform is not in the catalog'),
+      },
+    },
+  },
+  '/teams/{teamId}/platforms': {
+    get: {
+      tags: ['Platform Catalog'],
+      summary: "List a team's platforms — every globally-enabled catalog platform, with this team's own enabled/disabled status",
+      security: bearerAuth,
+      parameters: [{ name: 'teamId', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: {
+        '200': { description: "Team's platforms", content: { 'application/json': { schema: listEnvelope('TeamPlatform') } } },
+        '403': errorResponse('You do not have access to this team'),
+      },
+    },
+  },
+  '/teams/{teamId}/platforms/{platform}/enable': {
+    post: {
+      tags: ['Platform Catalog'],
+      summary: 'Enable a platform for this team',
+      security: bearerAuth,
+      parameters: [
+        { name: 'teamId', in: 'path', required: true, schema: { type: 'string' } },
+        { name: 'platform', in: 'path', required: true, schema: { type: 'string' } },
+      ],
+      responses: {
+        '200': { description: 'Platform enabled for team' },
+        '400': errorResponse('Platform is not currently available — ask a super_admin to add or enable it first'),
+        '403': errorResponse('You do not have access to this team'),
+      },
+    },
+  },
+  '/teams/{teamId}/platforms/{platform}/disable': {
+    post: {
+      tags: ['Platform Catalog'],
+      summary: 'Disable a platform for this team',
+      security: bearerAuth,
+      parameters: [
+        { name: 'teamId', in: 'path', required: true, schema: { type: 'string' } },
+        { name: 'platform', in: 'path', required: true, schema: { type: 'string' } },
+      ],
+      responses: {
+        '200': { description: 'Platform disabled for team' },
+        '403': errorResponse('You do not have access to this team'),
+        '404': errorResponse('Team has not enabled this platform'),
+      },
+    },
+  },
 };

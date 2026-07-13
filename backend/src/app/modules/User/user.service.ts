@@ -18,14 +18,26 @@ const signToken = (payload: IAuthPayload): string =>
 /**
  * Admin-only. Self-registration was removed — every account is created deliberately, with a
  * role and (usually) a team assignment, so there's never a user floating around with neither.
+ *
+ * `requestingUserRole` is the HTTP caller's own role, used to block a regular admin from
+ * creating/promoting another super_admin. It's omitted entirely when called from the
+ * `seedAdmin` bootstrap script (no HTTP caller exists yet), which is what lets that script
+ * create the very first super_admin.
  */
-const createUser = async (payload: {
-  email: string;
-  password: string;
-  name: string;
-  role?: UserRole;
-  team_ids?: string[];
-}) => {
+const createUser = async (
+  payload: {
+    email: string;
+    password: string;
+    name: string;
+    role?: UserRole;
+    team_ids?: string[];
+  },
+  requestingUserRole?: UserRole,
+) => {
+  if (payload.role === 'super_admin' && requestingUserRole && requestingUserRole !== 'super_admin') {
+    throw new AppError(httpStatus.FORBIDDEN, 'Only a super_admin can create another super_admin');
+  }
+
   const existing = await User.findOne({ email: payload.email.toLowerCase() });
   if (existing) {
     throw new AppError(httpStatus.CONFLICT, 'An account with this email already exists');

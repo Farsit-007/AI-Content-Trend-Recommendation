@@ -4,11 +4,16 @@ import config from '../config';
 import { decrypt } from './crypto';
 import { isKnownPlatform, KNOWN_PLATFORMS, KnownPlatform, Platform } from './platforms';
 import { PlatformCredential } from '../modules/PlatformCredential/platformCredential.model';
+import { PlatformCatalogService } from '../modules/PlatformCatalog/platformCatalog.service';
 
 export { Platform, KnownPlatform, KNOWN_PLATFORMS };
 
 const findStoredToken = async (platform: Platform, teamId?: string): Promise<string | null> => {
   if (!teamId) return null;
+  // A platform the super_admin has since disabled (globally) or the team has turned off must stop
+  // resolving immediately, even though the encrypted row still physically exists.
+  if (!(await PlatformCatalogService.isTeamPlatformEnabled(teamId, platform))) return null;
+
   const credential = await PlatformCredential.findOne({ team_id: teamId, platform }).select('+encrypted_token');
   return credential ? decrypt(credential.encrypted_token) : null;
 };

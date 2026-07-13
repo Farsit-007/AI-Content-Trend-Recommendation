@@ -3,6 +3,7 @@ import swaggerUi from 'swagger-ui-express';
 import { BrandVoiceExampleRoutes } from '../modules/BrandVoiceExample/brandVoiceExample.route';
 import { NewsItemRoutes } from '../modules/NewsItem/newsItem.route';
 import { PlatformPostRoutes } from '../modules/PlatformPost/platformPost.route';
+import { PlatformCatalogRoutes } from '../modules/PlatformCatalog/platformCatalog.route';
 import { TeamRoutes } from '../modules/Team/team.route';
 import { AuthRoutes, UserRoutes } from '../modules/User/user.route';
 import { openApiDocument } from '../docs/openapi';
@@ -19,6 +20,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: '/auth', route: AuthRoutes },
   { path: '/users', route: UserRoutes },
   { path: '/teams', route: TeamRoutes },
+  { path: '/platforms', route: PlatformCatalogRoutes },
   { path: '/news-items', route: NewsItemRoutes },
   { path: '/platform-posts', route: PlatformPostRoutes },
   { path: '/brand-voice-examples', route: BrandVoiceExampleRoutes },
