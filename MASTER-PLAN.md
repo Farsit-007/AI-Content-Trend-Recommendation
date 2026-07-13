@@ -45,7 +45,7 @@
 | **Samin** | `db-vector-indexes` | `ravi/feat/db-vector-indexes` | 👀 In Review | 3 Atlas Vector Search indexes + collection schemas — implemented, live-verified against Atlas M0, PR #10 open |
 
 | **Robayat** | ⚡ Critical fix #3 | — | ⬜ Todo | Ping Mursalin for tokens; submit LinkedIn app NOW |
-| **Robayat** | `api-contract-openapi` | `feat/api-contract-openapi` | ⬜ Todo | REST endpoints + stub server — merge ASAP, Mehedi builds against it |
+| **Robayat** | `api-contract-openapi` | `feat/api-contract-openapi` | 🔄 In Progress | OpenAPI 3.1 contract for all `/api/v1` resources — Swagger UI at `/api/v1/docs`, raw spec at `/api/v1/openapi.json`. Implemented + verified locally (typecheck/lint clean, spec validates, UI renders). Pending PR → merge so Mehedi builds against it. |
 | **Robayat** | `platform-api-credentials` | `feat/platform-api-credentials` | ⬜ Todo | Meta / YouTube / LinkedIn app setup + tokens → `.env` |
 | **Mehedi** | `news-feed-dashboard` | `feat/news-feed-dashboard` | ⬜ Todo | daily.dev-style feed, tabs, sort, trend + "High opportunity" badges — mock data |
 | **Mehedi** | `content-generator-ui` | `feat/content-generator-ui` | ⬜ Todo | Generate button → 5 format panels, copy-to-clipboard — mock data |

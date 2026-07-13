@@ -16,7 +16,7 @@
 ### July 13 (Today) — API Contract + Credentials
 | Status | Change | Branch | Notes |
 |--------|--------|--------|-------|
-| ⬜ Todo | `api-contract-openapi` | `feat/api-contract-openapi` | Define all REST endpoints + **stub server** so Mehedi can build UI immediately. Merge ASAP. |
+| 🔄 In Progress | `api-contract-openapi` | `feat/api-contract-openapi` | **Implemented + verified locally** — OpenAPI 3.1 contract for all `/api/v1` resources (news-items, platform-posts, brand-voice-examples), served as Swagger UI at `/api/v1/docs` and raw spec at `/api/v1/openapi.json`. typecheck + lint clean; spec validates (6 paths, 15 ops); docs UI renders. Pending PR → merge. |
 | ⬜ Todo | `platform-api-credentials` | `feat/platform-api-credentials` | Meta / YouTube / LinkedIn app setup. **Submit LinkedIn app NOW — approval takes 2–3 days.** |
 
 ### July 14 — Platform Analytics

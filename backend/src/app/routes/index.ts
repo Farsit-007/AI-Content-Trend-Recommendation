@@ -1,9 +1,17 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
+import swaggerUi from 'swagger-ui-express';
 import { BrandVoiceExampleRoutes } from '../modules/BrandVoiceExample/brandVoiceExample.route';
 import { NewsItemRoutes } from '../modules/NewsItem/newsItem.route';
 import { PlatformPostRoutes } from '../modules/PlatformPost/platformPost.route';
+import { openApiDocument } from '../docs/openapi';
 
 const router = Router();
+
+// API documentation: raw OpenAPI 3.1 spec and interactive Swagger UI.
+router.get('/openapi.json', (_req: Request, res: Response) => {
+  res.json(openApiDocument);
+});
+router.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 const moduleRoutes: { path: string; route: Router }[] = [
   { path: '/news-items', route: NewsItemRoutes },
