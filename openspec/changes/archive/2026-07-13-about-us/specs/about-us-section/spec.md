@@ -2,7 +2,7 @@
 
 ### Requirement: About Us section on the landing page
 
-The landing page SHALL render an "About Us" section that communicates the TrendBridge mission and story. The section MUST have a stable anchor id of `about` so it can be linked to from navigation, and MUST follow the existing section layout conventions (centered eyebrow badge, heading, and supporting copy).
+The landing page SHALL render an "About Us" section that communicates the Growth Studio mission and story. The section MUST have a stable anchor id of `about` so it can be linked to from navigation, and MUST follow the existing section layout conventions (centered eyebrow badge, heading, and supporting copy).
 
 #### Scenario: Section is present on the home page
 
@@ -12,7 +12,7 @@ The landing page SHALL render an "About Us" section that communicates the TrendB
 #### Scenario: Section presents mission and story
 
 - **WHEN** a visitor views the About Us section
-- **THEN** it displays a heading, a short mission statement, and story/values copy describing why TrendBridge exists
+- **THEN** it displays a heading, a short mission statement, and story/values copy describing why Growth Studio exists
 
 ### Requirement: Team and credibility content
 

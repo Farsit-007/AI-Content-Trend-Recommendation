@@ -128,3 +128,15 @@
     scroll-behavior: smooth;
     }
 }
+
+@layer utilities {
+  .gradient-text {
+    @apply bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent;
+  }
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-sm border border-white/10;
+  }
+  .btn-glow {
+    @apply shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:shadow-[0_0_50px_rgba(139,92,246,0.6)] transition-shadow;
+  }
+}

@@ -1,72 +1,111 @@
+"use client"
+
+import { motion } from "framer-motion"
+import { Rss, BarChart3, GitMerge, Sparkles } from "lucide-react"
+
 const capabilities = [
   {
+    icon: Rss,
     number: "01",
-    icon: "📡",
     title: "Monitors",
     description:
       "Pulls tech news from HackerNews, Dev.to, GitHub, Reddit, and RSS feeds every 3 hours — automatically, around the clock.",
   },
   {
+    icon: BarChart3,
     number: "02",
-    icon: "📊",
     title: "Analyzes",
     description:
-      "Fetches 30 days of your Facebook page, YouTube channel, and LinkedIn performance data — reach, views, engagement, best times, top content.",
+      "Fetches 30 days of your Facebook page, YouTube channel, and LinkedIn performance data — reach, views, engagement, best times.",
   },
   {
+    icon: GitMerge,
     number: "03",
-    icon: "🔀",
     title: "Cross-References",
     description:
-      "Combines trending topics with your audience data to surface the highest-opportunity content ideas ranked by what will work for YOUR specific followers.",
+      "Combines trending topics with your audience data to surface the highest-opportunity content ideas for YOUR specific followers.",
   },
   {
+    icon: Sparkles,
     number: "04",
-    icon: "✍️",
     title: "Generates",
     description:
-      "Creates platform-specific content in one click: Facebook post, Reel script, LinkedIn post, full YouTube idea, and short captions — all in Banglish, in your brand voice.",
+      "Creates platform-specific content in one click: Facebook post, Reel script, LinkedIn post, full YouTube idea — in Banglish, in your brand voice.",
   },
 ]
 
+const item = {
+  hidden: { opacity: 0, x: -12 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.45, ease: "easeOut" as const } },
+}
+
+const container = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.09 } },
+}
+
 export default function SolutionSection() {
   return (
-    <section id="solution" className="py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="mb-16 text-center">
-          <span className="mb-4 inline-block rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-            The Solution
-          </span>
-          <h2 className="mb-4 text-3xl font-bold sm:text-4xl">Meet TrendBridge</h2>
-          <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-            The only tool that combines what&apos;s trending in tech with what works on YOUR
-            channels — and turns it into a full week of content in 5 minutes.
-          </p>
-        </div>
+    <section id="solution" className="py-10 md:py-14 bg-white/[0.04]">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="grid gap-12 lg:grid-cols-2 lg:gap-20">
+          {/* Left */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: "easeOut" }}
+            viewport={{ once: true }}
+            className="flex flex-col justify-start"
+          >
+            <span className="mb-3 inline-block self-start rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-medium uppercase tracking-widest text-violet-300">
+              The Solution
+            </span>
+            <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+              Meet <span className="gradient-text">Growth Studio</span>
+            </h2>
+            <p className="mb-6 text-muted-foreground">
+              The only tool that combines what&apos;s trending in tech with what works on YOUR
+              channels — and turns it into a full week of content in 5 minutes.
+            </p>
+            <blockquote className="rounded-xl border-l-2 border-violet-500 bg-violet-500/5 py-4 pl-5 pr-4">
+              <p className="text-sm italic text-muted-foreground">
+                &ldquo;One dashboard. See what&apos;s trending, what works on your channels, and
+                what to create next.{" "}
+                <span className="font-semibold text-violet-400 not-italic">
+                  Everything generated. Nothing left to guess.
+                </span>
+                &rdquo;
+              </p>
+            </blockquote>
+          </motion.div>
 
-        <div className="grid gap-6 sm:grid-cols-2">
-          {capabilities.map((cap) => (
-            <div
-              key={cap.number}
-              className="group rounded-xl border border-border/40 bg-card p-6 transition-all hover:border-violet-500/30 hover:bg-card"
-            >
-              <div className="mb-4 flex items-center gap-3">
-                <span className="text-2xl font-extrabold text-violet-500/30">{cap.number}</span>
-                <span className="text-2xl">{cap.icon}</span>
-              </div>
-              <h3 className="mb-2 text-lg font-semibold text-foreground">{cap.title}</h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">{cap.description}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-12 rounded-xl border border-violet-500/20 bg-violet-500/5 p-8 text-center">
-          <p className="text-lg font-medium text-foreground">
-            &ldquo;The marketing team opens one dashboard. They see what&apos;s trending, what&apos;s
-            working on their channels, and what to create next.{" "}
-            <span className="text-violet-400">Everything generated. Nothing left to guess.</span>
-            &rdquo;
-          </p>
+          {/* Right */}
+          <motion.div
+            variants={container}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="flex flex-col gap-3"
+          >
+            {capabilities.map((cap) => (
+              <motion.div
+                key={cap.number}
+                variants={item}
+                className="glass-card group flex gap-4 rounded-xl p-4 transition-colors duration-300 hover:border-violet-500/30"
+              >
+                <div className="flex shrink-0 flex-col items-center gap-1.5">
+                  <div className="flex size-9 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/10">
+                    <cap.icon className="size-4 text-violet-400" />
+                  </div>
+                  <span className="text-xs font-bold text-violet-500/40">{cap.number}</span>
+                </div>
+                <div>
+                  <h3 className="mb-1 font-semibold text-foreground">{cap.title}</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{cap.description}</p>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </div>
     </section>

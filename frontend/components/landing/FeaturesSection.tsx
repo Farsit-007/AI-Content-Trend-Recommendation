@@ -1,111 +1,160 @@
-const features = [
+"use client"
+
+import { motion } from "framer-motion"
+import { Newspaper, Filter, Mic, PenTool, BarChart2, MessageSquare, Flame, Target, Bolt } from "lucide-react"
+
+type BentoFeature = {
+  icon: React.ElementType
+  title: string
+  description: string
+  badge?: string
+  colSpan?: string
+  accent?: boolean
+  metrics?: string[]
+}
+
+const features: BentoFeature[] = [
   {
-    icon: "📰",
+    icon: Newspaper,
     title: "News Feed Dashboard",
     description:
-      "Card-based feed styled like daily.dev — dark theme, tab filtering by AI / Web Dev / Career / Security, sorted by latest, relevance, or trend score.",
-    badge: "Core",
+      "Card-based feed — dark theme, tab filtering by AI / Web Dev / Career / Security, sorted by latest, relevance, or trend score.",
+    badge: "Live",
+    colSpan: "md:col-span-2",
   },
   {
-    icon: "🔬",
-    title: "4-Layer AI Filter Pipeline",
+    icon: Filter,
+    title: "4-Layer AI Filter",
     description:
-      "Reduces 200+ daily news items to the 20–30 that matter. Keyword pre-filter → vector dedup → Redis cache → relevance gate. Zero AI cost as volume scales.",
+      "Reduces 200+ daily items to the 20–30 that matter. Keyword → vector dedup → Redis cache → relevance gate.",
     badge: "Technical",
+    colSpan: "md:col-span-1",
   },
   {
-    icon: "✨",
-    title: "Multi-Format Content Generator",
-    description:
-      "One trending topic → Facebook post, Reel script, LinkedIn post, full YouTube idea (title + hook + chapters + thumbnail), and short caption — all in one click.",
-    badge: "Core",
-  },
-  {
-    icon: "🎙️",
+    icon: Mic,
     title: "Brand Voice RAG",
     description:
-      "Generates content that sounds like YOUR brand, not generic AI. Uses vector search on your real high-engagement posts as few-shot examples.",
-    badge: "AI",
+      "Generates content that sounds like YOUR brand using vector search on your real high-engagement posts.",
+    colSpan: "md:col-span-1",
   },
   {
-    icon: "📈",
+    icon: PenTool,
+    title: "Multi-Format Content Generator",
+    description:
+      "One trending topic → Facebook post, Reel script, LinkedIn post, full YouTube idea + chapters — all in one click.",
+    badge: "AI-Powered",
+    colSpan: "md:col-span-2",
+  },
+  {
+    icon: BarChart2,
     title: "Cross-Platform Analytics",
     description:
-      "30-day unified report across Facebook, YouTube, and LinkedIn — reach, engagement, best times, top content, and AI cross-platform insight in Banglish.",
-    badge: "Analytics",
+      "30-day unified report across Facebook, YouTube, and LinkedIn — reach, engagement, best times, top content, and AI insight in Banglish.",
+    colSpan: "md:col-span-3",
+    accent: true,
+    metrics: ["30-day history", "3 platforms", "AI insights"],
   },
   {
-    icon: "💬",
-    title: "Ask TrendBridge Chat",
+    icon: MessageSquare,
+    title: "Ask Growth Studio",
     description:
-      'Ask questions in plain Banglish/English. Get data-grounded answers from your real news database and platform analytics in seconds via RAG.',
+      "Ask in Banglish/English. Get data-grounded answers from your news database and analytics via RAG.",
     badge: "AI",
+    colSpan: "md:col-span-1",
   },
   {
-    icon: "🔥",
+    icon: Flame,
     title: "Trend Score",
     description:
-      "Zero-AI trending potential score calculated from engagement signals — points, comments, and recency decay. 🔥 badge when score ≥ 7.",
-    badge: "Smart",
+      "Zero-AI trending score from engagement signals — points, comments, recency decay. 🔥 when score ≥ 7.",
+    colSpan: "md:col-span-1",
   },
   {
-    icon: "🎯",
+    icon: Target,
     title: "Opportunity Scoring",
     description:
-      "Cross-references trending topics with your historical engagement data. Shows which trends will work for YOUR specific audience, ranked by opportunity score.",
-    badge: "Smart",
-  },
-  {
-    icon: "⚡",
-    title: "Impact Simulator",
-    description:
-      "Per high-relevance news item, AI generates one concrete content suggestion personalized to your channel's performance patterns.",
-    badge: "AI",
+      "Cross-references trends with your historical engagement. Shows which trends work for YOUR audience, ranked.",
+    colSpan: "md:col-span-1",
   },
 ]
 
-const badgeColors: Record<string, string> = {
-  Core: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+const badgeStyles: Record<string, string> = {
+  Live: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   Technical: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  AI: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
-  Analytics: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  Smart: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  "AI-Powered": "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+  AI: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+}
+
+const itemVariant = {
+  hidden: { opacity: 0, y: 14 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" as const } },
+}
+
+const container = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07 } },
 }
 
 export default function FeaturesSection() {
   return (
-    <section id="features" className="py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="mb-16 text-center">
-          <span className="mb-4 inline-block rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
+    <section id="features" className="py-10 md:py-14">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+          viewport={{ once: true }}
+          className="mb-8 text-center"
+        >
+          <span className="mb-3 inline-block rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium uppercase tracking-widest text-indigo-300">
             Features
           </span>
-          <h2 className="mb-4 text-3xl font-bold sm:text-4xl">Everything you need</h2>
+          <h2 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            Everything you need
+          </h2>
           <p className="mx-auto max-w-2xl text-muted-foreground">
-            A complete marketing intelligence platform built for edtech content teams who need to
-            move fast without compromising on quality.
+            A complete marketing intelligence platform for edtech content teams who need to move
+            fast without compromising on quality.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <motion.div
+          variants={container}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="grid grid-cols-1 gap-3 md:grid-cols-3"
+        >
           {features.map((feature) => (
-            <div
+            <motion.div
               key={feature.title}
-              className="rounded-xl border border-border/40 bg-card p-5 transition-all hover:border-violet-500/20 hover:shadow-lg hover:shadow-violet-500/5"
+              variants={itemVariant}
+              className={`glass-card group rounded-xl p-5 transition-colors duration-300 hover:border-violet-500/30 ${feature.colSpan ?? ""} ${feature.accent ? "border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-cyan-500/5" : ""}`}
             >
               <div className="mb-3 flex items-start justify-between gap-2">
-                <span className="text-2xl">{feature.icon}</span>
-                <span
-                  className={`rounded-full border px-2 py-0.5 text-xs font-medium ${badgeColors[feature.badge]}`}
-                >
-                  {feature.badge}
-                </span>
+                <div className={`inline-flex rounded-lg p-2 ${feature.accent ? "border border-violet-500/30 bg-violet-500/10" : "border border-white/10 bg-white/5"}`}>
+                  <feature.icon className={`size-4 ${feature.accent ? "text-violet-400" : "text-muted-foreground group-hover:text-violet-400 transition-colors"}`} />
+                </div>
+                {feature.badge && (
+                  <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${badgeStyles[feature.badge] ?? ""}`}>
+                    {feature.badge}
+                  </span>
+                )}
               </div>
-              <h3 className="mb-2 font-semibold text-foreground">{feature.title}</h3>
-              <p className="text-xs leading-relaxed text-muted-foreground">{feature.description}</p>
-            </div>
+              <h3 className="mb-1.5 font-semibold text-foreground">{feature.title}</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
+              {feature.metrics && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {feature.metrics.map((m) => (
+                    <span key={m} className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-0.5 text-xs text-violet-300">
+                      {m}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   )

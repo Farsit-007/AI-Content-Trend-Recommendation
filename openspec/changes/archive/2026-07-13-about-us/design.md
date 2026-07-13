@@ -1,6 +1,6 @@
 ## Context
 
-The TrendBridge landing page (`frontend/app/page.tsx`) composes a fixed set of section components from `frontend/components/landing/`: `Hero`, `ProblemSection`, `SolutionSection`, `FeaturesSection`, `HowItWorks`, `CTASection`, and `Footer`. Each section is a self-contained module with a static, module-scoped data array and Tailwind CSS v4 utility styling using the shared design tokens (`background`, `foreground`, `muted-foreground`, `border`) plus a violet accent. `Navbar` is a `"use client"` component that renders anchor links from a `navLinks` array for both desktop and a mobile menu.
+The Growth Studio landing page (`frontend/app/page.tsx`) composes a fixed set of section components from `frontend/components/landing/`: `Hero`, `ProblemSection`, `SolutionSection`, `FeaturesSection`, `HowItWorks`, `CTASection`, and `Footer`. Each section is a self-contained module with a static, module-scoped data array and Tailwind CSS v4 utility styling using the shared design tokens (`background`, `foreground`, `muted-foreground`, `border`) plus a violet accent. `Navbar` is a `"use client"` component that renders anchor links from a `navLinks` array for both desktop and a mobile menu.
 
 There is currently no section describing who is behind the product. This change adds one following the established pattern. No backend exists yet, and this is a static presentational change.
 

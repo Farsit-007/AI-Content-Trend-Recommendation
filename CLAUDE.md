@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project structure
 
-This is a hackathon monorepo — TrendBridge, an AI Content & Trend Intelligence Platform:
+This is a hackathon monorepo — Growth Studio, an AI Content & Trend Intelligence Platform:
 
 - `backend/` — server-side code (currently empty)
 - `frontend/` — Next.js 16 + TypeScript + Tailwind CSS v4 + shadcn/ui

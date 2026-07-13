@@ -1,88 +1,125 @@
+"use client"
+
+import { motion } from "framer-motion"
+import { Radio, BarChart3, GitMerge, Sparkles } from "lucide-react"
+
 const steps = [
   {
     number: "01",
-    icon: "📡",
+    icon: Radio,
     title: "Monitor",
-    description:
-      "TrendBridge continuously pulls tech news from 5+ sources every 3 hours. A 4-layer filter pipeline reduces 200+ items to the 20–30 that actually matter for your audience.",
+    description: "Pulls tech news from 5+ sources every 3 hours. 4-layer filter reduces 200+ items to the 20–30 that matter.",
   },
   {
     number: "02",
-    icon: "📊",
+    icon: BarChart3,
     title: "Analyze",
-    description:
-      "Every 6 hours, your Facebook page, YouTube channel, and LinkedIn analytics are refreshed — revealing your top content, best posting times, and what your audience actually engages with.",
+    description: "Your Facebook, YouTube, and LinkedIn analytics refresh every 6 hours — top content, best times, engagement patterns.",
   },
   {
     number: "03",
-    icon: "🔀",
+    icon: GitMerge,
     title: "Cross-Reference",
-    description:
-      "Vector search connects trending topics to your historical performance data. Content opportunities are ranked by opportunity score: trend × audience match.",
+    description: "Vector search connects trends to your historical data. Opportunities ranked by trend × audience match score.",
   },
   {
     number: "04",
-    icon: "🚀",
+    icon: Sparkles,
     title: "Generate",
-    description:
-      "Click any news card → get 5 content formats in under 10 seconds: Facebook post, Reel script, LinkedIn post, full YouTube idea, and a short caption — all in Banglish, in your brand voice.",
+    description: "Click any card → 5 content formats in under 10 seconds: Facebook, Reel script, LinkedIn, YouTube idea, caption.",
   },
 ]
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="mb-16 text-center">
-          <span className="mb-4 inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
+    <section id="how-it-works" className="py-10 md:py-14 bg-white/[0.04]">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+          viewport={{ once: true }}
+          className="mb-8 text-center"
+        >
+          <span className="mb-3 inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-widest text-emerald-400">
             How It Works
           </span>
-          <h2 className="mb-4 text-3xl font-bold sm:text-4xl">From trend to content in 5 minutes</h2>
-          <p className="mx-auto max-w-2xl text-muted-foreground">
-            TrendBridge runs automatically in the background. When you open the dashboard, everything
-            is already done.
+          <h2 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            From trend to content in{" "}
+            <span className="gradient-text">5 minutes</span>
+          </h2>
+          <p className="mx-auto max-w-xl text-muted-foreground">
+            Runs automatically in the background. When you open the dashboard, everything is already done.
           </p>
-        </div>
+        </motion.div>
 
-        {/* Desktop: horizontal stepper */}
+        {/* Desktop stepper */}
         <div className="hidden lg:block">
           <div className="relative">
-            <div className="absolute top-8 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-            <div className="grid grid-cols-4 gap-6">
+            <div className="absolute top-[1.75rem] left-[calc(12.5%+2rem)] right-[calc(12.5%+2rem)] h-px bg-gradient-to-r from-violet-500/40 via-cyan-500/40 to-violet-500/40" />
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
+              className="grid grid-cols-4 gap-4"
+            >
               {steps.map((step, i) => (
-                <div key={step.number} className="relative flex flex-col items-center text-center">
-                  <div className="relative mb-6 flex size-16 items-center justify-center rounded-full border border-violet-500/30 bg-card text-2xl shadow-lg shadow-violet-500/10">
-                    {step.icon}
-                    <span className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-violet-600 text-xs font-bold text-white">
+                <motion.div
+                  key={step.number}
+                  variants={{
+                    hidden: { opacity: 0, y: 16 },
+                    visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" as const } },
+                  }}
+                  className="relative flex flex-col items-center text-center"
+                >
+                  <div className="relative mb-5 flex size-14 items-center justify-center rounded-full border border-violet-500/40 bg-violet-500/10 ring-4 ring-background">
+                    <step.icon className="size-5 text-violet-400" />
+                    <span className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-cyan-600 text-xs font-bold text-white">
                       {i + 1}
                     </span>
                   </div>
-                  <h3 className="mb-2 font-semibold text-foreground">{step.title}</h3>
-                  <p className="text-xs leading-relaxed text-muted-foreground">{step.description}</p>
-                </div>
+                  <h3 className="mb-1.5 font-semibold text-foreground">{step.title}</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{step.description}</p>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </div>
 
-        {/* Mobile: vertical stack */}
-        <div className="space-y-6 lg:hidden">
+        {/* Mobile stack */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={{ visible: { transition: { staggerChildren: 0.09 } } }}
+          className="space-y-3 lg:hidden"
+        >
           {steps.map((step, i) => (
-            <div key={step.number} className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-full border border-violet-500/30 bg-card text-xl">
-                  {step.icon}
+            <motion.div
+              key={step.number}
+              variants={{
+                hidden: { opacity: 0, x: -14 },
+                visible: { opacity: 1, x: 0, transition: { duration: 0.45, ease: "easeOut" as const } },
+              }}
+              className="glass-card flex gap-4 rounded-xl p-4"
+            >
+              <div className="flex shrink-0 flex-col items-center gap-1">
+                <div className="flex size-10 items-center justify-center rounded-full border border-violet-500/40 bg-violet-500/10">
+                  <step.icon className="size-4 text-violet-400" />
                 </div>
-                {i < steps.length - 1 && <div className="mt-2 h-full w-px bg-border/40" />}
+                {i < steps.length - 1 && (
+                  <div className="mt-1 h-full w-px bg-gradient-to-b from-violet-500/40 to-transparent" />
+                )}
               </div>
-              <div className="pb-6">
-                <div className="mb-1 text-xs font-bold text-violet-500">{step.number}</div>
+              <div className="pb-2">
+                <div className="mb-0.5 text-xs font-bold text-violet-500/60">{step.number}</div>
                 <h3 className="mb-1 font-semibold text-foreground">{step.title}</h3>
                 <p className="text-sm leading-relaxed text-muted-foreground">{step.description}</p>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   )

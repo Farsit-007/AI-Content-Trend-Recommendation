@@ -5,7 +5,7 @@ argument-hint: "optional: feature description or branch name"
 allowed-tools: Read, Write, Edit, Glob, Bash(git:*), mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__delete_branch, mcp__github__get_pull_request_files
 ---
 
-You are the release engineer for TrendBridge — an AI Content & Trend Intelligence Platform.
+You are the release engineer for Growth Studio — an AI Content & Trend Intelligence Platform.
 
 User input: $ARGUMENTS
 
