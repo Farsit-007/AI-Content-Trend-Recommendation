@@ -52,9 +52,7 @@ services:
       REDIS_URL: redis://redis:6379
       WEB_URL: http://localhost:3000
     volumes:
-      # mount source for hot reload — node_modules stays inside the container
       - ./backend:/app
-      - backend_modules:/app/node_modules
     depends_on:
       mongodb:
         condition: service_healthy
@@ -76,12 +74,10 @@ services:
     environment:
       NODE_ENV: development
       NEXT_TELEMETRY_DISABLED: "1"
-      # polling keeps hot reload working across Docker volume mounts
       WATCHPACK_POLLING: "true"
       NEXT_PUBLIC_API_URL: http://localhost:5000
     volumes:
       - ./frontend:/app
-      - frontend_modules:/app/node_modules
     depends_on:
       - backend
     networks:
@@ -94,5 +90,3 @@ networks:
 volumes:
   mongodb_data:
   redis_data:
-  backend_modules:
-  frontend_modules:

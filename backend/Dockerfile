@@ -2,18 +2,20 @@
 
 FROM node:22-bookworm-slim
 
-WORKDIR /app
+RUN apt-get update -qq && apt-get install -y --no-install-recommends procps && rm -rf /var/lib/apt/lists/*
 
-# Copy manifests first — this layer is cached unless package.json changes
+# Install deps into /deps — completely separate from /app.
+# The bind mount (./backend:/app) can never shadow or stale these.
+WORKDIR /deps
 COPY package*.json ./
-
-# All deps needed (including devDependencies for ts-node-dev)
-# BuildKit cache mount keeps npm cache between builds for faster rebuilds
 RUN npm install --no-audit --no-fund
 
-# Source is mounted via docker-compose volume — not copied here.
-# ts-node-dev watches the mount and hot-reloads on every .ts save.
+WORKDIR /app
+
+# Tell Node and npm scripts to find modules in /deps
+ENV NODE_PATH=/deps/node_modules
+ENV PATH=/deps/node_modules/.bin:$PATH
 
 EXPOSE 5000
 
-CMD ["npm", "run", "dev"]
+CMD ["ts-node-dev", "--respawn", "--transpile-only", "src/server.ts"]
