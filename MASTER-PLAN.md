@@ -16,11 +16,11 @@
 
 ## ⚡ Critical Fixes — Resolve Before Any Backend Code (July 13)
 
-| # | Issue | Owner | Fix |
-|---|-------|-------|-----|
-| 1 | `docker-compose.yml` uses `mongo:7-jammy` — **`$vectorSearch` is Atlas-only** and will fail on this image | Samin | Point `DATABASE_URL` at a real Atlas M0 cloud cluster, OR swap image to `mongodb/mongodb-atlas-local` |
-| 2 | Plan assumes embeddings via OpenRouter — **OpenRouter may not serve an embeddings API** | Samin | Verify with one curl today. Fallbacks: Gemini embedding free tier, Jina AI free tier, Nomic Atlas API, or local Ollama |
-| 3 | Platform tokens require **Mursalin** (page admin — not on the dev team) | Robayat | Ping Mursalin TODAY; submit LinkedIn app first (slowest approval) |
+| # | Status | Issue | Owner | Fix |
+|---|--------|-------|-------|-----|
+| 1 | ✅ | `docker-compose.yml` uses `mongo:7-jammy` — **`$vectorSearch` is Atlas-only** and will fail on this image | Samin | **Resolved**: `DATABASE_URL` points at a real Atlas M0 cluster; `$vectorSearch` confirmed working live; local `mongodb` service removed from `docker-compose.yml` |
+| 2 | ✅ | Plan assumes embeddings via OpenRouter — **OpenRouter may not serve an embeddings API** | Samin | **Resolved**: `nomic-ai/nomic-embed-text` isn't on OpenRouter, but `openai/text-embedding-3-small` is — confirmed live. LLM + embeddings both go through OpenRouter via the `openai` SDK; no local model runtime (Ollama) needed |
+| 3 | ⬜ | Platform tokens require **Mursalin** (page admin — not on the dev team) | Robayat | Ping Mursalin TODAY; submit LinkedIn app first (slowest approval) |
 
 ---
 
@@ -40,9 +40,10 @@
 
 | Developer | Change | Branch | Status | Notes |
 |-----------|--------|--------|--------|-------|
-| **Samin** | ⚡ Critical fixes #1 + #2 | — | ⬜ Todo | Atlas vs local mongo + embedding provider — BEFORE scaffold |
-| **Samin** | `backend-scaffold` | `feat/backend-scaffold` | ⬜ Todo | Node + TS, Mongo/Redis, LLM client, env config. Everyone needs it. |
+| **Samin** | ⚡ Critical fixes #1 + #2 | — | ✅ Done | Atlas cluster + `$vectorSearch` confirmed live; OpenRouter confirmed as embedding provider (`openai/text-embedding-3-small`) |
+| **Samin** | `backend-scaffold` | `ravi/feat/backend-scaffold` | 🔄 In Progress | Node + TS, Mongo/Redis, OpenRouter LLM + embeddings client, env config, startup connectivity check — implemented and live-verified (typecheck, `npm run dev` connects to Atlas/Redis/OpenRouter). Not yet committed/PR'd to `main`. |
 | **Samin** | `db-vector-indexes` | `feat/db-vector-indexes` | ⬜ Todo | 3 Atlas Vector Search indexes + collection schemas |
+
 | **Robayat** | ⚡ Critical fix #3 | — | ⬜ Todo | Ping Mursalin for tokens; submit LinkedIn app NOW |
 | **Robayat** | `api-contract-openapi` | `feat/api-contract-openapi` | ⬜ Todo | REST endpoints + stub server — merge ASAP, Mehedi builds against it |
 | **Robayat** | `platform-api-credentials` | `feat/platform-api-credentials` | ⬜ Todo | Meta / YouTube / LinkedIn app setup + tokens → `.env` |

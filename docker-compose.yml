@@ -1,21 +1,8 @@
 services:
-  mongodb:
-    image: mongo:7-jammy
-    container_name: growth-studio-mongodb
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
+  # MongoDB is NOT run locally — $vectorSearch is Atlas-only and unavailable
+  # on plain mongo images. Set DATABASE_URL in backend/.env to a MongoDB
+  # Atlas M0 (free tier) connection string; the backend service below reads
+  # it from that file.
   redis:
     image: redis:7-alpine
     container_name: growth-studio-redis
@@ -48,14 +35,13 @@ services:
     environment:
       NODE_ENV: development
       PORT: 5000
-      DATABASE_URL: mongodb://mongodb:27017/growth_studio
+      # DATABASE_URL comes from backend/.env (Atlas M0 connection string).
+      # REDIS_URL is overridden here to the in-network Redis service name.
       REDIS_URL: redis://redis:6379
       WEB_URL: http://localhost:3000
     volumes:
       - ./backend:/app
     depends_on:
-      mongodb:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
@@ -88,5 +74,4 @@ networks:
     driver: bridge
 
 volumes:
-  mongodb_data:
   redis_data:
