@@ -13,7 +13,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "format": "prettier . --write"
+    "format": "prettier . --write",
+    "db:create-indexes": "ts-node src/scripts/createVectorIndexes.ts",
+    "db:verify-indexes": "ts-node src/scripts/verifyVectorIndexes.ts"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

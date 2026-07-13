@@ -42,7 +42,7 @@
 |-----------|--------|--------|--------|-------|
 | **Samin** | ⚡ Critical fixes #1 + #2 | — | ✅ Done | Atlas cluster + `$vectorSearch` confirmed live; OpenRouter confirmed as embedding provider (`openai/text-embedding-3-small`) |
 | **Samin** | `backend-scaffold` | `ravi/feat/backend-scaffold` | ✅ Done | Node + TS, Mongo/Redis, OpenRouter LLM + embeddings client, env config, startup connectivity check — implemented and live-verified (typecheck, `npm run dev` connects to Atlas/Redis/OpenRouter). Merged to `main` via PR #6. |
-| **Samin** | `db-vector-indexes` | `feat/db-vector-indexes` | ⬜ Todo | 3 Atlas Vector Search indexes + collection schemas |
+| **Samin** | `db-vector-indexes` | `ravi/feat/db-vector-indexes` | 👀 In Review | 3 Atlas Vector Search indexes + collection schemas — implemented, live-verified against Atlas M0, PR #10 open |
 
 | **Robayat** | ⚡ Critical fix #3 | — | ⬜ Todo | Ping Mursalin for tokens; submit LinkedIn app NOW |
 | **Robayat** | `api-contract-openapi` | `feat/api-contract-openapi` | ⬜ Todo | REST endpoints + stub server — merge ASAP, Mehedi builds against it |

@@ -18,7 +18,7 @@
 | Status | Change | Branch | Notes |
 |--------|--------|--------|-------|
 | ✅ Done | `backend-scaffold` | `ravi/feat/backend-scaffold` | Node + TS server, Mongo/Redis, OpenRouter LLM + embeddings client (via `openai` SDK), env config, startup connectivity check. Implemented and live-verified end-to-end (typecheck passes; `npm run dev` connects to Atlas/Redis/OpenRouter and logs `OK` for all four checks; a broken env var exits with a clear error). **Merged to `main` via PR #6.** |
-| ⬜ Todo | `db-vector-indexes` | `feat/db-vector-indexes` | 3 Atlas Vector Search indexes + collection schemas |
+| 👀 In Review | `db-vector-indexes` | `ravi/feat/db-vector-indexes` | 3 Atlas Vector Search indexes + collection schemas. **PR #10 open** — live-verified against Atlas M0 (create + idempotent re-run + `$vectorSearch` query all passed). |
 
 ### July 14 — Ingestion Pipeline + Brand Voice
 | Status | Change | Branch | FRs | Notes |
@@ -84,3 +84,4 @@ gh pr create --fill
 <!-- Add blockers, decisions, or progress notes here -->
 - **2026-07-13**: Critical fixes #1 (Atlas Mongo) and #2 (embedding provider) resolved and live-verified. `backend-scaffold` implemented: Redis client (`ioredis`), OpenRouter LLM + embeddings client (`openai` SDK), env config, startup `verifyConnections()` check. Old Auth/User/Cloudinary/Email boilerplate removed. Not yet committed — next step is to commit, push, and open the PR.
 - **2026-07-14**: `ravi/feat/backend-scaffold` (PR #6) merged into `main`. All `openspec/changes/backend-scaffold/tasks.md` items are checked off except 7.4 (share `.env` values with Robayat — manual, do this next). Next up: `db-vector-indexes`.
+- **2026-07-14**: `db-vector-indexes` implemented on `ravi/feat/db-vector-indexes`, all 16 `tasks.md` items checked off, **PR #10 open** (not yet merged). Corrected `project-ida-requirments.md`'s stale 768-dim/`nomic-embed-text` assumption — all 3 indexes and schemas use 1536-dim (`openai/text-embedding-3-small`), matching the provider verified in `backend-scaffold`. Also resolved a naming inconsistency in the requirements doc: the third collection is `platform_posts` (standalone), not `platform_analytics.posts` — flagged in the PR for Robayat before he builds `opportunity-scoring`. Live-verified against Atlas M0: index creation, idempotent re-run, and real `$vectorSearch` queries all passed. Next up: `news-ingestion-pipeline`.
