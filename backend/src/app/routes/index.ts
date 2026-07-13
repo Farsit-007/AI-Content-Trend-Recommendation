@@ -3,6 +3,7 @@ import swaggerUi from 'swagger-ui-express';
 import { BrandVoiceExampleRoutes } from '../modules/BrandVoiceExample/brandVoiceExample.route';
 import { NewsItemRoutes } from '../modules/NewsItem/newsItem.route';
 import { PlatformPostRoutes } from '../modules/PlatformPost/platformPost.route';
+import { UserRoutes } from '../modules/User/user.route';
 import { openApiDocument } from '../docs/openapi';
 
 const router = Router();
@@ -14,6 +15,7 @@ router.get('/openapi.json', (_req: Request, res: Response) => {
 router.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 const moduleRoutes: { path: string; route: Router }[] = [
+  { path: '/auth', route: UserRoutes },
   { path: '/news-items', route: NewsItemRoutes },
   { path: '/platform-posts', route: PlatformPostRoutes },
   { path: '/brand-voice-examples', route: BrandVoiceExampleRoutes },

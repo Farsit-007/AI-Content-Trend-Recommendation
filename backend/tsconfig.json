@@ -111,5 +111,11 @@
     "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules"],
+  "ts-node": {
+    // Without this, ts-node only loads files reachable from the entrypoint and skips
+    // src/types/express.d.ts, so `req.user` fails to compile at runtime even though
+    // `tsc --noEmit` (which honours "include") passes.
+    "files": true
+  }
 }
