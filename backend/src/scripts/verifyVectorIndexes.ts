@@ -2,9 +2,9 @@ import dns from 'dns';
 import mongoose from 'mongoose';
 import config from '../app/config';
 import { embed } from '../app/lib/embeddings';
-import { NewsItem } from '../app/models/NewsItem';
-import { BrandVoiceExample } from '../app/models/BrandVoiceExample';
-import { PlatformPost } from '../app/models/PlatformPost';
+import { NewsItem } from '../app/modules/NewsItem/newsItem.model';
+import { BrandVoiceExample } from '../app/modules/BrandVoiceExample/brandVoiceExample.model';
+import { PlatformPost } from '../app/modules/PlatformPost/platformPost.model';
 
 // Same local DNS workaround as createVectorIndexes.ts — see backend-scaffold
 // tasks.md 7.2. Harmless no-op on machines without the quirk.

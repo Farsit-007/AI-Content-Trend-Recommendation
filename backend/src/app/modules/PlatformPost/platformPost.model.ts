@@ -1,20 +1,5 @@
 import { Schema, model } from 'mongoose';
-
-export interface IPlatformPost {
-  platform: string;
-  post_id: string;
-  content_snippet?: string;
-  embedding: number[];
-  metrics: {
-    reach: number;
-    likes: number;
-    comments: number;
-    shares: number;
-    views: number;
-  };
-  published_at?: Date;
-  fetched_at: Date;
-}
+import { IPlatformPost } from './platformPost.interface';
 
 const platformPostSchema = new Schema<IPlatformPost>({
   platform: { type: String, required: true },
@@ -41,4 +26,8 @@ const platformPostSchema = new Schema<IPlatformPost>({
 
 platformPostSchema.index({ platform: 1, post_id: 1 }, { unique: true });
 
-export const PlatformPost = model<IPlatformPost>('PlatformPost', platformPostSchema, 'platform_posts');
+export const PlatformPost = model<IPlatformPost>(
+  'PlatformPost',
+  platformPostSchema,
+  'platform_posts',
+);

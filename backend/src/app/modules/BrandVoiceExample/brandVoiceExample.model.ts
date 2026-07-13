@@ -1,14 +1,5 @@
 import { Schema, model } from 'mongoose';
-
-export interface IBrandVoiceExample {
-  platform: string;
-  category?: string;
-  content: string;
-  embedding: number[];
-  engagement_hint?: string;
-  added_by?: string;
-  created_at: Date;
-}
+import { IBrandVoiceExample } from './brandVoiceExample.interface';
 
 const brandVoiceExampleSchema = new Schema<IBrandVoiceExample>({
   platform: { type: String, required: true },
