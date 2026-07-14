@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a5ef7aad-5314-485b-b5f8-658f485658d4",
     "name": "Growth Studio API",
-    "description": "AI Content & Trend Intelligence Platform — REST API. Multi-team, role-based (user < admin < super_admin): admins manage teams/users/credentials across every team; super_admin additionally curates the dynamic Platform Catalog (which social platforms exist at all, system-wide); regular users only see their own team(s) data. Run \"Login as Admin\", \"Login as Super Admin\", or \"Login as Team User\" first — the super_admin account is auto-seeded on server boot from `.env` (`SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD`), no setup needed. The {{token}} collection variable is set automatically from whichever login response ran last, and used as the bearer token on every other request. Suggested run order for a full demo: Login as Super Admin → Platform Catalog (create + enable platforms) → Login as Admin → Teams (create team + user) → Team Platforms (enable for the team) → Platform Credentials (add a token) → everything else.",
+    "description": "AI Content & Trend Intelligence Platform — REST API. Multi-team, role-based (user < admin < super_admin): admins manage teams/users/credentials across every team; super_admin additionally curates the dynamic Platform Catalog (which social platforms exist at all, system-wide); regular users only see their own team(s) data. Run \"Login as Admin\", \"Login as Super Admin\", or \"Login as Team User\" first — the super_admin account is auto-seeded on server boot from `.env` (`SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD`), no setup needed. The {{token}} collection variable is set automatically from whichever login response ran last, and used as the bearer token on every other request. Suggested run order for a full demo: Login as Super Admin → Platform Catalog (create + enable platforms) → Login as Admin → Teams (create team + user) → Team Platforms (enable for the team) → Platform Credentials (add a token) → News Items (trigger ingestion) → Brand Voice Examples → Content Generation → Chat → everything else. Also included: per-team custom categories (Teams folder) and per-team category/opportunity-score overrides on news items (News Items folder).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "39338033"
   },
@@ -61,6 +61,16 @@
     {
       "key": "brandVoiceExampleId",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "conversationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "category",
+      "value": "product-announcement",
       "type": "string"
     }
   ],
@@ -629,6 +639,82 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Get Team's Effective Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/categories",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "categories"
+              ]
+            },
+            "description": "Returns the effective category list for this team — the built-in default categories plus any custom ones the team has added. Used to populate category filters/pickers and to drive news categorization for this team."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Custom Category to Team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/categories",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "categories"
+              ]
+            },
+            "description": "Team members (of that team) or admins can add a custom category, up to 40 chars. Requires team access.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"product-announcement\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Custom Category from Team",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/categories/{{category}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "categories",
+                "{{category}}"
+              ]
+            },
+            "description": "Replace {{category}} with the custom category slug to remove, e.g. \"product-announcement\". Only removes team-added custom categories, not built-in defaults."
+          },
+          "response": []
         }
       ]
     },
@@ -992,8 +1078,27 @@
     },
     {
       "name": "News Items",
-      "description": "Ingested news/trend items with engagement and scoring. Global — not team-scoped, since this is external trend data shared by every team.",
+      "description": "Ingested news/trend items with engagement and scoring. Global — not team-scoped, since this is external trend data shared by every team. GET routes use optionalAuth: an authenticated caller with team membership also gets their team's category/opportunity_score overrides spliced in (is_overridden: true/false).",
       "item": [
+        {
+          "name": "Trigger News Ingestion (admin only)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/news-items/ingest",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "news-items",
+                "ingest"
+              ]
+            },
+            "description": "Runs the full 4-layer ingestion pipeline synchronously: (1) fetch & normalize from every source adapter, (2) hash + freshness filter + dedupe against stored items, (2b) cross-source semantic dedupe against a recent embedding pool, (3) relevance scoring against the pooled brand-voice examples + trend scoring, (4) categorization + opportunity scoring, then stores the survivors. Returns a per-source summary (fetched/deduped/discarded/stored) plus totalStored. Admin only — run \"Login as Admin\" first."
+          },
+          "response": []
+        },
         {
           "name": "Create News Item",
           "request": {
@@ -1121,6 +1226,76 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"trend_score\": 87.5,\n  \"relevance_score\": 0.92,\n  \"impact_note\": \"High relevance to our React content audience.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Team Category/Opportunity Override",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/news-items/{{newsItemId}}/override",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "news-items",
+                "{{newsItemId}}",
+                "override"
+              ]
+            },
+            "description": "Lets a team correct the auto-assigned category and/or opportunity_score for this news item, without mutating the shared/global document other teams see. At least one of category or opportunity_score is required. Upserts by (news_item, team_id) — calling again updates the same override in place. Requires auth + membership in team_id.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": \"{{teamId}}\",\n  \"category\": \"product-announcement\",\n  \"opportunity_score\": 8.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Team Category/Opportunity Override",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/news-items/{{newsItemId}}/override",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "news-items",
+                "{{newsItemId}}",
+                "override"
+              ]
+            },
+            "description": "Removes this team's override for the item, reverting it back to the globally-assigned category/opportunity_score.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": \"{{teamId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1461,6 +1636,132 @@
                 "brand-voice-examples",
                 "{{brandVoiceExampleId}}"
               ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Content Generation",
+      "description": "AI-generated, brand-voice-aware social content. Team-scoped RAG: pulls the team's top-matching brand voice examples + top-performing past posts as few-shot context (skipped entirely on cold start, i.e. before the team has any brand voice examples), optionally grounded in a specific news item. Requires auth + membership in team_id (or admin/super_admin).",
+      "item": [
+        {
+          "name": "Generate Content",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/content/generate",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "content",
+                "generate"
+              ]
+            },
+            "description": "`news_item_id` is optional — if provided, its embedding + category/impact_note ground the generation instead of embedding the raw topic text; an invalid/missing id soft-fails back to embedding the topic (not a request error). Run \"Create Brand Voice Example\" and/or \"Create Platform Post\" first to see the few-shot context kick in — with zero brand voice examples for the team, generation runs cold-start (no few-shot examples).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": \"{{teamId}}\",\n  \"topic\": \"React 19's new compiler and what it means for teams still on manual memoization\",\n  \"news_item_id\": \"{{newsItemId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "description": "\"Ask Growth Studio\" — multi-turn RAG chat scoped to a team. Classifies intent (news vs. performance questions) to decide which context to retrieve (recent relevant news items and/or the team's own platform-post performance), then answers grounded in that context plus prior turns in the conversation. Requires auth + membership in team_id (or admin/super_admin).",
+      "item": [
+        {
+          "name": "Ask Growth Studio (new conversation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/chat",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "Omit conversation_id to start a fresh conversation — the server generates one and returns it. Sets {{conversationId}} for follow-up turns.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": \"{{teamId}}\",\n  \"message\": \"What trending news should we cover this week?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "const id = result?.data?.conversation_id;",
+                  "if (id) { pm.collectionVariables.set('conversationId', id); }"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ask Growth Studio (follow-up turn)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/chat",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "Pass the {{conversationId}} from the first turn to continue the same conversation — prior turns are fetched and included as context.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": \"{{teamId}}\",\n  \"message\": \"How did our last Facebook post perform compared to that?\",\n  \"conversation_id\": \"{{conversationId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "response": []

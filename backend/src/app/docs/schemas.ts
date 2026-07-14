@@ -45,6 +45,12 @@ export const NewsItem = {
     embedding,
     opportunity_score: { type: 'number' },
     processed: { type: 'boolean', default: false },
+    category_confidence: { type: 'number', description: 'Confidence (0-1) of the auto-assigned category, from ingestion.' },
+    needs_review: { type: 'boolean', description: 'True when category_confidence fell below the review threshold at ingestion time.' },
+    is_overridden: {
+      type: 'boolean',
+      description: "True when the requesting user's team has a category/opportunity_score override on this item (see the override endpoints). Only ever computed on authenticated requests; category/opportunity_score above already reflect the override when true.",
+    },
     created_at: { type: 'string', format: 'date-time' },
   },
   required: ['source', 'source_id', 'content_hash', 'title', 'url'],
@@ -205,6 +211,11 @@ export const Team = {
     name: { type: 'string' },
     description: { type: 'string' },
     created_by: { type: 'string' },
+    custom_categories: {
+      type: 'array',
+      items: { type: 'string' },
+      description: "Team-added categories layered on top of the built-in defaults (AI, Web Dev, Career, Security, DevOps, Other). Max 20.",
+    },
     created_at: { type: 'string', format: 'date-time' },
   },
   required: ['name', 'created_by'],
@@ -361,4 +372,67 @@ export const AskChatResponse = {
     reply: { type: 'string' },
   },
   required: ['conversation_id', 'reply'],
+} as const;
+
+export const SourceSummary = {
+  type: 'object',
+  properties: {
+    source: { type: 'string', example: 'hackernews' },
+    fetched: { type: 'integer', description: 'Raw items returned by this source adapter.' },
+    deduped: { type: 'integer', description: 'Items dropped as stale or duplicates of already-stored items.' },
+    discarded: { type: 'integer', description: 'Items dropped for staleness, dedupe, or falling below the relevance threshold.' },
+    stored: { type: 'integer', description: 'Items from this source that survived scoring and were attempted for storage.' },
+  },
+  required: ['source', 'fetched', 'deduped', 'discarded', 'stored'],
+} as const;
+
+export const IngestionSummary = {
+  type: 'object',
+  description: 'Result of one run of the 4-layer news ingestion pipeline (fetch/normalize → dedupe/freshness → relevance/trend scoring → categorize/opportunity scoring).',
+  properties: {
+    sources: { type: 'array', items: { $ref: '#/components/schemas/SourceSummary' } },
+    totalStored: { type: 'integer', description: 'Total news items newly inserted across all sources in this run.' },
+  },
+  required: ['sources', 'totalStored'],
+} as const;
+
+export const SetNewsItemOverrideRequest = {
+  type: 'object',
+  description: "Lets a team correct the auto-assigned category and/or opportunity_score for a news item without mutating the shared/global document other teams see. At least one of category or opportunity_score is required; category must be one of the team's effective categories (see GET /teams/{teamId}/categories).",
+  properties: {
+    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    category: { type: 'string', example: 'AI' },
+    opportunity_score: { type: 'number', minimum: 0, maximum: 10 },
+  },
+  required: ['team_id'],
+} as const;
+
+export const ClearNewsItemOverrideRequest = {
+  type: 'object',
+  properties: {
+    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+  },
+  required: ['team_id'],
+} as const;
+
+export const NewsItemCategoryOverride = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    news_item_id: { type: 'string' },
+    team_id: { type: 'string' },
+    category: { type: 'string' },
+    opportunity_score: { type: 'number' },
+    overridden_by: { type: 'string' },
+    overridden_at: { type: 'string', format: 'date-time' },
+  },
+  required: ['news_item_id', 'team_id', 'overridden_by', 'overridden_at'],
+} as const;
+
+export const AddCategoryRequest = {
+  type: 'object',
+  properties: {
+    category: { type: 'string', minLength: 1, maxLength: 40, example: 'product-announcement' },
+  },
+  required: ['category'],
 } as const;

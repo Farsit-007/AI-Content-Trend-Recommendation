@@ -160,6 +160,60 @@ export const authTeamPaths = {
       },
     },
   },
+  '/teams/{teamId}/categories': {
+    get: {
+      tags: ['Teams'],
+      summary: "Get a team's effective categories (built-in defaults + custom)",
+      security: bearerAuth,
+      parameters: [{ name: 'teamId', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: {
+        '200': {
+          description: 'Effective category list',
+          content: {
+            'application/json': {
+              schema: {
+                allOf: [
+                  { $ref: '#/components/schemas/SuccessEnvelope' },
+                  { type: 'object', properties: { data: { type: 'array', items: { type: 'string' } } } },
+                ],
+              },
+            },
+          },
+        },
+        '403': errorResponse('You do not have access to this team'),
+        '404': errorResponse('Team not found'),
+      },
+    },
+    post: {
+      tags: ['Teams'],
+      summary: 'Add a custom category to a team',
+      security: bearerAuth,
+      parameters: [{ name: 'teamId', in: 'path', required: true, schema: { type: 'string' } }],
+      requestBody: jsonBody('AddCategoryRequest'),
+      responses: {
+        '201': { description: 'Category added', content: { 'application/json': { schema: singleEnvelope('Team') } } },
+        '400': errorResponse('That category already exists for this team, or the 20-category limit was reached'),
+        '403': errorResponse('You do not have access to this team'),
+        '404': errorResponse('Team not found'),
+      },
+    },
+  },
+  '/teams/{teamId}/categories/{category}': {
+    delete: {
+      tags: ['Teams'],
+      summary: 'Remove a custom category from a team',
+      security: bearerAuth,
+      parameters: [
+        { name: 'teamId', in: 'path', required: true, schema: { type: 'string' } },
+        { name: 'category', in: 'path', required: true, schema: { type: 'string' }, description: 'Only removes team-added custom categories, not the built-in defaults.' },
+      ],
+      responses: {
+        '200': { description: 'Category removed', content: { 'application/json': { schema: singleEnvelope('Team') } } },
+        '403': errorResponse('You do not have access to this team'),
+        '404': errorResponse('Team not found, or that custom category does not exist for this team'),
+      },
+    },
+  },
   '/teams/{teamId}/credentials': {
     post: {
       tags: ['Platform Credentials'],

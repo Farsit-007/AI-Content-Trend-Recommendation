@@ -13,16 +13,21 @@ import { buildResourcePaths } from './paths';
 import { authTeamPaths } from './authTeamPaths';
 import { contentGenerationPaths } from './contentGenerationPaths';
 import { chatPaths } from './chatPaths';
+import { newsItemPaths } from './newsItemPaths';
 import {
+  AddCategoryRequest,
   AskChatRequest,
   AskChatResponse,
   BrandVoiceExample,
   BrandVoiceExampleCreate,
   BrandVoiceExampleUpdate,
+  ClearNewsItemOverrideRequest,
   GenerateContentRequest,
   GeneratedContent,
+  IngestionSummary,
   LoginRequest,
   NewsItem,
+  NewsItemCategoryOverride,
   NewsItemCreate,
   NewsItemUpdate,
   PlatformCatalog,
@@ -33,6 +38,8 @@ import {
   PlatformPost,
   PlatformPostCreate,
   PlatformPostUpdate,
+  SetNewsItemOverrideRequest,
+  SourceSummary,
   Team,
   TeamCreate,
   User,
@@ -67,6 +74,7 @@ export const openApiDocument = {
       tag: 'News Items',
       schema: 'NewsItem',
     }),
+    ...newsItemPaths,
     ...buildResourcePaths('/platform-posts', {
       singular: 'platform post',
       tag: 'Platform Posts',
@@ -111,6 +119,12 @@ export const openApiDocument = {
       GeneratedContent,
       AskChatRequest,
       AskChatResponse,
+      SourceSummary,
+      IngestionSummary,
+      SetNewsItemOverrideRequest,
+      ClearNewsItemOverrideRequest,
+      NewsItemCategoryOverride,
+      AddCategoryRequest,
     },
   },
 };
