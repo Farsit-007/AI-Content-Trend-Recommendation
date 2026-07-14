@@ -67,6 +67,17 @@ const envSchema = z.object({
   NEWS_INGESTION_CRON: z.string().default('0 */3 * * *'),
   REDDIT_SUBREDDITS: z.string().default('programming,technology,artificial'),
 
+  // Analytics & Report
+  ANALYTICS_USE_MOCK_ADAPTERS: z.string().default('true'),
+  ANALYTICS_REFRESH_CRON: z.string().default('0 */6 * * *'),
+  REPORT_CACHE_TTL_SECONDS: z.string().default('21600'),
+  CONTENT_CACHE_TTL_SECONDS: z.string().default('86400'),
+  TEAM_EMBEDDINGS_CACHE_TTL_SECONDS: z.string().default('21600'),
+
+  // Auto-generation job
+  AUTO_GENERATION_CRON: z.string().default('0 6 * * *'),
+  AUTO_GENERATION_MAX_PER_RUN: z.string().default('10'),
+
   NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD: z.string().default('0.6'),
   NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE: z.string().default('0.4'),
   NEWS_INGESTION_OPPORTUNITY_WEIGHT_TREND: z.string().default('0.3'),
@@ -142,6 +153,19 @@ export default {
       bootstrapToken: env.LINKEDIN_TOKEN,
       accountId: env.LINKEDIN_ORG_ID,
     },
+  },
+
+  analytics: {
+    use_mock_adapters: env.ANALYTICS_USE_MOCK_ADAPTERS === 'true',
+    refresh_cron: env.ANALYTICS_REFRESH_CRON,
+    report_cache_ttl: Number(env.REPORT_CACHE_TTL_SECONDS),
+    content_cache_ttl: Number(env.CONTENT_CACHE_TTL_SECONDS),
+    team_embeddings_cache_ttl: Number(env.TEAM_EMBEDDINGS_CACHE_TTL_SECONDS),
+  },
+
+  auto_generation: {
+    cron: env.AUTO_GENERATION_CRON,
+    max_per_run: Number(env.AUTO_GENERATION_MAX_PER_RUN),
   },
 
   news_ingestion: {

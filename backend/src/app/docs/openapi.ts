@@ -13,6 +13,7 @@ import { buildResourcePaths } from './paths';
 import { authTeamPaths } from './authTeamPaths';
 import { contentGenerationPaths } from './contentGenerationPaths';
 import { chatPaths } from './chatPaths';
+import { generatedContentPaths } from './generatedContentPaths';
 import { newsItemPaths } from './newsItemPaths';
 import {
   AddCategoryRequest,
@@ -66,6 +67,7 @@ export const openApiDocument = {
     { name: 'Brand Voice Examples', description: 'Reference examples of the desired brand voice, scoped per team.' },
     { name: 'Content Generation', description: 'RAG-grounded generation of multi-format social content from a topic or news item.' },
     { name: 'Chat', description: "Conversational Q&A grounded in the team's own trending news and platform performance data." },
+    { name: 'Generated Content', description: 'Persisted generated content drafts; auto-generated daily per team in their brand voice.' },
   ],
   paths: {
     ...authTeamPaths,
@@ -87,6 +89,7 @@ export const openApiDocument = {
     }),
     ...contentGenerationPaths,
     ...chatPaths,
+    ...generatedContentPaths,
   },
   components: {
     securitySchemes: {
@@ -125,6 +128,28 @@ export const openApiDocument = {
       ClearNewsItemOverrideRequest,
       NewsItemCategoryOverride,
       AddCategoryRequest,
+      GeneratedContentDoc: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          team_id: { type: 'string' },
+          news_item_id: { type: 'string' },
+          topic: { type: 'string' },
+          formats: { $ref: '#/components/schemas/GeneratedContent' },
+          source: { type: 'string', enum: ['auto', 'manual'] },
+          status: { type: 'string', enum: ['draft', 'approved', 'dismissed'] },
+          model_used: { type: 'string' },
+          created_at: { type: 'string', format: 'date-time' },
+        },
+      },
+      AutoGenerationSummary: {
+        type: 'object',
+        properties: {
+          teams_processed: { type: 'integer' },
+          drafts_created: { type: 'integer' },
+          skipped: { type: 'integer' },
+        },
+      },
     },
   },
 };

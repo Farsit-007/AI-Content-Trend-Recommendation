@@ -4,7 +4,7 @@ import config from './app/config';
 import app from './app';
 import { verifyConnections } from './app/lib/verifyConnections';
 import { seedSuperAdminIfMissing } from './app/lib/seedSuperAdmin';
-import { startNewsIngestionScheduler } from './app/lib/scheduler';
+import { startAnalyticsScheduler, startAutoGenerationScheduler, startNewsIngestionScheduler } from './app/lib/scheduler';
 import { Server } from 'http';
 
 // Node's default resolver can fail `mongodb+srv://` SRV/TXT lookups on networks where the
@@ -23,6 +23,8 @@ async function main() {
       console.warn('[WARNING] Connection verification failed, but continuing startup:', verifyError);
     }
     startNewsIngestionScheduler();
+    startAnalyticsScheduler();
+    startAutoGenerationScheduler();
     server = app.listen(config.port, () => {
       console.log(`Server is running on port ${config.port}`);
     });

@@ -16,5 +16,17 @@
     "category": "Web Dev",
     "content": "JavaScript শিখতে গিয়ে অনেকেই framework নিয়ে confusion-এ পড়েন। React আগে নাকি Node আগে? আমাদের পরামর্শ: আগে vanilla JavaScript-এর fundamentals শক্ত করুন। Framework আসবে-যাবে, কিন্তু fundamentals সারাজীবন কাজে লাগবে।",
     "engagement_hint": "950 reactions, 85 comments"
+  },
+  {
+    "platform": "youtube",
+    "category": "Web Dev",
+    "content": "আজকে শিখবো Next.js দিয়ে full-stack app কীভাবে বানাতে হয় — শুধু frontend না, database থেকে deployment পর্যন্ত সব! এই tutorial শেষ করলে তুমি নিজেই SaaS product বানাতে পারবে। চ্যানেলটা subscribe করো যাতে পরের পর্ব miss না হয় 🔔",
+    "engagement_hint": "12k views, 480 likes, 95 comments"
+  },
+  {
+    "platform": "facebook",
+    "category": "Security",
+    "content": "আপনার website কি secure? 🔐 অনেক developer basic security নিয়ে ভাবেন না — SQL injection, XSS, এই ধরনের attack দিয়ে হাজারো site compromise হয় প্রতিদিন। আমাদের Web Security সিরিজে এই সব common vulnerability ও তাদের solution দেখাবো। আগ্রহী হলে like করুন! 👍",
+    "engagement_hint": "1.1k likes, 140 comments, 75 shares"
   }
 ]
