@@ -1,7 +1,7 @@
-# Mehedi Imun — Frontend (Next.js 16)
+# Mehedi Imun — Frontend (Vite + React 19)
 
 **Role:** All UI — dashboard, content generator, reports, chat, admin  
-**Owns:** `frontend/app/**`, `frontend/components/**`  
+**Owns:** `frontend/src/pages/**`, `frontend/src/components/**`  
 **Deadline:** July 16, 2026
 
 ---
@@ -17,7 +17,7 @@
 const data = MOCK_NEWS_ITEMS   // hardcoded realistic data
 
 // Day 3: swap to this — with mock fallback for demo day
-const data = process.env.NEXT_PUBLIC_USE_MOCK === "true"
+const data = import.meta.env.VITE_USE_MOCK === "true"
   ? MOCK_NEWS_ITEMS
   : await fetch('/api/news').then(r => r.json())
 ```
@@ -70,24 +70,24 @@ const data = process.env.NEXT_PUBLIC_USE_MOCK === "true"
 ---
 
 ## Mock Data Location
-Put all mock data in `frontend/lib/mock/`:
+Put all mock data in `frontend/src/lib/mock/`:
 ```
-frontend/lib/mock/
+frontend/src/lib/mock/
 ├─ news.ts          # mock news feed items
 ├─ report.ts        # mock analytics report data
 ├─ content.ts       # mock generated content
 └─ chat.ts          # mock chat responses
 ```
-**Do NOT delete this folder on July 15** — keep it as the `USE_MOCK` fallback for demo day. Remove only after the demo.
+**Do NOT delete this folder on July 15** — keep it as the `VITE_USE_MOCK` fallback for demo day. Remove only after the demo.
 
 ---
 
 ## Component Conventions
-- Feature components: `frontend/components/<feature>/ComponentName.tsx`
-- Landing sections: `frontend/components/landing/`
-- Shared UI (shadcn): `frontend/components/ui/` — never modify, just import
-- Pages: `frontend/app/<route>/page.tsx`
+- Feature components: `frontend/src/components/<feature>/ComponentName.tsx`
+- Landing sections: `frontend/src/components/landing/`
+- Pages (route components): `frontend/src/pages/`
 - Icons: `lucide-react`
+- Path alias `@/` maps to `frontend/src/`
 
 ---
 
@@ -95,8 +95,8 @@ frontend/lib/mock/
 
 | File | Rule |
 |------|------|
-| `frontend/app/page.tsx` | Append-only at end of list — never reorder existing lines |
-| `frontend/components/landing/Navbar.tsx` | Add one new line to `navLinks` — don't touch others' entries |
+| `frontend/src/App.tsx` | Routes live here — coordinate before adding/changing routes |
+| `frontend/src/components/landing/Navbar.tsx` | Add one new line to `navLinks` — don't touch others' entries |
 | `frontend/package.json` / lockfile | Announce dep additions in chat; PR the dep separately first |
 
 ---
@@ -113,7 +113,7 @@ git checkout feat/<change-name> && git rebase main
 /opsx:apply <change-name>
 
 # Before PR (must pass)
-cd frontend && npm run typecheck && npm run lint
+cd frontend && npm run build && npm run lint
 
 # Ship
 git push -u origin feat/<change-name>

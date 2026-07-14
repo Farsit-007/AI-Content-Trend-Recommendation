@@ -81,7 +81,7 @@ flowchart TB
         ADMIN[Admin triggers]
     end
 
-    subgraph FE["Frontend · Next.js 16"]
+    subgraph FE["Frontend · Vite + React 19"]
         DASH[Dashboard / Feed]; CGEN[Content UI]
         RPT[Report UI]; ASK[Chat UI]
     end
@@ -136,7 +136,7 @@ Pulls 30 days from **Meta Graph API** (FB), **YouTube Data API v3**, and **Linke
 - **Ask Growth Studio** — natural-language RAG chat grounded in real data
 - **Admin triggers** — manually run ingestion / analytics refresh (demo tooling)
 
-### 4. Frontend (Next.js 16)
+### 4. Frontend (Vite + React 19)
 daily.dev-style dark dashboard: card feed with tabs, one-click generation, report view, chat.
 
 ---
@@ -219,7 +219,7 @@ MongoDB collections (see [`project-ida-requirments.md`](./project-ida-requirment
 
 | Layer | Choice | Notes |
 |------|--------|------|
-| **Frontend** | Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4, shadcn/ui | Dark-first, mobile responsive |
+| **Frontend** | Vite + React 19, TypeScript, Tailwind CSS v4, React Router v7 | Dark-first, mobile responsive |
 | **Backend** | Node.js + TypeScript (in `backend/`) | REST + OpenAPI spec; JWT auth, roles (`user`/`admin`/`super_admin`), multi-team data isolation |
 | **Database** | MongoDB Atlas M0 + Atlas Vector Search | 3 vector indexes, free tier |
 | **Cache** | Redis | Dedup keys, report caching *(generation caching not built — `brand-voice-rag` is a stateless endpoint, see [Key Data Flows](#key-data-flows))* |
@@ -236,9 +236,9 @@ MongoDB collections (see [`project-ida-requirments.md`](./project-ida-requirment
 
 ```
 AI-Content-Trend-Recommendation/
-├─ frontend/                    # Next.js 16 app (landing + dashboard)
-│  ├─ app/                      # routes (App Router)
-│  └─ components/landing/       # landing-page sections
+├─ frontend/                    # Vite + React 19 app (landing + dashboard)
+│  ├─ src/pages/                # route components
+│  └─ src/components/landing/   # landing-page sections
 ├─ backend/                     # API + ingestion + analytics pipelines (in progress)
 ├─ openspec/                    # spec-driven change management
 │  ├─ changes/<name>/           # one folder per proposed change
@@ -256,9 +256,8 @@ AI-Content-Trend-Recommendation/
 ```bash
 # Frontend
 cd frontend && npm install
-npm run dev          # http://localhost:3000
-npm run build        # production build
-npm run typecheck    # tsc --noEmit
+npm run dev          # http://localhost:5173
+npm run build        # tsc -b && vite build
 npm run lint         # eslint
 
 # Backend
