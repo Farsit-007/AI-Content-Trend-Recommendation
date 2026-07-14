@@ -32,4 +32,13 @@ router.delete('/:teamId/members/:userId', requireAdmin, TeamController.removeMem
 router.use('/:teamId/credentials', requireTeamAccess('teamId'), PlatformCredentialRoutes);
 router.use('/:teamId/platforms', requireTeamAccess('teamId'), TeamPlatformRoutes);
 
+router.get('/:teamId/categories', requireTeamAccess('teamId'), TeamController.getCategories);
+router.post(
+  '/:teamId/categories',
+  requireTeamAccess('teamId'),
+  validation(TeamValidation.addCategoryValidation),
+  TeamController.addCategory,
+);
+router.delete('/:teamId/categories/:category', requireTeamAccess('teamId'), TeamController.removeCategory);
+
 export const TeamRoutes = router;

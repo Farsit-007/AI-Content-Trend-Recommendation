@@ -3,8 +3,14 @@ import { embed } from '../../lib/embeddings';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { runAllAdapters } from './adapters';
 import { categorizeBatch } from './newsIngestion.categorize';
-import { CategorizedNewsItem, IngestionSummary, ScoredNewsItem, SourceSummary } from './newsIngestion.interface';
-import { fetchBrandVoicePool, scoreRelevance, scoreTrend } from './newsIngestion.scoring';
+import {
+  CategorizedNewsItem,
+  IngestionSummary,
+  ScoredCategorizedNewsItem,
+  ScoredNewsItem,
+  SourceSummary,
+} from './newsIngestion.interface';
+import { computeOpportunityScore, fetchBrandVoicePool, scoreRelevance, scoreTrend } from './newsIngestion.scoring';
 import {
   EmbeddedNewsItem,
   HashedNewsItem,
@@ -70,8 +76,13 @@ export const runIngestionPipeline = async (): Promise<IngestionSummary> => {
 
   // Layer 4: Categorize & Score Opportunity
   const categorized: CategorizedNewsItem[] = await categorizeBatch(relevant);
+  const finalized: ScoredCategorizedNewsItem[] = categorized.map((item) => ({
+    ...item,
+    opportunity_score: computeOpportunityScore(item.relevance_score, item.trend_score, item.audience_fit, config.news_ingestion),
+    needs_review: item.category_confidence < config.news_ingestion.category_confidence_threshold,
+  }));
 
-  const payloads = categorized.map((item) => ({
+  const payloads = finalized.map((item) => ({
     source: item.source,
     source_id: item.source_id,
     content_hash: item.content_hash,
@@ -90,6 +101,8 @@ export const runIngestionPipeline = async (): Promise<IngestionSummary> => {
     impact_note: item.impact_note,
     embedding: item.embedding,
     opportunity_score: item.opportunity_score,
+    category_confidence: item.category_confidence,
+    needs_review: item.needs_review,
     processed: true,
   }));
 

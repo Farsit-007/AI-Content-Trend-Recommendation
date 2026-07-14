@@ -27,6 +27,8 @@ const newsItemSchema = new Schema<INewsItem>({
     },
   },
   opportunity_score: { type: Number },
+  category_confidence: { type: Number },
+  needs_review: { type: Boolean, default: false },
   processed: { type: Boolean, default: false },
   created_at: { type: Date, default: Date.now },
 });

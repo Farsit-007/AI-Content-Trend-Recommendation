@@ -75,6 +75,36 @@ const removeMember = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getCategories = catchAsync(async (req: Request, res: Response) => {
+  const result = await TeamService.getEffectiveCategories(req.params.teamId as string);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Team categories retrieved successfully',
+    data: result,
+  });
+});
+
+const addCategory = catchAsync(async (req: Request, res: Response) => {
+  const result = await TeamService.addCustomCategory(req.params.teamId as string, req.body.category);
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: 'Category added successfully',
+    data: result,
+  });
+});
+
+const removeCategory = catchAsync(async (req: Request, res: Response) => {
+  const result = await TeamService.removeCustomCategory(req.params.teamId as string, req.params.category as string);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Category removed successfully',
+    data: result,
+  });
+});
+
 export const TeamController = {
   createTeam,
   listTeams,
@@ -83,4 +113,7 @@ export const TeamController = {
   deleteTeam,
   addMember,
   removeMember,
+  getCategories,
+  addCategory,
+  removeCategory,
 };

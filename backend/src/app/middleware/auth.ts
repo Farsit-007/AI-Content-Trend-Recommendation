@@ -35,6 +35,30 @@ export const requireAuth = catchAsync(async (req: Request, _res: Response, next:
   next();
 });
 
+/**
+ * Like `requireAuth` but never rejects the request — attaches `req.user` when a valid bearer
+ * token is present, otherwise leaves it undefined. For routes that stay publicly readable but
+ * personalize the response (e.g. team overrides) when the caller happens to be signed in.
+ */
+export const optionalAuth = catchAsync(async (req: Request, _res: Response, next: NextFunction) => {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    return next();
+  }
+
+  try {
+    const payload = jwt.verify(header.slice('Bearer '.length), config.jwt_secret) as IAuthPayload;
+    const user = await User.findById(payload.id);
+    if (user) {
+      const team_ids = await TeamService.getTeamIdsForUser(user._id.toString());
+      req.user = { id: user._id.toString(), email: user.email, role: user.role, team_ids };
+    }
+  } catch {
+    // Invalid/expired token on an optional-auth route — proceed unauthenticated rather than fail.
+  }
+  next();
+});
+
 /** Gate for admin-only routes. A super_admin can do everything an admin can. Must run after `requireAuth`. */
 export const requireAdmin = (req: Request, _res: Response, next: NextFunction) => {
   if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {

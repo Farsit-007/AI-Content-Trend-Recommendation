@@ -2,8 +2,11 @@ import AppError from '../../errors/AppError';
 import { httpStatus } from '../../utils/httpStatus';
 import { User } from '../User/user.model';
 import { IRequestUser } from '../User/user.interface';
+import { NEWS_CATEGORIES } from '../NewsIngestion/newsIngestion.interface';
 import { ITeam } from './team.interface';
 import { Team, TeamMembership } from './team.model';
+
+const MAX_CUSTOM_CATEGORIES = 20;
 
 /** Every team id a user belongs to. Used by `requireAuth` to populate `req.user.team_ids`. */
 const getTeamIdsForUser = async (userId: string): Promise<string[]> => {
@@ -86,6 +89,49 @@ const removeMember = async (teamId: string, userId: string) => {
   return result;
 };
 
+const getEffectiveCategories = async (teamId: string): Promise<string[]> => {
+  const team = await Team.findById(teamId);
+  if (!team) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
+  }
+  return [...NEWS_CATEGORIES, ...team.custom_categories];
+};
+
+const addCustomCategory = async (teamId: string, category: string) => {
+  const team = await Team.findById(teamId);
+  if (!team) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
+  }
+
+  const existing = [...NEWS_CATEGORIES, ...team.custom_categories].map((c) => c.toLowerCase());
+  if (existing.includes(category.toLowerCase())) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'That category already exists for this team');
+  }
+  if (team.custom_categories.length >= MAX_CUSTOM_CATEGORIES) {
+    throw new AppError(httpStatus.BAD_REQUEST, `A team may have at most ${MAX_CUSTOM_CATEGORIES} custom categories`);
+  }
+
+  team.custom_categories.push(category);
+  await team.save();
+  return team;
+};
+
+const removeCustomCategory = async (teamId: string, category: string) => {
+  const team = await Team.findById(teamId);
+  if (!team) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
+  }
+
+  const before = team.custom_categories.length;
+  team.custom_categories = team.custom_categories.filter((c) => c.toLowerCase() !== category.toLowerCase());
+  if (team.custom_categories.length === before) {
+    throw new AppError(httpStatus.NOT_FOUND, 'That custom category does not exist for this team');
+  }
+
+  await team.save();
+  return team;
+};
+
 export const TeamService = {
   getTeamIdsForUser,
   createTeam,
@@ -95,4 +141,7 @@ export const TeamService = {
   deleteTeam,
   addMember,
   removeMember,
+  getEffectiveCategories,
+  addCustomCategory,
+  removeCustomCategory,
 };

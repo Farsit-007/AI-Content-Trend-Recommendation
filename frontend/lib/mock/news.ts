@@ -4,7 +4,8 @@ export type NewsItem = {
   source: string
   url: string
   snippet: string
-  category: "AI" | "Web Dev" | "Career" | "Security" | "DevOps" | "Other"
+  // A plain string, not a fixed union — teams can add custom categories on top of the defaults.
+  category: string
   published_at: string
   trend_score: number
   opportunity_score: number
@@ -12,6 +13,8 @@ export type NewsItem = {
   is_hot: boolean
   is_opportunity: boolean
   impact_note: string
+  needs_review?: boolean
+  is_overridden?: boolean
 }
 
 export const MOCK_NEWS_ITEMS: NewsItem[] = [

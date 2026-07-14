@@ -66,6 +66,24 @@ const envSchema = z.object({
   NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD: z.string().default('0.88'),
   NEWS_INGESTION_CRON: z.string().default('0 */3 * * *'),
   REDDIT_SUBREDDITS: z.string().default('programming,technology,artificial'),
+
+  NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD: z.string().default('0.6'),
+  NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE: z.string().default('0.4'),
+  NEWS_INGESTION_OPPORTUNITY_WEIGHT_TREND: z.string().default('0.3'),
+  NEWS_INGESTION_OPPORTUNITY_WEIGHT_FIT: z.string().default('0.3'),
+  NEWS_INGESTION_OPPORTUNITY_FALLBACK_RELEVANCE: z.string().default('5.0'),
+}).superRefine((data, ctx) => {
+  const weightSum =
+    Number(data.NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE) +
+    Number(data.NEWS_INGESTION_OPPORTUNITY_WEIGHT_TREND) +
+    Number(data.NEWS_INGESTION_OPPORTUNITY_WEIGHT_FIT);
+  if (Math.abs(weightSum - 1) > 0.001) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE'],
+      message: `NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE + _TREND + _FIT must sum to 1 (got ${weightSum})`,
+    });
+  }
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -138,5 +156,10 @@ export default {
     reddit_subreddits: env.REDDIT_SUBREDDITS.split(',')
       .map((sub) => sub.trim())
       .filter(Boolean),
+    category_confidence_threshold: Number(env.NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD),
+    opportunity_weight_relevance: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE),
+    opportunity_weight_trend: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_TREND),
+    opportunity_weight_fit: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_FIT),
+    opportunity_fallback_relevance: Number(env.NEWS_INGESTION_OPPORTUNITY_FALLBACK_RELEVANCE),
   },
 };

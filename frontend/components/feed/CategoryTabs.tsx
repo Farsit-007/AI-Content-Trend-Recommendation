@@ -1,17 +1,18 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { CATEGORIES, type Category } from "./constants"
+import { type Category } from "./constants"
 
 type Props = {
+  categories: Category[]
   active: Category
   onSelect: (cat: Category) => void
 }
 
-export default function CategoryTabs({ active, onSelect }: Props) {
+export default function CategoryTabs({ categories, active, onSelect }: Props) {
   return (
     <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
-      {CATEGORIES.map((cat) => (
+      {categories.map((cat) => (
         <button
           key={cat}
           onClick={() => onSelect(cat)}

@@ -7,17 +7,23 @@ interface LlmCategorization {
   id: number;
   category: string;
   impact_note: string;
-  opportunity_score: number;
+  confidence: number;
+  audience_fit: number;
 }
 
 const isValidCategory = (category: string): category is NewsCategory =>
   (NEWS_CATEGORIES as readonly string[]).includes(category);
 
+const isUnitInterval = (n: unknown): n is number => typeof n === 'number' && n >= 0 && n <= 1;
+
+// Cold, low-confidence fallback so a parse/validation failure never masquerades as a real
+// AI judgment — this drives `needs_review: true` and a fit derived from relevance alone.
 const fallbackCategorize = (item: ScoredNewsItem): CategorizedNewsItem => ({
   ...item,
   category: 'Other',
   impact_note: 'Automatically ingested — category/opportunity scoring unavailable for this item.',
-  opportunity_score: item.relevance_score ?? item.trend_score,
+  category_confidence: 0,
+  audience_fit: (item.relevance_score ?? 0) / 10,
 });
 
 const parseLlmResponse = (raw: string): LlmCategorization[] | null => {
@@ -50,7 +56,9 @@ const categorizeOneBatch = async (batch: ScoredNewsItem[]): Promise<CategorizedN
             'You categorize tech news items for a social media growth team. Respond with ONLY a strict JSON array, ' +
             'no markdown fences, no commentary. Each element must be: ' +
             '{ "id": <number>, "category": one of "AI"|"Web Dev"|"Career"|"Security"|"DevOps"|"Other", ' +
-            '"impact_note": "<one sentence on audience fit>", "opportunity_score": <number 0-10> }. ' +
+            '"impact_note": "<one sentence on audience fit>", "confidence": <number 0-1, how sure you are of the category>, ' +
+            '"audience_fit": <number 0-1, how well this topic fits a growth/social content team\'s audience, ' +
+            'independent of how trendy or on-brand it already scored> }. ' +
             'Include exactly one element per input item, using the same id.',
         },
         { role: 'user', content: prompt },
@@ -71,14 +79,16 @@ const categorizeOneBatch = async (batch: ScoredNewsItem[]): Promise<CategorizedN
 
   return batch.map((item, id) => {
     const result = byId.get(id);
-    if (!result || !isValidCategory(result.category) || typeof result.opportunity_score !== 'number') {
+    if (!result || !isValidCategory(result.category)) {
       return fallbackCategorize(item);
     }
+    const fallback = fallbackCategorize(item);
     return {
       ...item,
       category: result.category,
-      impact_note: result.impact_note ?? fallbackCategorize(item).impact_note,
-      opportunity_score: result.opportunity_score,
+      impact_note: result.impact_note ?? fallback.impact_note,
+      category_confidence: isUnitInterval(result.confidence) ? result.confidence : fallback.category_confidence,
+      audience_fit: isUnitInterval(result.audience_fit) ? result.audience_fit : fallback.audience_fit,
     };
   });
 };

@@ -23,7 +23,13 @@ export interface ScoredNewsItem extends RawNewsItem {
 export interface CategorizedNewsItem extends ScoredNewsItem {
   category: NewsCategory;
   impact_note: string;
+  category_confidence: number;
+  audience_fit: number;
+}
+
+export interface ScoredCategorizedNewsItem extends CategorizedNewsItem {
   opportunity_score: number;
+  needs_review: boolean;
 }
 
 export interface AdapterResult {

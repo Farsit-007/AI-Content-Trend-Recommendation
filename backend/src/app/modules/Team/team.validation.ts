@@ -23,8 +23,15 @@ const addMemberValidation = z.object({
   }),
 });
 
+const addCategoryValidation = z.object({
+  body: z.object({
+    category: z.string({ required_error: 'category is required' }).trim().min(1).max(40),
+  }),
+});
+
 export const TeamValidation = {
   createTeamValidation,
   updateTeamValidation,
   addMemberValidation,
+  addCategoryValidation,
 };

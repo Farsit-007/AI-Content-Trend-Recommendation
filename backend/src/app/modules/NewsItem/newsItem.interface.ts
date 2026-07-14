@@ -17,6 +17,8 @@ export interface INewsItem {
   impact_note?: string;
   embedding: number[];
   opportunity_score?: number;
+  category_confidence?: number;
+  needs_review: boolean;
   processed: boolean;
   created_at: Date;
 }

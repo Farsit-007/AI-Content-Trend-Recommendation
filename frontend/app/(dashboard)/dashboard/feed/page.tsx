@@ -1,4 +1,3 @@
-import { MOCK_NEWS_ITEMS } from "@/lib/mock/news"
 import NewsFeed from "@/components/feed/NewsFeed"
 
 export const metadata = {
@@ -14,7 +13,7 @@ export default function FeedPage() {
           AI-scored news ranked by trend and opportunity for your channels
         </p>
       </div>
-      <NewsFeed items={MOCK_NEWS_ITEMS} />
+      <NewsFeed />
     </div>
   )
 }

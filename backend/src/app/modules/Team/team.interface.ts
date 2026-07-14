@@ -2,6 +2,7 @@ export interface ITeam {
   name: string;
   description?: string;
   created_by: string;
+  custom_categories: string[];
   created_at: Date;
 }
 

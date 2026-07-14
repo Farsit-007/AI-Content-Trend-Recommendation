@@ -1,11 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import { Zap, RefreshCw, Loader2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Zap, RefreshCw, Loader2, Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import PageHeader from "@/components/shared/PageHeader"
+import { addCustomCategory, fetchEffectiveCategories, removeCustomCategory, DEFAULT_CATEGORIES } from "@/lib/api/teams"
 
 type Status = "idle" | "running" | "complete"
 
@@ -137,6 +140,104 @@ async function runNewsIngestion(): Promise<string> {
   return `${summary.totalStored} new items stored across ${summary.sources.length} sources`
 }
 
+function ManageCategories() {
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
+  const [newCategory, setNewCategory] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    fetchEffectiveCategories()
+      .then(setCategories)
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load categories"))
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  async function handleAdd() {
+    const category = newCategory.trim()
+    if (!category || isSaving) return
+    setIsSaving(true)
+    try {
+      await addCustomCategory(category)
+      setCategories((cur) => [...cur, category])
+      setNewCategory("")
+      toast.success(`Added category "${category}"`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add category")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleRemove(category: string) {
+    try {
+      await removeCustomCategory(category)
+      setCategories((cur) => cur.filter((c) => c !== category))
+      toast.success(`Removed category "${category}"`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove category")
+    }
+  }
+
+  return (
+    <div className="glass-card rounded-lg p-5 flex flex-col gap-4 md:col-span-2">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+          <Plus className="size-5 text-primary" />
+        </div>
+        <h3 className="font-semibold">Manage Categories</h3>
+      </div>
+
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Default categories apply to every team. Add your team&apos;s own on top of them to use when
+        recategorizing feed items.
+      </p>
+
+      <div className="flex flex-wrap gap-1.5">
+        {categories.map((cat) => (
+          <Badge
+            key={cat}
+            variant="outline"
+            className={cn(
+              "text-xs px-2 py-0.5 border gap-1",
+              DEFAULT_CATEGORIES.includes(cat)
+                ? "text-muted-foreground border-border"
+                : "text-primary border-primary/30 bg-primary/10",
+            )}
+          >
+            {cat}
+            {!DEFAULT_CATEGORIES.includes(cat) && (
+              <button onClick={() => handleRemove(cat)} className="hover:text-destructive">
+                <X className="size-3" />
+              </button>
+            )}
+          </Badge>
+        ))}
+        {isLoading && <span className="text-xs text-muted-foreground">Loading…</span>}
+      </div>
+
+      <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+        <Input
+          value={newCategory}
+          onChange={(e) => setNewCategory(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+          placeholder="New category name"
+          className="h-8 text-sm max-w-xs"
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!newCategory.trim() || isSaving}
+          onClick={handleAdd}
+          className="h-8 border-border hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+        >
+          Add
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminPanel() {
   return (
     <div className="max-w-2xl mx-auto">
@@ -163,6 +264,7 @@ export default function AdminPanel() {
           buttonLabel="Refresh"
           successMessage="Analytics refresh triggered successfully"
         />
+        <ManageCategories />
       </div>
     </div>
   )

@@ -16,7 +16,7 @@ const createNewsItem = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllNewsItems = catchAsync(async (req: Request, res: Response) => {
-  const { meta, result } = await NewsItemService.getAllNewsItems(req.query);
+  const { meta, result } = await NewsItemService.getAllNewsItems(req.query, req.user);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -27,7 +27,7 @@ const getAllNewsItems = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getSingleNewsItem = catchAsync(async (req: Request, res: Response) => {
-  const result = await NewsItemService.getSingleNewsItem(req.params.id as string);
+  const result = await NewsItemService.getSingleNewsItem(req.params.id as string, req.user);
   if (!result) {
     throw new AppError(httpStatus.NOT_FOUND, 'News item not found');
   }

@@ -29,3 +29,30 @@ export const scoreTrend = (points: number, comments: number, starsDelta: number)
   const weighted = points + comments * 2 + starsDelta * 3 + 1;
   return round1(Math.min(10, Math.log10(weighted) * 3));
 };
+
+interface OpportunityWeights {
+  opportunity_weight_relevance: number;
+  opportunity_weight_trend: number;
+  opportunity_weight_fit: number;
+  opportunity_fallback_relevance: number;
+}
+
+/**
+ * Deterministic so identical relevance/trend/fit inputs always produce the same score — the LLM
+ * only supplies `audienceFit` (bounded 0-1); it no longer picks the final number itself.
+ * `relevanceScore` is `undefined` during cold start (empty brand-voice pool), in which case the
+ * configured fallback stands in for it.
+ */
+export const computeOpportunityScore = (
+  relevanceScore: number | undefined,
+  trendScore: number,
+  audienceFit: number,
+  weights: OpportunityWeights,
+): number => {
+  const relevance = relevanceScore ?? weights.opportunity_fallback_relevance;
+  const score =
+    weights.opportunity_weight_relevance * relevance +
+    weights.opportunity_weight_trend * trendScore +
+    weights.opportunity_weight_fit * (audienceFit * 10);
+  return round1(Math.min(10, Math.max(0, score)));
+};

@@ -5,6 +5,7 @@ const teamSchema = new Schema<ITeam>({
   name: { type: String, required: true, trim: true },
   description: { type: String, trim: true },
   created_by: { type: String, required: true },
+  custom_categories: { type: [String], default: [] },
   created_at: { type: Date, default: Date.now },
 });
 
