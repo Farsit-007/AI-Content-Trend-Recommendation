@@ -42,7 +42,7 @@
 |-----------|--------|--------|--------|-------|
 | **Samin** | ⚡ Critical fixes #1 + #2 | — | ✅ Done | Atlas cluster + `$vectorSearch` confirmed live; OpenRouter confirmed as embedding provider (`openai/text-embedding-3-small`) |
 | **Samin** | `backend-scaffold` | `ravi/feat/backend-scaffold` | ✅ Done | Node + TS, Mongo/Redis, OpenRouter LLM + embeddings client, env config, startup connectivity check — implemented and live-verified (typecheck, `npm run dev` connects to Atlas/Redis/OpenRouter). Merged to `main` via PR #6. |
-| **Samin** | `db-vector-indexes` | `ravi/feat/db-vector-indexes` | 👀 In Review | 3 Atlas Vector Search indexes + collection schemas — implemented, live-verified against Atlas M0, PR #10 open |
+| **Samin** | `db-vector-indexes` | `ravi/feat/db-vector-indexes` | ✅ Done | 3 Atlas Vector Search indexes + collection schemas — implemented, live-verified against Atlas M0, PR #10 merged to `main` |
 
 | **Robayat** | ⚡ Critical fix #3 | — | ⬜ Todo | Ping Mursalin for tokens; submit LinkedIn app NOW |
 | **Robayat** | `api-contract-openapi` | `feature/api-contract-openapi` | ✅ Done | OpenAPI 3.1 contract for all `/api/v1` resources — Swagger UI at `/api/v1/docs`, raw spec at `/api/v1/openapi.json`. typecheck/lint clean, spec validates, UI renders. Merged to `main` via PR #12 — Mehedi can build against it now. |
@@ -56,12 +56,12 @@
 
 | Developer | Change | Branch | Status | Notes |
 |-----------|--------|--------|--------|-------|
+| **Samin** | `multi-team-rbac` | `main` (direct) | ✅ Done | Backend pivot: single-tenant → multi-team, role-based (`Team`/`TeamMembership`, `role` on `User`, admin-only user/team creation). `PlatformPost`/`BrandVoiceExample` now `team_id`-scoped + auth-gated. New encrypted, team-scoped `PlatformCredential` module replaces the single `.env`-only credential from PR #14; platform slugs generalized beyond facebook/youtube/linkedin. See `SAMIN.md`. |
+| **Samin** | `super-admin-platform-catalog` | `main` (direct) | ✅ Done | New `super_admin` role + `PlatformCatalog` module: super_admin curates which platforms exist system-wide, each team independently enables only what it needs. Wired into credential read/write paths so a globally-disabled platform blocks every team immediately. Auto-seeds the first super_admin on server boot from `.env`. See `SAMIN.md`. |
 | **Samin** | `news-ingestion-pipeline` | `feat/news-ingestion-pipeline` | ⬜ Todo | HackerNews, Dev.to, GitHub, Reddit, RSS; 3h cron. **Includes FR-25 manual trigger endpoint.** |
 | **Samin** | `filter-pipeline` | `feat/filter-pipeline` | ⬜ Todo | 4 layers: keyword → vector dedup → Redis cache → relevance gate |
 | **Samin** | `brand-voice-rag` | `feat/brand-voice-rag` | ⬜ Todo | Moved up from Jul 15 — only needs indexes. Seed data comes from Mehedi today. |
-| **Robayat** | `facebook-analytics` | `feat/facebook-analytics` | ⬜ Todo | Meta Graph API; 6h refresh. **Includes FR-26 manual refresh endpoint.** Start here — slowest API. |
-| **Robayat** | `youtube-analytics` | `feat/youtube-analytics` | ⬜ Todo | YouTube Data API v3: views, watch time, CTR, top videos |
-| **Robayat** | `linkedin-analytics` | `feat/linkedin-analytics` | ⬜ Todo | **Cut first if behind** (FR-08 Should Have; approval may not arrive) |
+| **Robayat** | `social-handle-analytics` | `feat/social-handle-analytics` | ⬜ Todo | **Merged 2026-07-14** — was 3 separate tasks (`facebook-analytics`/`youtube-analytics`/`linkedin-analytics`), now 1: platforms are no longer hardcoded (`multi-team-rbac`, `super-admin-platform-catalog`), so this is one generic per-team, per-enabled-platform analytics job with 3 built-in adapters. **Includes FR-26 manual refresh endpoint.** Start with the Facebook adapter — slowest API. LinkedIn adapter can lag behind the other two without blocking the merge (FR-06 Should-Have tier; approval may not arrive). |
 | **Mehedi** | `report-ui` | `feat/report-ui` | ⬜ Todo | 30-day report: overview, per-platform charts, AI insight — mock data |
 | **Mehedi** | `chat-ui` | `feat/chat-ui` | ⬜ Todo | Ask Growth Studio chat panel — mock data |
 | **Mehedi** | `admin-triggers-ui` | `feat/admin-triggers-ui` | ⬜ Todo | "Run ingestion" + "Refresh analytics" buttons — mock data |
@@ -95,7 +95,7 @@
 
 ## Descope Order (pre-agreed — no debates at 11pm)
 
-1. **Cut first:** `linkedin-analytics` — FR-08 Should Have; fallback already documented
+1. **Cut first:** the LinkedIn adapter within `social-handle-analytics` — Should-Have tier; degrades to "pending approval" per team without touching the Facebook/YouTube adapters or blocking the task
 2. **Cut second:** `ask-growth-studio-chat` + `chat-ui` — FR-22/23 Should Have; demo survives without it
 3. **Never cut:** news feed, content generator, cross-platform report — these ARE the demo
 
@@ -121,16 +121,14 @@ Review within 2 hours of PR open. Branches must not age overnight.
 | FR-02, FR-04 | Filter pipeline | Samin | (internal, no UI) |
 | FR-03 | AI categorization + impact note | Samin | trend badges in feed |
 | FR-05 | Trend feed | Samin | news-feed-dashboard |
-| FR-06 | Facebook analytics | Robayat | report-ui |
-| FR-07 | YouTube analytics | Robayat | report-ui |
-| FR-08 | LinkedIn analytics | Robayat | report-ui |
+| FR-06 (was FR-06/07/08) | Social handle analytics — any team-enabled platform, 3 adapters built in | Robayat | report-ui |
 | FR-09–12 | Cross-platform report | Robayat | report-ui |
 | FR-13–17, FR-19–21 | Content generator | Samin | content-generator-ui |
 | FR-18 | Brand voice RAG | Samin | (internal) |
 | FR-22, FR-23 | Ask Growth Studio chat | Samin | chat-ui |
 | FR-24 | Opportunity scoring | Robayat | "High opportunity" badge |
 | FR-25 | Manual ingestion trigger | Samin (in `news-ingestion-pipeline`) | admin-triggers-ui |
-| FR-26 | Manual analytics refresh | Robayat (in `facebook-analytics`) | admin-triggers-ui |
+| FR-26 | Manual analytics refresh | Robayat (in `social-handle-analytics`) | admin-triggers-ui |
 
 ---
 

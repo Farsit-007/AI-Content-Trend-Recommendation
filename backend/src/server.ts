@@ -2,11 +2,13 @@ import mongoose from 'mongoose';
 import config from './app/config';
 import app from './app';
 import { verifyConnections } from './app/lib/verifyConnections';
+import { seedSuperAdminIfMissing } from './app/lib/seedSuperAdmin';
 import { Server } from 'http';
 let server: Server;
 async function main() {
   try {
     await mongoose.connect(config.database_url as string);
+    await seedSuperAdminIfMissing();
     await verifyConnections();
     server = app.listen(config.port, () => {
       console.log(`Server is running on port ${config.port}`);

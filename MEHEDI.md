@@ -124,3 +124,9 @@ gh pr create --fill
 
 ## Notes
 <!-- Add blockers, decisions, or progress notes here -->
+- **2026-07-14**: The backend gained real auth + multi-team + roles this session (`multi-team-rbac`, `super-admin-platform-catalog` — see `SAMIN.md`). Doesn't change anything for your mock-data screens today, but it does change what `api-wiring` (July 15) and `admin-triggers-ui` need to account for:
+  - Every real API call now needs `Authorization: Bearer <token>` from `POST /auth/login` — no more open, unauthenticated endpoints.
+  - There's no public sign-up screen to build — accounts are created by an admin/super_admin (`POST /users`), so `api-wiring` needs a login screen, not a register screen.
+  - Three roles now exist: `user` (sees only their own team's data), `admin` (manages users/teams), `super_admin` (also manages the platform catalog — which social platforms exist system-wide). If `admin-triggers-ui` grows to include user/team/platform management, that's role-gated UI, not just buttons.
+  - Data is per-team now (news feed stays global, but platform posts / brand voice / credentials are per-team) — worth keeping in mind if the dashboard ever needs a team switcher.
+  - Full live contract, incl. all the new endpoints, is always at `/api/v1/docs`; a matching Postman collection is at `backend/Hackathon process.postman_collection.json`.

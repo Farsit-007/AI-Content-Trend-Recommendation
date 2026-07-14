@@ -1,6 +1,6 @@
 # Robayat Kalam Farsit — API Contract & Platform Analytics
 
-**Role:** API design, platform analytics (Facebook/YouTube/LinkedIn), reporting, opportunity scoring  
+**Role:** API design, social handle analytics (dynamic per-team platforms — Facebook/YouTube/LinkedIn built in today), reporting, opportunity scoring  
 **Owns:** `backend/analytics/**`, `backend/reports/**`, `openapi/**`  
 **Deadline:** July 16, 2026
 
@@ -20,20 +20,21 @@
 | ✅ Done | `api-contract-openapi` | `feature/api-contract-openapi` | **Merged to `main` via PR #12.** OpenAPI 3.1 contract for all `/api/v1` resources (news-items, platform-posts, brand-voice-examples), served as Swagger UI at `/api/v1/docs` and raw spec at `/api/v1/openapi.json`. typecheck + lint clean; spec validates (6 paths, 15 ops); docs UI renders. |
 | ✅ Done | `platform-api-credentials` | `feature/platform-api-credentials` | **Merged to `main` via PR #14** — `getPlatformToken()` resolver, AES-256-GCM token encryption, fail-fast zod env validation, `npm run verify:credentials`, and an auth layer (bcrypt + JWT `requireAuth`). **This unblocks all 3 analytics changes now** — they import `getPlatformToken()` and pick up real tokens the moment values land in `.env`, no code change needed. ⚠️ **Scope deviation:** built per-user OAuth + auth, where the plan said tokens→`.env`. ⚠️ **Not built:** the OAuth credential store itself (connect/callback, refresh, `/credentials`) — blocked, see below. **Submit LinkedIn app NOW — approval takes 2–3 days.** |
 
-### July 14 — Platform Analytics
+### July 14 — Social Handle Analytics
 
-> ✅ **All three are unblocked as of PR #14.** Import `getPlatformToken(platform)` from
-> `backend/src/app/lib/platformCredentials.ts` — **never read `process.env` directly.** It resolves
-> a token from the credential store, falling back to the `.env` bootstrap token, so you can build
-> and typecheck against it today and it starts returning real tokens the moment Mursalin's values
-> land in `.env`. A missing platform throws a typed `AppError(424)` — catch it and render
-> "connected but pending approval" (requirements §5.6) rather than letting it 500.
+> ⚠️ **Updated 2026-07-14 — this is now ONE task, not three.** `facebook-analytics` / `youtube-analytics` / `linkedin-analytics` are **merged into `social-handle-analytics`**, because the backend became multi-team with a dynamic platform catalog (`multi-team-rbac`, `super-admin-platform-catalog` — see `SAMIN.md`): platforms are no longer a fixed 3-item list, so "one task per hardcoded platform" no longer makes sense. Build it as **one generic job** — for every team, for every platform that team has enabled, dispatch to that platform's adapter — with 3 adapter implementations to start (Facebook, YouTube, LinkedIn). Adding a 4th platform later (Reddit, Twitter/X, …) means writing one more adapter function, not a new task/branch/PR.
+>
+> What actually changed under you, mechanically:
+> - **`getPlatformToken(platform, teamId?)`** (was `(platform, userId?)`). Resolution order: (1) the given team's own stored, encrypted credential, (2) the `.env` bootstrap token (still works with **no `teamId`**, so you can keep building/typechecking against it exactly as before), (3) throws the same typed `AppError(424)` — still catch it and render "connected but pending approval".
+> - **New gate:** a team must have the platform *enabled* (via the new Platform Catalog, `/teams/:teamId/platforms/:platform/enable`) for its stored credential to resolve at all — a super_admin disabling a platform system-wide blocks it for every team immediately, even mid-flow. If a token stops resolving unexpectedly, check the catalog/team-enablement state before assuming a bug.
+> - **`PlatformPost` now requires `team_id`** (unique index is `{team_id, platform, post_id}`) and its routes require a bearer token (`requireAuth`) — when your analytics job writes posts, pass the owning team's id; when it runs without an HTTP caller (a cron job), that's a service-level call, not through the authed route, so it's unaffected by the auth requirement.
+> - `platform` is no longer a fixed `facebook | youtube | linkedin` enum anywhere — it's any lowercase slug (`string`, not a union type).
+>
+> Everything else from PR #14 still stands: **never read `process.env` directly**, keep importing from `backend/src/app/lib/platformCredentials.ts`.
 
 | Status | Change | Branch | FRs | Notes |
 |--------|--------|--------|-----|-------|
-| ⬜ Todo | `facebook-analytics` | `feat/facebook-analytics` | FR-06, FR-26 | Meta Graph API: reach, engagement, top posts, best times; 6h refresh. **Include manual refresh endpoint (FR-26) for Mehedi's admin UI. Start here — slowest API.** |
-| ⬜ Todo | `youtube-analytics` | `feat/youtube-analytics` | FR-07 | YouTube Data API v3: views, watch time, CTR, top videos |
-| ⬜ Todo | `linkedin-analytics` | `feat/linkedin-analytics` | FR-08 | LinkedIn API: impressions, engagement, demographics. **Cut first if behind — Should Have, approval may not arrive.** |
+| ⬜ Todo | `social-handle-analytics` | `feat/social-handle-analytics` | FR-06, FR-26 | One job, 3 adapters: Meta Graph API (Facebook), YouTube Data API v3, LinkedIn API — reach, engagement, top posts, best times, per team's enabled platforms; 6h refresh. **Include manual refresh endpoint (FR-26) for Mehedi's admin UI.** Start with the Facebook adapter — slowest API. LinkedIn adapter can lag behind (approval may not arrive) without blocking the other two or the task as a whole. |
 
 ### July 15 — Scoring + Reporting
 | Status | Change | Branch | FRs | Notes |
@@ -108,3 +109,4 @@ gh pr create --fill
 
 ## Notes
 <!-- Add blockers, decisions, or progress notes here -->
+- **2026-07-14**: Samin shipped `multi-team-rbac` and `super-admin-platform-catalog` directly to `main` (not through a PR/branch this time — flagged here so it's not a surprise in your next `git pull`). Net effect for your upcoming analytics work: `getPlatformToken()` gained a `teamId` param and a platform-catalog enablement gate (see the updated note in the July 14 section above), and `PlatformPost` now requires `team_id`. Nothing you've already built breaks — the `.env` bootstrap path still works with no `teamId` — but any *new* code should thread a team id through once you're storing/reading real per-team data.

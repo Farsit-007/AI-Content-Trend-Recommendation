@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a5ef7aad-5314-485b-b5f8-658f485658d4",
     "name": "Growth Studio API",
-    "description": "AI Content & Trend Intelligence Platform — REST API. Multi-team, role-based: admins manage teams/users/credentials across every team; regular users only see their own team(s) data. Run \"Login as Admin\" or \"Login as Team User\" first (or seed one via `npm run seed:admin`) — the {{token}} collection variable is set automatically from the response and used as the bearer token on every other request.",
+    "description": "AI Content & Trend Intelligence Platform — REST API. Multi-team, role-based (user < admin < super_admin): admins manage teams/users/credentials across every team; super_admin additionally curates the dynamic Platform Catalog (which social platforms exist at all, system-wide); regular users only see their own team(s) data. Run \"Login as Admin\", \"Login as Super Admin\", or \"Login as Team User\" first — the super_admin account is auto-seeded on server boot from `.env` (`SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD`), no setup needed. The {{token}} collection variable is set automatically from whichever login response ran last, and used as the bearer token on every other request. Suggested run order for a full demo: Login as Super Admin → Platform Catalog (create + enable platforms) → Login as Admin → Teams (create team + user) → Team Platforms (enable for the team) → Platform Credentials (add a token) → everything else.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "39338033"
   },
@@ -122,6 +122,58 @@
           ]
         },
         {
+          "name": "Login as Super Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/auth/login",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Logs in the super_admin. This account is auto-seeded on every server start from `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD` in `.env` (see `app/lib/seedSuperAdmin.ts`) — no manual setup needed. Required for the Platform Catalog folder (only a super_admin can curate it). Sets {{token}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"superadmin@gmail.com\",\n  \"password\": \"superadmin123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "if (result?.data?.token) {",
+                  "    pm.collectionVariables.set('token', result.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
           "name": "Login as Team User",
           "request": {
             "method": "POST",
@@ -196,7 +248,7 @@
     },
     {
       "name": "Users",
-      "description": "Admin-only account management. There is no public self-registration — every account is created deliberately by an admin, with a role and (usually) a team assignment.",
+      "description": "Admin-only account management. There is no public self-registration — every account is created deliberately by an admin, with a role and (usually) a team assignment. Roles: user, admin, super_admin.",
       "item": [
         {
           "name": "Create User (admin only)",
@@ -269,6 +321,39 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"second-admin@growthstudio.test\",\n  \"password\": \"ChangeMe123!\",\n  \"name\": \"Second Admin\",\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Super Admin User (super_admin only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/users",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": "Escalation guard: creating a user with role \"super_admin\" requires the *caller* to already be a super_admin — a regular admin gets 403 here. Run \"Login as Super Admin\" first.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"second-super-admin@growthstudio.test\",\n  \"password\": \"ChangeMe123!\",\n  \"name\": \"Second Super Admin\",\n  \"role\": \"super_admin\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -548,8 +633,227 @@
       ]
     },
     {
+      "name": "Platform Catalog",
+      "description": "super_admin-curated list of platforms that exist in the system at all (create/enable/disable/delete, all super_admin only). GET is open to any authenticated user — a super_admin sees every entry (incl. disabled, for management); everyone else only sees is_enabled:true ones, i.e. what's currently available for their team to turn on. A team can't enable — and therefore can't add a credential for — a platform that either doesn't exist here or is globally disabled.",
+      "item": [
+        {
+          "name": "Create Platform (super_admin only) — Facebook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/platforms",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platforms"
+              ]
+            },
+            "description": "Run \"Login as Super Admin\" first. `is_enabled` defaults to true if omitted.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"facebook\",\n  \"label\": \"Facebook\",\n  \"is_enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Platform (super_admin only) — Reddit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/platforms",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platforms"
+              ]
+            },
+            "description": "Demonstrates the catalog is not limited to facebook/youtube/linkedin — any lowercase slug works.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"reddit\",\n  \"label\": \"Reddit\",\n  \"is_enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Platforms",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/platforms",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platforms"
+              ]
+            },
+            "description": "super_admin sees every catalog entry (incl. disabled); any other role only sees is_enabled:true ones."
+          },
+          "response": []
+        },
+        {
+          "name": "Enable Platform Globally (super_admin only)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/platforms/{{platform}}/enable",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platforms",
+                "{{platform}}",
+                "enable"
+              ]
+            },
+            "description": "Flips the platform's global switch back on — every team that already had it enabled on their side regains access immediately, no action needed from them."
+          },
+          "response": []
+        },
+        {
+          "name": "Disable Platform Globally (super_admin only)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/platforms/{{platform}}/disable",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platforms",
+                "{{platform}}",
+                "disable"
+              ]
+            },
+            "description": "Immediately blocks every team from using this platform — credential submission and token resolution both stop working, even for teams that already had it enabled — until a super_admin re-enables it."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Platform (super_admin only)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/platforms/{{platform}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "platforms",
+                "{{platform}}"
+              ]
+            },
+            "description": "Removes the platform from the catalog entirely and cascades to remove every team's enablement row for it."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Team Platforms",
+      "description": "Each team's own on/off switch for a catalog platform. A team can only enable a platform that a super_admin has added to the catalog AND left globally enabled — otherwise this returns 400. Team members (of that team) or admins/super_admins can toggle these.",
+      "item": [
+        {
+          "name": "List Team's Platforms",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/platforms",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "platforms"
+              ]
+            },
+            "description": "Every globally-enabled catalog platform, each annotated with whether this specific team currently has it enabled (team_enabled: true/false)."
+          },
+          "response": []
+        },
+        {
+          "name": "Enable Platform for Team",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/platforms/{{platform}}/enable",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "platforms",
+                "{{platform}}",
+                "enable"
+              ]
+            },
+            "description": "Run \"Create Platform\" + \"Enable Platform Globally\" (Platform Catalog folder) first — this 400s if the platform isn't in the catalog or isn't globally enabled. Once enabled here, the team can submit a credential for it (see Platform Credentials folder)."
+          },
+          "response": []
+        },
+        {
+          "name": "Disable Platform for Team",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/teams/{{teamId}}/platforms/{{platform}}/disable",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "teams",
+                "{{teamId}}",
+                "platforms",
+                "{{platform}}",
+                "disable"
+              ]
+            },
+            "description": "A team can always turn its own switch off, regardless of the platform's current global state."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Platform Credentials",
-      "description": "Encrypted, team-scoped social platform credentials — any platform a team uses (Facebook, YouTube, LinkedIn, Reddit, Twitter/X, Instagram, TikTok, etc.), not a fixed list. Tokens are AES-256-GCM encrypted at rest; list views only ever show a masked `token_last4`. Only team members (of that team) or admins can access these.",
+      "description": "Encrypted, team-scoped social platform credentials — any platform a team uses (Facebook, YouTube, LinkedIn, Reddit, Twitter/X, Instagram, TikTok, etc.), not a fixed list. Tokens are AES-256-GCM encrypted at rest; list views only ever show a masked `token_last4`. Only team members (of that team) or admins can access these. **Prerequisite:** run the Platform Catalog + Team Platforms folders first — a team must have the platform enabled (both globally and on the team's own switch) before it can submit a credential for it, or this 400s.",
       "item": [
         {
           "name": "Save/Rotate Platform Credential (Facebook)",
@@ -573,7 +877,7 @@
                 "credentials"
               ]
             },
-            "description": "Upserts by (team, platform) — submitting again for the same platform rotates the stored token in place.",
+            "description": "Upserts by (team, platform) — submitting again for the same platform rotates the stored token in place. Requires the team to have enabled \"facebook\" first (Team Platforms folder).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"platform\": \"facebook\",\n  \"token\": \"EAABsbCS1example...redacted...token\",\n  \"account_id\": \"1234567890\"\n}",
@@ -608,7 +912,7 @@
                 "credentials"
               ]
             },
-            "description": "Demonstrates that `platform` is not restricted to facebook/youtube/linkedin — any lowercase slug works (letters, numbers, hyphens, underscores).",
+            "description": "Demonstrates that `platform` is not restricted to facebook/youtube/linkedin — any lowercase slug works (letters, numbers, hyphens, underscores). Requires the team to have enabled \"reddit\" first (Team Platforms folder).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"platform\": \"reddit\",\n  \"token\": \"reddit-oauth-token-example\",\n  \"account_id\": \"growthstudio_bot\"\n}",

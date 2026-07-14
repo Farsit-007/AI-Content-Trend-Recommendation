@@ -34,6 +34,11 @@ const envSchema = z.object({
     .string()
     .refine((v) => decodeKey(v) !== null, 'CREDENTIAL_ENCRYPTION_KEY must decode to exactly 32 bytes (openssl rand -base64 32)'),
 
+  // Optional on purpose — if unset, the startup seed simply skips (see lib/seedSuperAdmin.ts).
+  SUPER_ADMIN_EMAIL: z.string().email('SUPER_ADMIN_EMAIL must be a valid email').optional(),
+  SUPER_ADMIN_PASSWORD: z.string().min(8, 'SUPER_ADMIN_PASSWORD must be at least 8 characters').optional(),
+  SUPER_ADMIN_NAME: z.string().optional(),
+
   // Platform values are all optional on purpose: a developer without LinkedIn
   // approval (or without Mursalin's tokens yet) must still be able to boot.
   OAUTH_REDIRECT_BASE_URL: z.string().default('http://localhost:3001/api/v1'),
@@ -82,6 +87,12 @@ export default {
 
   jwt_secret: env.JWT_SECRET,
   jwt_expires_in: env.JWT_EXPIRES_IN,
+
+  super_admin: {
+    email: env.SUPER_ADMIN_EMAIL,
+    password: env.SUPER_ADMIN_PASSWORD,
+    name: env.SUPER_ADMIN_NAME,
+  },
 
   oauth_redirect_base_url: env.OAUTH_REDIRECT_BASE_URL,
 

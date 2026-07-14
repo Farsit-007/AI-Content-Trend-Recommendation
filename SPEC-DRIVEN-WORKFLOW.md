@@ -93,7 +93,7 @@ Reviewer approves → **Squash and merge** into `main` → delete the branch. Ev
 ```
 main (protected — no direct pushes)
  ├─ feat/news-ingestion-pipeline     (Samin)
- ├─ feat/facebook-analytics          (Robayat)
+ ├─ feat/social-handle-analytics     (Robayat)
  └─ feat/dashboard-feed-ui           (Mehedi)
 ```
 
@@ -152,11 +152,9 @@ Every feature in [`project-ida-requirments.md`](./project-ida-requirments.md) is
 
 | # | Change | FRs | Key work | Depends on |
 |---|--------|-----|----------|:---:|
-| 1 | `facebook-analytics` | FR-06 | Meta Graph API: reach, engagement, top posts, best times; 6h refresh | scaffold, creds |
-| 2 | `youtube-analytics` | FR-07 | YouTube Data API v3: views, watch time, CTR, top videos | scaffold, creds |
-| 3 | `linkedin-analytics` | FR-08 | LinkedIn API: impressions, engagement, demographics (fallback if approval slow) | scaffold, creds |
-| 4 | `opportunity-scoring` | FR-24 | Embed posts → `$vectorSearch platform_posts` → `opportunity_score = trend × audience` | 1–2, indexes |
-| 5 | `cross-platform-report` | FR-09–12 | Unified 30-day report + AI insight + content-opportunity ranking; Redis 6h | 1–4 |
+| 1 | `social-handle-analytics` | FR-06 | **Merged 2026-07-14** (was `facebook-analytics`/`youtube-analytics`/`linkedin-analytics` — 3 tasks, now 1, since platforms are no longer hardcoded). One generic job: for every team, for every platform it has enabled, pull last-30-day data via that platform's adapter. 3 adapters built in — Meta Graph API, YouTube Data API v3, LinkedIn API (fallback if approval slow); 6h refresh | scaffold, creds |
+| 2 | `opportunity-scoring` | FR-24 | Embed posts → `$vectorSearch platform_posts` → `opportunity_score = trend × audience` | 1, indexes |
+| 3 | `cross-platform-report` | FR-09–12 | Unified 30-day report + AI insight + content-opportunity ranking; Redis 6h | 1–2 |
 
 ### 🎨 Mehedi Imun — Frontend (Next.js 16)
 
@@ -180,7 +178,7 @@ Every feature in [`project-ida-requirments.md`](./project-ida-requirments.md) is
 | FR-01, 02, 04 | Ingestion + filter pipeline | Samin |
 | FR-03 | AI categorization + scoring | Samin |
 | FR-05, 24 | Feed dashboard + opportunity badge (UI) | Mehedi |
-| FR-06, 07, 08 | FB / YouTube / LinkedIn analytics | Robayat |
+| FR-06 (was FR-06/07/08) | Social handle analytics — any team-enabled platform, 3 adapters built in | Robayat |
 | FR-09–12 | Cross-platform report | Robayat (BE) + Mehedi (UI) |
 | FR-13–17, 19–21 | Content generator | Samin (BE) + Mehedi (UI) |
 | FR-18 | Brand Voice RAG | Samin |
@@ -194,7 +192,7 @@ Every feature in [`project-ida-requirments.md`](./project-ida-requirments.md) is
 ```mermaid
 flowchart LR
     S[Day-1 foundation: scaffold + indexes · Samin<br/>api-contract + creds · Robayat] --> ING[ingestion → filter → scoring<br/>· Samin]
-    S --> AN[fb / yt / li analytics<br/>· Robayat]
+    S --> AN[social handle analytics<br/>fb/yt/li adapters · Robayat]
     ING --> GEN[brand-voice-rag → content-generator → chat<br/>· Samin]
     AN --> OPP[opportunity-scoring → report<br/>· Robayat]
     S --> FE[feed → content-ui → report-ui → chat-ui<br/>· Mehedi against API stub]

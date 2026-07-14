@@ -109,70 +109,43 @@ recency_decay = max(0, 1 − hoursOld / 48)
 
 ---
 
-### Feature 5: Facebook Page Analytics (Meta Graph API)
-**What it does:** Pulls last 30 days of Next Level Engineer Facebook page data via Meta Graph API (free with page admin access).
-**Data collected:**
-- Post reach and impressions per post
-- Engagement breakdown (likes, comments, shares, reactions)
-- Top 10 performing posts by engagement rate
-- Best posting times (impressions by hour of day)
-- Follower growth over 30 days
-- Video vs text vs Reel performance comparison
-- Top performing post categories (career, tutorial, news reaction, etc.)
-**Stored in:** `platform_analytics.facebook` MongoDB collection, refreshed every 6 hours.
-**API permissions required:** `pages_read_engagement`, `pages_show_list`, `read_insights`
+### Feature 5: Social Handle Analytics (dynamic, per-team platform)
+> **Updated 2026-07-14 — merges what used to be three separate features** ("Facebook Page Analytics", "YouTube Channel Analytics", "LinkedIn Page Analytics"). Those assumed one Facebook page / YouTube channel / LinkedIn profile shared by the whole company. That's no longer the model: the company runs several growth **teams**, each connecting its own accounts, and the set of platforms isn't fixed to these three — a `super_admin` curates a platform catalog and each team enables only what it uses (§5.9). One generic analytics job now pulls data for **whichever platforms a team has enabled**, dispatching to a per-platform adapter. `getPlatformToken(platform, teamId)` resolves a team's own encrypted credential first, falling back to a single `.env` bootstrap token per built-in platform (still supported, so analytics work unblocked even with zero teams configured).
+
+**What it does:** For every team, for every platform that team has enabled, pulls the last 30 days of that platform's performance data via its adapter.
+
+**Built-in adapters today** (more can be added as a team enables a new catalog platform — no architecture change required, just a new adapter function):
+
+| Adapter | API | Data collected | Permissions / setup |
+|---|---|---|---|
+| **Facebook** | Meta Graph API (free w/ page admin access) | Post reach & impressions, engagement breakdown (likes/comments/shares/reactions), top 10 posts by engagement rate, best posting times, follower growth, video vs text vs Reel comparison, top categories | `pages_read_engagement`, `pages_show_list`, `read_insights` |
+| **YouTube** | YouTube Data API v3 (free, 10,000 units/day) | Total views & watch time, avg. view duration/retention, CTR by video, top 10 videos by views/watch time, topic analysis, subscriber growth, best-performing formats | API key (Google Cloud Console, free tier) |
+| **LinkedIn** | LinkedIn API | Post impressions & engagement rate, follower demographics, top posts, profile/page visits | `r_organization_social`, `r_basicprofile` — approval is strictest of the three, start this setup immediately |
+
+**Stored in:** `platform_analytics` (per team, per platform — see §5.8), refreshed every 6 hours. **Fallback:** a platform pending approval (e.g. LinkedIn) simply doesn't run its adapter yet for teams that enabled it — surfaced as "connected but pending approval" (§5.6), and doesn't block the other platforms' adapters or the analytics job as a whole.
 
 ---
 
-### Feature 6: YouTube Channel Analytics (YouTube Data API v3)
-**What it does:** Pulls last 30 days of YouTube channel data (free, 10,000 units/day).
-**Data collected:**
-- Total views and watch time
-- Average view duration and retention rate
-- Click-through rate (CTR) by video
-- Top 10 videos by views and by watch time
-- Topic/keyword analysis of top-performing videos
-- Subscriber growth
-- Best performing video formats (tutorial, news reaction, full course, short)
-**Stored in:** `platform_analytics.youtube` MongoDB collection, refreshed every 6 hours.
-**API required:** YouTube Data API v3 (Google Cloud Console, free tier)
-
----
-
-### Feature 7: LinkedIn Page Analytics (LinkedIn API)
-**What it does:** Pulls last 30 days of LinkedIn page or personal profile data.
-**Data collected:**
-- Post impressions and engagement rate
-- Follower demographics (job title, industry)
-- Top performing posts
-- Profile/page visits from posts
-**API required:** `r_organization_social` + `r_basicprofile` permissions
-**Note:** LinkedIn API approval is strictest of the three — start this setup immediately.
-
----
-
-### Feature 8: Cross-Platform 30-Day Performance Report
-**What it does:** Combines Facebook + YouTube + LinkedIn data into one unified AI-generated report. Runs on demand or auto-generates weekly.
+### Feature 6: Cross-Platform 30-Day Performance Report
+**What it does:** Combines data from every platform a team has enabled into one unified AI-generated report. Runs on demand or auto-generates weekly.
 **Report sections:**
-1. **Overview metrics** — Total reach, total engagements, total video views, average engagement rate across all platforms with delta vs previous 30 days
-2. **Facebook performance** — Top posts, best times, content type breakdown (text/Reel/video/image), engagement rate trends
-3. **YouTube performance** — Top videos by views and watch time, CTR analysis, retention insights, topic performance breakdown
-4. **LinkedIn performance** — Impressions, engagement rate vs industry average, top posts, audience demographics
-5. **AI cross-platform insight** — What content themes worked across ALL platforms? Where is the biggest gap between your output and your audience's interest?
-6. **Content opportunity ranking** — This week's top 5 content ideas ranked by: (trend score × your historical engagement on that topic). Shows which format per idea (YouTube video, FB Reel, LinkedIn post).
-**Generated by:** OpenRouter LLM with all platform data as structured context. Output is a readable Banglish report, not raw numbers.
+1. **Overview metrics** — Total reach, total engagements, total video views, average engagement rate across all of the team's enabled platforms, with delta vs previous 30 days
+2. **Per-platform performance** — one section per platform the team has enabled (Facebook: top posts, best times, content type breakdown, engagement rate trends · YouTube: top videos by views/watch time, CTR, retention, topic breakdown · LinkedIn: impressions, engagement rate vs industry average, top posts, demographics · any further platform: whatever its adapter collects, §5)
+3. **AI cross-platform insight** — What content themes worked across the team's enabled platforms? Where is the biggest gap between your output and your audience's interest?
+4. **Content opportunity ranking** — This week's top 5 content ideas ranked by: (trend score × your historical engagement on that topic). Shows which format per idea, matched to whichever of the team's platforms it targets.
+**Generated by:** OpenRouter LLM with all of the team's platform data as structured context. Output is a readable Banglish report, not raw numbers.
 **Cached:** Redis 6h (expensive to regenerate, rarely changes intraday).
 
 ---
 
-### Feature 9: Impact Simulator
+### Feature 7: Impact Simulator
 **What it does:** Per high-relevance news item, AI generates one concrete business suggestion.
 **Example:** "React 19 released → your React content historically gets 3× your average engagement → HIGH PRIORITY. Suggested YouTube title: 'React 19 দিয়ে কি Job পাওয়া সহজ হবে? — Bangla Full Guide 2025'. Suggested FB hook: তুমি কি জানো React 19 তে এমন 3টা feature এসেছে...'"
 **Why it wins:** Not just "what's trending globally" — it's "what's trending + what works for YOUR audience specifically."
 
 ---
 
-### Feature 10: Multi-Format AI Content Generator
+### Feature 8: Multi-Format AI Content Generator
 **What it does:** One trending topic → all content formats generated in one click, personalized to each platform's performance patterns.
 
 **Format 1 — Facebook text post:**
@@ -198,7 +171,7 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 
 ---
 
-### Feature 11: Brand Voice RAG
+### Feature 9: Brand Voice RAG
 **What it does:** Ensures all generated content sounds like YOUR brand, not generic AI Banglish.
 **How it works:**
 1. Marketing team collects 25–30 real high-engagement posts from their Facebook + LinkedIn pages → seeded into `brand_voice_examples` MongoDB collection with embeddings
@@ -210,7 +183,7 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 
 ---
 
-### Feature 12: "Ask Growth Studio" Chat Interface
+### Feature 10: "Ask Growth Studio" Chat Interface
 **What it does:** Marketing team asks questions in plain Banglish/English. Growth Studio answers using your real news database + your platform analytics as context.
 **Example questions:**
 - "এই সপ্তাহে AI নিয়ে কোন news আছে যেটা আমাদের YouTube এ ভালো হবে?"
@@ -221,7 +194,7 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 
 ---
 
-### Feature 13: News Feed Dashboard UI
+### Feature 11: News Feed Dashboard UI
 **Style:** daily.dev — card-based, dark theme, tab filtering.
 **Tabs:** Headlines / AI / Web Dev / Career / Security
 **Each card shows:** Title, source, time ago, category badge, trend score 🔥, relevance score, impact note, "Generate Content" button.
@@ -241,9 +214,9 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 | FR-03 | Each news item has category, relevance score, trend score, impact note | Must Have | AI Scoring |
 | FR-04 | Items with relevance < 4 not surfaced to users | Must Have | Filter Pipeline |
 | FR-05 | User can filter feed by category and sort by latest/relevance/trend | Must Have | Dashboard |
-| FR-06 | System pulls Facebook page analytics via Meta Graph API (last 30 days) | Must Have | FB Analytics |
-| FR-07 | System pulls YouTube channel analytics via YouTube Data API v3 (last 30 days) | Must Have | YT Analytics |
-| FR-08 | System pulls LinkedIn analytics (last 30 days) | Should Have | LinkedIn Analytics |
+| FR-06 | System pulls last-30-day analytics for every platform a team has enabled, via a per-platform adapter (Facebook/Meta Graph API and YouTube/Data API v3 built in as Must Have; LinkedIn and any further catalog platform as Should Have — degrades to "pending approval" per platform, never blocks the others) | Must Have | Social Handle Analytics |
+| ~~FR-07~~ | *Retired 2026-07-14 — merged into FR-06* (was: YouTube analytics as its own requirement) | — | — |
+| ~~FR-08~~ | *Retired 2026-07-14 — merged into FR-06* (was: LinkedIn analytics as its own requirement) | — | — |
 | FR-09 | 30-day cross-platform performance report generated on demand | Must Have | Report |
 | FR-10 | Report includes top posts, best times, engagement trends per platform | Must Have | Report |
 | FR-11 | Report includes AI-generated cross-platform insight in Banglish | Must Have | Report |
@@ -300,6 +273,8 @@ All LLM and embedding calls via OpenRouter free tier. Zero paid APIs.
 ---
 
 ## 5.6 Platform Data Sources — API Setup
+
+> These 3 are the platforms with a built-in adapter and an `.env` bootstrap-token fallback today (§5, §5.9). Any team can also enable and add credentials for other platforms via the Platform Catalog — those just don't have an analytics adapter written yet.
 
 ### Facebook (Meta Graph API)
 - **Setup owner:** Mursalin (page admin of Next Level Engineer)
@@ -389,7 +364,9 @@ Trending news item → embed → $vectorSearch platform_analytics.posts limit:10
 ### `platform_analytics`
 ```js
 {
-  _id, platform: "facebook" | "youtube" | "linkedin",
+  _id, team_id,                   // owning team — see §5.9
+  platform: String,               // any platform the team has enabled via the Platform Catalog;
+                                   // facebook/youtube/linkedin have built-in adapters today
   period: { start: Date, end: Date },
   overview: { reach, engagements, views, engagement_rate },
   top_posts: [{ id, title, reach, engagement, format, published_at }],
@@ -402,7 +379,8 @@ Trending news item → embed → $vectorSearch platform_analytics.posts limit:10
 ### `platform_posts` (individual posts with embeddings for opportunity scoring)
 ```js
 {
-  _id, platform, post_id, content_snippet,
+  _id, team_id,                   // owning team — see §5.9. Unique per (team_id, platform, post_id)
+  platform, post_id, content_snippet,
   embedding: [Number],            // for opportunity scoring flow
   metrics: { reach, likes, comments, shares, views },
   published_at, fetched_at
@@ -426,7 +404,8 @@ Trending news item → embed → $vectorSearch platform_analytics.posts limit:10
 ### `brand_voice_examples`
 ```js
 {
-  _id, platform, category,
+  _id, team_id,                   // owning team — see §5.9
+  platform, category,
   content: String,
   embedding: [Number],            // 768-dim
   engagement_hint: String,
@@ -437,9 +416,11 @@ Trending news item → embed → $vectorSearch platform_analytics.posts limit:10
 ### `reports`
 ```js
 {
-  _id, period: { start, end },
+  _id, team_id,                   // owning team — see §5.9
+  period: { start, end },
   overview: { total_reach, total_engagements, total_views, avg_engagement_rate },
-  platform_summaries: { facebook: {}, youtube: {}, linkedin: {} },
+  platform_summaries: { [platform: String]: {} },   // one entry per platform the team has enabled —
+                                                      // not a fixed facebook/youtube/linkedin shape
   ai_insight: String,             // Banglish narrative
   content_opportunities: [{ rank, topic, formats, opportunity_score, reason }],
   generated_at: Date
@@ -448,9 +429,30 @@ Trending news item → embed → $vectorSearch platform_analytics.posts limit:10
 
 ---
 
+## 5.9 Multi-Team & Access Control (built 2026-07-14 — backend)
+
+The MVP scope originally assumed one company, one set of social accounts. In practice, the company runs **several independent growth teams**, each managing its own social channels, and one team must never see another's data. This section documents what was actually built to satisfy that.
+
+**Roles** (`users.role`):
+- `user` — sees only the team(s) they belong to.
+- `admin` — can create teams and users, manage team membership; sees every team's data.
+- `super_admin` — everything an `admin` can do, plus owns the **platform catalog** (below). Only a `super_admin` can create/promote another `super_admin`. The first one is auto-seeded on server start from `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD` if it doesn't already exist.
+
+**Teams:** many-to-many with users (a user can belong to more than one team). Admins create teams and assign members; `PlatformPost` and `BrandVoiceExample` now carry `team_id` and are scoped accordingly — a team's own posts/brand-voice examples are invisible to other teams (admins/super_admins see everything). `news_items` stays global — it's external trend data, not team-authored.
+
+**Dynamic platform catalog:** rather than hardcoding Facebook/YouTube/LinkedIn as the only platforms a team can use, a `super_admin` curates a catalog of platforms that exist in the system at all (create "facebook", "reddit", etc., each with a global on/off switch). Each **team** then independently enables only the platforms it actually uses. A team can't submit a credential for a platform it hasn't enabled; disabling a platform globally immediately blocks every team from using it (re-enabling instantly restores it, no per-team action needed).
+
+**Encrypted per-team credentials:** each team submits its own platform token/API key, encrypted at rest (AES-256-GCM, same scheme as before) — not the single shared `.env` token the original plan assumed. Listing credentials only ever shows a masked `token_last4`; a separate explicit "reveal" action decrypts and returns the real token. The `.env` bootstrap token is kept as a fallback for Facebook/YouTube/LinkedIn specifically, so analytics work unblocked before any team configures its own.
+
+**Key endpoints:** `POST /auth/login`, `GET /auth/me`, `POST /users` (admin), `POST /teams` (admin) + membership management, `POST /platforms` (super_admin catalog CRUD), `POST /teams/:teamId/platforms/:platform/enable|disable`, `POST /teams/:teamId/credentials` + masked list + `/reveal`. Full contract at `/api/v1/docs`.
+
+---
+
 ## 6. What Is Out of Scope (Phase 2 talking points)
 
-- User authentication and multi-workspace
+> **Scope update (2026-07-14):** the line below — "user authentication and multi-workspace" — described the *original* MVP assumption of one team (Programming Hero) with one Facebook/YouTube/LinkedIn account each. That assumption turned out to be wrong: the company actually runs several independent growth teams, each with its own members and its own social accounts, that must never see each other's data. Auth + multi-team was pulled into scope and built on the backend as a result — see new §5.9 below. What's still Phase 2 is the *frontend* for it (login screen, admin/super_admin dashboards, per-team platform toggles).
+
+- ~~User authentication and multi-workspace~~ — built, see §5.9
 - Auto-publishing directly to platforms (API approval + scheduling complexity)
 - Dedicated vector database (Pinecone, Weaviate) — Atlas covers all needs free
 - Slack/Discord notifications

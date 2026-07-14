@@ -180,12 +180,23 @@ MongoDB collections (see [`project-ida-requirments.md`](./project-ida-requirment
 
 | Collection | Purpose | Vector index |
 |-----------|---------|:---:|
-| `news_items` | Ingested + enriched news (trend/relevance/impact) | ✅ |
+| `news_items` | Ingested + enriched news (trend/relevance/impact) — global, not team-scoped | ✅ |
 | `platform_analytics` | Per-platform 30-day rollups | — |
-| `platform_posts` | Individual posts + embeddings for opportunity scoring | ✅ |
+| `platform_posts` | Individual posts + embeddings for opportunity scoring — scoped per team (`team_id`) | ✅ |
 | `generated_content` | Cached multi-format generations | — |
-| `brand_voice_examples` | 25–30 real posts seeded as few-shot voice | ✅ |
+| `brand_voice_examples` | 25–30 real posts seeded as few-shot voice — scoped per team (`team_id`) | ✅ |
 | `reports` | Cross-platform 30-day reports | — |
+
+**Auth / multi-team collections** (built 2026-07-14, backend only — see [Out of Scope](#out-of-scope-phase-2)):
+
+| Collection | Purpose |
+|-----------|---------|
+| `users` | Accounts; `role: 'super_admin' \| 'admin' \| 'user'`. No public self-registration — admins/super_admins create every account (`POST /users`), plus a `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD`-driven bootstrap on server start |
+| `teams` | Growth teams (many-to-many membership with `users` via `team_memberships`) |
+| `team_memberships` | Join collection: which users belong to which teams |
+| `platform_catalog` | super_admin-curated list of social platforms that exist in the system at all, each with a global enable/disable switch |
+| `team_platforms` | Each team's own on/off switch for a catalog platform — must be enabled here (and globally) before the team can add a credential for it |
+| `platform_credentials` | Per-team, AES-256-GCM-encrypted social platform tokens (any platform slug, not just Facebook/YouTube/LinkedIn) |
 
 ---
 
@@ -194,7 +205,7 @@ MongoDB collections (see [`project-ida-requirments.md`](./project-ida-requirment
 | Layer | Choice | Notes |
 |------|--------|------|
 | **Frontend** | Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4, shadcn/ui | Dark-first, mobile responsive |
-| **Backend** | *Node.js + TypeScript service* (to be built in `backend/`) | REST + OpenAPI spec |
+| **Backend** | Node.js + TypeScript (in `backend/`) | REST + OpenAPI spec; JWT auth, roles (`user`/`admin`/`super_admin`), multi-team data isolation |
 | **Database** | MongoDB Atlas M0 + Atlas Vector Search | 3 vector indexes, free tier |
 | **Cache** | Redis | Dedup keys, generation & report caching |
 | **AI** | OpenRouter free tier | LLMs + `nomic-embed-text` embeddings |
@@ -235,11 +246,15 @@ npm run build        # production build
 npm run typecheck    # tsc --noEmit
 npm run lint         # eslint
 
-# Backend  (once scaffolded)
-# cd backend && npm install && npm run dev
+# Backend
+cd backend && npm install
+npm run dev              # http://localhost:3001, docs at /api/v1/docs
+npm run typecheck
+npm run lint
+npm run seed:admin -- <email> <password> <name> [admin|super_admin]   # bootstrap an account manually
 ```
 
-Required environment (backend `.env`, all free tiers): `MONGODB_URI`, `REDIS_URL`, `OPENROUTER_API_KEY`, `META_PAGE_ACCESS_TOKEN`, `YOUTUBE_API_KEY`, `LINKEDIN_*`.
+Required environment (backend `.env` — copy from `.env.example`, all free tiers): `DATABASE_URL`, `REDIS_URL`, `OPENROUTER_API_KEY`, `JWT_SECRET`, `CREDENTIAL_ENCRYPTION_KEY`. Optional: `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD` (auto-seeds a super_admin on server start if that account doesn't exist yet), plus per-platform bootstrap vars (`FB_PAGE_TOKEN`, `YOUTUBE_API_KEY`, `LINKEDIN_TOKEN`, …) as a fallback for teams that haven't submitted their own credential yet.
 
 > **New to the team?** Read [`SPEC-DRIVEN-WORKFLOW.md`](./SPEC-DRIVEN-WORKFLOW.md) before your first commit — it's how we avoid merge conflicts across 3 developers.
 
@@ -251,7 +266,9 @@ Full functional (FR-01…FR-26) and non-functional (NFR-01…NFR-12) requirement
 
 ## Out of Scope (Phase 2)
 
-Auth & multi-workspace · auto-publishing · dedicated vector DB (Pinecone/Weaviate) · Slack/Discord notifications · A/B testing · paid-ad analytics · white-label.
+Auto-publishing · dedicated vector DB (Pinecone/Weaviate) · Slack/Discord notifications · A/B testing · paid-ad analytics · white-label.
+
+> **Scope update (2026-07-14):** auth & multi-workspace — originally listed here as Phase 2 — was pulled *into* scope and built on the backend, once it became clear the platform needs to serve several real growth teams, not one. See [Data Model](#data-model) above and `backend/src/app/modules/{User,Team,PlatformCatalog,PlatformCredential}/`. Frontend UI for it (login, admin/super_admin screens, team platform toggles) is still pending — `MEHEDI.md` tracks that.
 
 ---
 
