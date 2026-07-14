@@ -18,6 +18,7 @@
     "db:verify-indexes": "ts-node src/scripts/verifyVectorIndexes.ts",
     "verify:credentials": "ts-node src/scripts/verifyPlatformCredentials.ts",
     "verify:semantic-dedup": "ts-node src/scripts/verifySemanticDedup.ts",
+    "verify:content-generation-retrieval": "ts-node src/scripts/verifyContentGenerationRetrieval.ts",
     "verify:semantic-dedup-live": "ts-node src/scripts/verifySemanticDedupLive.ts",
     "seed:admin": "ts-node src/scripts/seedAdmin.ts"
   },

@@ -1,5 +1,5 @@
+import { cosineSimilarity } from '../../lib/similarity';
 import { BrandVoiceExample } from '../BrandVoiceExample/brandVoiceExample.model';
-import { cosineSimilarity } from './newsIngestion.utils';
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 

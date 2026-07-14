@@ -303,3 +303,39 @@ export const BrandVoiceExampleUpdate = {
     added_by: { type: 'string' },
   },
 } as const;
+
+export const GenerateContentRequest = {
+  type: 'object',
+  properties: {
+    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    topic: { type: 'string', example: 'React 19 Released — Server Components Are Now Stable' },
+    news_item_id: {
+      type: 'string',
+      example: '507f1f77bcf86cd799439011',
+      description: 'Optional. When provided and resolvable, its embedding and category/impact_note ground the generation instead of re-embedding the topic text.',
+    },
+  },
+  required: ['team_id', 'topic'],
+} as const;
+
+export const GeneratedContent = {
+  type: 'object',
+  properties: {
+    topic: { type: 'string' },
+    facebook_post: { type: 'string' },
+    facebook_reel_script: { type: 'string' },
+    linkedin_post: { type: 'string' },
+    youtube_idea: {
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        hook: { type: 'string' },
+        chapters: { type: 'array', items: { type: 'string' } },
+        thumbnail_concept: { type: 'string' },
+      },
+      required: ['title', 'hook', 'chapters', 'thumbnail_concept'],
+    },
+    caption: { type: 'string' },
+  },
+  required: ['topic', 'facebook_post', 'facebook_reel_script', 'linkedin_post', 'youtube_idea', 'caption'],
+} as const;

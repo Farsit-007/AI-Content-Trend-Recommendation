@@ -3,13 +3,14 @@
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Sparkles, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import PageHeader from "@/components/shared/PageHeader"
 import EmptyState from "@/components/shared/EmptyState"
 import FormatPanel from "./FormatPanel"
-import { findMockContent, type GeneratedContent } from "@/lib/mock/content"
+import type { GeneratedContent } from "@/lib/mock/content"
 
 const FORMAT_LABELS: { key: keyof Omit<GeneratedContent, "topic" | "youtube_idea">; label: string }[] = [
   { key: "facebook_post", label: "Facebook Post" },
@@ -18,20 +19,51 @@ const FORMAT_LABELS: { key: keyof Omit<GeneratedContent, "topic" | "youtube_idea
   { key: "caption", label: "Caption" },
 ]
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1"
+// TODO: replace with a real team-selector once the frontend has an auth/team context.
+const TEAM_ID = process.env.NEXT_PUBLIC_DEFAULT_TEAM_ID ?? ""
+
+async function generateContent(topic: string, newsItemId: string | null): Promise<GeneratedContent> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null
+
+  const res = await fetch(`${API_URL}/content/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      team_id: TEAM_ID,
+      topic,
+      ...(newsItemId ? { news_item_id: newsItemId } : {}),
+    }),
+  })
+
+  const body = await res.json()
+  if (!res.ok) {
+    throw new Error(body?.message ?? `Generation request failed (${res.status})`)
+  }
+  return body.data as GeneratedContent
+}
+
 export default function ContentGenerator() {
   const searchParams = useSearchParams()
   const [topic, setTopic] = useState(() => searchParams.get("topic") ?? "")
   const [isGenerating, setIsGenerating] = useState(false)
   const [content, setContent] = useState<GeneratedContent | null>(null)
 
-  function handleGenerate() {
+  async function handleGenerate() {
     if (!topic.trim() || isGenerating) return
     setIsGenerating(true)
     setContent(null)
-    setTimeout(() => {
-      setContent(findMockContent(topic))
+    try {
+      const result = await generateContent(topic, searchParams.get("news_item_id"))
+      setContent(result)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Content generation failed")
+    } finally {
       setIsGenerating(false)
-    }, 1200)
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

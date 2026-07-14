@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { BrandVoiceExampleRoutes } from '../modules/BrandVoiceExample/brandVoiceExample.route';
+import { ContentGenerationRoutes } from '../modules/ContentGeneration/contentGeneration.route';
 import { NewsItemRoutes } from '../modules/NewsItem/newsItem.route';
 import { PlatformPostRoutes } from '../modules/PlatformPost/platformPost.route';
 import { PlatformCatalogRoutes } from '../modules/PlatformCatalog/platformCatalog.route';
@@ -24,6 +25,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: '/news-items', route: NewsItemRoutes },
   { path: '/platform-posts', route: PlatformPostRoutes },
   { path: '/brand-voice-examples', route: BrandVoiceExampleRoutes },
+  { path: '/content', route: ContentGenerationRoutes },
 ];
 
 moduleRoutes.forEach((route) => {
