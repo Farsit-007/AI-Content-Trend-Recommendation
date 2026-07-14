@@ -35,6 +35,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Toaster } from "@/components/ui/sonner"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { TeamProvider } from "@/lib/team/TeamProvider"
+import TeamSelector from "@/components/shared/TeamSelector"
 
 const navItems = [
   { label: "Feed", href: "/dashboard/feed", icon: LayoutDashboard },
@@ -230,31 +232,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pageTitle = PAGE_TITLES[pathname] ?? "Dashboard"
 
   return (
-    <TooltipProvider>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset className="flex flex-col min-h-screen bg-background">
-          {/* Navbar */}
-          <header className="flex items-center justify-between gap-3 border-b border-border px-4 h-14 shrink-0">
-            {/* Left: trigger + page title */}
-            <div className="flex items-center gap-3 min-w-0">
-              <SidebarTrigger className="text-muted-foreground hover:text-foreground shrink-0" />
-              <Separator orientation="vertical" className="h-5 opacity-20 shrink-0" />
-              <span className="text-sm font-semibold truncate">{pageTitle}</span>
-            </div>
+    <TeamProvider>
+      <TooltipProvider>
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset className="flex flex-col min-h-screen bg-background">
+            {/* Navbar */}
+            <header className="flex items-center justify-between gap-3 border-b border-border px-4 h-14 shrink-0">
+              {/* Left: trigger + page title */}
+              <div className="flex items-center gap-3 min-w-0">
+                <SidebarTrigger className="text-muted-foreground hover:text-foreground shrink-0" />
+                <Separator orientation="vertical" className="h-5 opacity-20 shrink-0" />
+                <span className="text-sm font-semibold truncate">{pageTitle}</span>
+              </div>
 
-            {/* Right: theme toggle + user */}
-            <div className="flex items-center gap-1 shrink-0">
-              <ThemeToggle />
-              <Separator orientation="vertical" className="h-5 opacity-20 mx-1" />
-              <UserProfile />
-            </div>
-          </header>
+              {/* Right: team selector + theme toggle + user */}
+              <div className="flex items-center gap-1 shrink-0">
+                <TeamSelector />
+                <Separator orientation="vertical" className="h-5 opacity-20 mx-1" />
+                <ThemeToggle />
+                <Separator orientation="vertical" className="h-5 opacity-20 mx-1" />
+                <UserProfile />
+              </div>
+            </header>
 
-          <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
-        </SidebarInset>
-        <Toaster />
-      </SidebarProvider>
-    </TooltipProvider>
+            <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
+          </SidebarInset>
+          <Toaster />
+        </SidebarProvider>
+      </TooltipProvider>
+    </TeamProvider>
   )
 }

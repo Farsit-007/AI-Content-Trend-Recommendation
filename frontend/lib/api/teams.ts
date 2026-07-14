@@ -1,11 +1,13 @@
-import { API_URL, TEAM_ID, authHeaders } from "./config"
+import { API_URL, authHeaders } from "./config"
+import { getActiveTeamId } from "@/lib/team/TeamProvider"
 
 export const DEFAULT_CATEGORIES = ["AI", "Web Dev", "Career", "Security", "DevOps", "Other"]
 
 export async function fetchEffectiveCategories(): Promise<string[]> {
-  if (!TEAM_ID) return DEFAULT_CATEGORIES
+  const teamId = getActiveTeamId()
+  if (!teamId) return DEFAULT_CATEGORIES
 
-  const res = await fetch(`${API_URL}/teams/${TEAM_ID}/categories`, {
+  const res = await fetch(`${API_URL}/teams/${teamId}/categories`, {
     headers: authHeaders(),
   })
   const body = await res.json()
@@ -16,7 +18,7 @@ export async function fetchEffectiveCategories(): Promise<string[]> {
 }
 
 export async function addCustomCategory(category: string): Promise<void> {
-  const res = await fetch(`${API_URL}/teams/${TEAM_ID}/categories`, {
+  const res = await fetch(`${API_URL}/teams/${getActiveTeamId()}/categories`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ category }),
@@ -28,7 +30,7 @@ export async function addCustomCategory(category: string): Promise<void> {
 }
 
 export async function removeCustomCategory(category: string): Promise<void> {
-  const res = await fetch(`${API_URL}/teams/${TEAM_ID}/categories/${encodeURIComponent(category)}`, {
+  const res = await fetch(`${API_URL}/teams/${getActiveTeamId()}/categories/${encodeURIComponent(category)}`, {
     method: "DELETE",
     headers: authHeaders(),
   })

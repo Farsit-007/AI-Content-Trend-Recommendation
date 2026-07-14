@@ -36,7 +36,7 @@ const data = process.env.NEXT_PUBLIC_USE_MOCK === "true"
 | Status | Change | Branch | FRs | Notes |
 |--------|--------|--------|-----|-------|
 | ⬜ Todo | `news-feed-dashboard` | `feat/news-feed-dashboard` | FR-05, FR-24 | daily.dev-style card feed, tabs, sort, 🔥 trend + "High opportunity" badges — **use mock data** |
-| ⬜ Todo | `content-generator-ui` | `feat/content-generator-ui` | FR-13–17, FR-21 | Generate button → 5 format panels, copy-to-clipboard — **use mock data** |
+| ✅ Done | `content-generator-ui` | — | FR-13–17, FR-21 | Generate button → 5 format panels, copy-to-clipboard — built and already wired to the real API as part of Samin's `brand-voice-rag`/`team-selector` work (see Notes below). Never actually marked done here until now. |
 
 ### July 14 — Report + Chat + Admin UI
 | Status | Change | Branch | FRs | Notes |
@@ -136,3 +136,9 @@ gh pr create --fill
 - **2026-07-14**: Samin's `brand-voice-rag` (see `SAMIN.md`) touched **your file**, `frontend/components/generate/ContentGenerator.tsx` — `handleGenerate` now calls the real `POST /content/generate` instead of `findMockContent()`, with a Sonner error toast on failure. `frontend/lib/mock/content.ts` is untouched and still present (per repo convention, not deleted). Two things to know before you pick `content-generator-ui`/`api-wiring` back up:
   - Same `localStorage('auth_token')` gap as `AdminPanel.tsx` — no login screen yet, so a real (non-mocked) generate click will 401 until `api-wiring` lands.
   - **New placeholder**: `NEXT_PUBLIC_DEFAULT_TEAM_ID` env var, standing in for `team_id` on every request. There is no team-selector UI anywhere in the frontend — this was a deliberate, confirmed-with-the-user stopgap, not a real solution. Once a real team context/selector exists, replace the `TEAM_ID` constant in `ContentGenerator.tsx` with whatever that context provides, and delete the env var.
+- **2026-07-14**: Samin's `team-selector` (see `SAMIN.md`) closes the placeholder gap above and touched **your files** again — `frontend/components/generate/ContentGenerator.tsx` and `frontend/app/(dashboard)/layout.tsx`:
+  - `ContentGenerator.tsx` no longer has its own hardcoded `TEAM_ID` constant — it now calls `useTeam()` from the new `frontend/lib/team/TeamProvider.tsx` and passes the real `teamId` into the generate request.
+  - `layout.tsx` (the dashboard shell you own) is now wrapped in `<TeamProvider>`, and the header (next to the theme toggle) has a new `frontend/components/shared/TeamSelector.tsx` — a dropdown when the signed-in user belongs to more than one team, a static team-name label when they belong to exactly one, and nothing when there's no team context (i.e. still no `auth_token`, same as before).
+  - `NEXT_PUBLIC_DEFAULT_TEAM_ID` **was not deleted** — it's now a documented last-resort fallback (used only when there's no `auth_token`, `/auth/me`/`/teams` fail, or the user has zero teams), not the primary source of `team_id` anymore. You shouldn't need to touch it.
+  - Still no login screen (`auth_token` still just needs to already be in `localStorage` for any of this to activate) — that gap is unchanged and is still `api-wiring`'s job. But the team-resolution plumbing behind it is now real and live-verified, not a stub.
+  - If you touch `ContentGenerator.tsx` again: don't reintroduce a local team constant — pull `teamId` from `useTeam()` (it's already a client component, so this is a direct hook call, no extra wiring needed).

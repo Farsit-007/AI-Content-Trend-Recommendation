@@ -75,7 +75,7 @@
 | Developer | Change | Branch | Status | Notes |
 |-----------|--------|--------|--------|-------|
 | **Samin** | `ai-categorization-scoring` | `main` (direct) | ✅ Done | This row's description was already stale — batched categorize/relevance/trend_score/impact note shipped under `news-ingestion-pipeline`. Actually built: categorization confidence + `needs_review` flag, a deterministic `opportunity_score` formula (`W_RELEVANCE×relevance + W_TREND×trend + W_FIT×audience_fit`, replacing free-form LLM scoring), team-customizable categories, and a per-team category/score override (`NewsItemCategoryOverride`, merged into reads without mutating the shared item). Also wired the Feed to the real API — it was still 100% mock data. Live-verified end-to-end against real Atlas/OpenRouter, including cross-team override isolation. Full write-up in `SAMIN.md`. |
-| **Samin** | `content-generator` | `feat/content-generator` | ⬜ Todo | 5 formats: FB post, Reel, LinkedIn, YouTube idea, caption |
+| **Samin** | `content-generator` | `main` (direct) | ✅ Done | Also stale — the 5 formats shipped under `brand-voice-rag` already. What was actually missing and got built: `team-selector`, a real `TeamProvider`/`TeamSelector` (backed by `GET /auth/me` + `GET /teams`) replacing the `NEXT_PUBLIC_DEFAULT_TEAM_ID` placeholder that `brand-voice-rag` had left behind. Live-verified via a real headless-browser session against the running backend (no `chromium-cli`/Playwright available, so driven directly over the Chrome DevTools Protocol) — caught and fixed two real bugs (a `_id`/`id` field-shape mismatch, and a responsive bug that hid the single-team label below 768px). `typecheck`/`lint` clean. **Not committed yet** — see `SAMIN.md`. |
 | **Samin** | `ask-growth-studio-chat` | `feat/ask-growth-studio-chat` | ⬜ Todo | Moved up from Jul 16. **Cut second if behind** (FR-22/23 Should Have) |
 | **Robayat** | `opportunity-scoring` | `feat/opportunity-scoring` | ⬜ Todo | Embed posts → vectorSearch → opportunity_score = trend × audience |
 | **Robayat** | `cross-platform-report` | `feat/cross-platform-report` | ⬜ Todo | Unified 30-day report + AI insight + content-opportunity ranking |
@@ -124,7 +124,7 @@ Review within 2 hours of PR open. Branches must not age overnight.
 | FR-05 | Trend feed | Samin | news-feed-dashboard |
 | FR-06 (was FR-06/07/08) | Social handle analytics — any team-enabled platform, 3 adapters built in | Robayat | report-ui |
 | FR-09–12 | Cross-platform report | Robayat | report-ui |
-| FR-13–17, FR-19–21 | Content generator | Samin | content-generator-ui |
+| FR-13–17, FR-19–21 | Content generator (+ real team-selector, closing the `NEXT_PUBLIC_DEFAULT_TEAM_ID` placeholder — `team-selector`) | Samin | content-generator-ui |
 | FR-18 | Brand voice RAG | Samin | (internal) |
 | FR-22, FR-23 | Ask Growth Studio chat | Samin | chat-ui |
 | FR-24 | Opportunity scoring | Robayat | "High opportunity" badge |

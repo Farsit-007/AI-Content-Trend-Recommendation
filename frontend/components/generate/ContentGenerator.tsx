@@ -11,6 +11,7 @@ import PageHeader from "@/components/shared/PageHeader"
 import EmptyState from "@/components/shared/EmptyState"
 import FormatPanel from "./FormatPanel"
 import type { GeneratedContent } from "@/lib/mock/content"
+import { useTeam } from "@/lib/team/TeamProvider"
 
 const FORMAT_LABELS: { key: keyof Omit<GeneratedContent, "topic" | "youtube_idea">; label: string }[] = [
   { key: "facebook_post", label: "Facebook Post" },
@@ -20,10 +21,8 @@ const FORMAT_LABELS: { key: keyof Omit<GeneratedContent, "topic" | "youtube_idea
 ]
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1"
-// TODO: replace with a real team-selector once the frontend has an auth/team context.
-const TEAM_ID = process.env.NEXT_PUBLIC_DEFAULT_TEAM_ID ?? ""
 
-async function generateContent(topic: string, newsItemId: string | null): Promise<GeneratedContent> {
+async function generateContent(teamId: string, topic: string, newsItemId: string | null): Promise<GeneratedContent> {
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null
 
   const res = await fetch(`${API_URL}/content/generate`, {
@@ -33,7 +32,7 @@ async function generateContent(topic: string, newsItemId: string | null): Promis
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
-      team_id: TEAM_ID,
+      team_id: teamId,
       topic,
       ...(newsItemId ? { news_item_id: newsItemId } : {}),
     }),
@@ -48,6 +47,7 @@ async function generateContent(topic: string, newsItemId: string | null): Promis
 
 export default function ContentGenerator() {
   const searchParams = useSearchParams()
+  const { teamId } = useTeam()
   const [topic, setTopic] = useState(() => searchParams.get("topic") ?? "")
   const [isGenerating, setIsGenerating] = useState(false)
   const [content, setContent] = useState<GeneratedContent | null>(null)
@@ -57,7 +57,7 @@ export default function ContentGenerator() {
     setIsGenerating(true)
     setContent(null)
     try {
-      const result = await generateContent(topic, searchParams.get("news_item_id"))
+      const result = await generateContent(teamId, topic, searchParams.get("news_item_id"))
       setContent(result)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Content generation failed")

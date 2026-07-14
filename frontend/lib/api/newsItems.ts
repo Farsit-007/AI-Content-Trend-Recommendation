@@ -1,5 +1,6 @@
 import type { NewsItem } from "@/lib/mock/news"
-import { API_URL, TEAM_ID, authHeaders } from "./config"
+import { API_URL, authHeaders } from "./config"
+import { getActiveTeamId } from "@/lib/team/TeamProvider"
 
 const HOT_THRESHOLD = 7
 const OPPORTUNITY_THRESHOLD = 7
@@ -59,7 +60,7 @@ export async function setNewsItemOverride(
   const res = await fetch(`${API_URL}/news-items/${newsItemId}/override`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ team_id: TEAM_ID, ...changes }),
+    body: JSON.stringify({ team_id: getActiveTeamId(), ...changes }),
   })
   if (!res.ok) {
     const body = await res.json()
@@ -71,7 +72,7 @@ export async function clearNewsItemOverride(newsItemId: string): Promise<void> {
   const res = await fetch(`${API_URL}/news-items/${newsItemId}/override`, {
     method: "DELETE",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ team_id: TEAM_ID }),
+    body: JSON.stringify({ team_id: getActiveTeamId() }),
   })
   if (!res.ok) {
     const body = await res.json()
