@@ -2,13 +2,36 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Send } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import PageHeader from "@/components/shared/PageHeader"
 import MessageBubble from "./MessageBubble"
 import TypingIndicator from "./TypingIndicator"
-import { INITIAL_MESSAGE, findResponse, type ChatMessage } from "@/lib/mock/chat"
+import { sendChatMessage } from "@/lib/api/chat"
+import { useTeam } from "@/lib/team/TeamProvider"
+
+export type ChatMessage = {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  timestamp: string
+}
+
+const INITIAL_MESSAGE: ChatMessage = {
+  id: "init",
+  role: "assistant",
+  content: `আসসালামু আলাইকুম! আমি Growth Studio-র AI assistant। 👋
+
+আমি তোমাকে help করতে পারবো:
+• এই সপ্তাহের trending tech news নিয়ে
+• তোমার Facebook, YouTube, LinkedIn performance নিয়ে
+• কোন content এখন বানানো উচিত সেই decision নিয়ে
+
+তুমি Banglish বা English যেকোনো ভাষায় জিজ্ঞেস করতে পারো। কী জানতে চাও?`,
+  timestamp: new Date().toISOString(),
+}
 
 const STARTER_PROMPTS = [
   "এই সপ্তাহে AI নিয়ে কোন news আছে?",
@@ -21,16 +44,18 @@ function makeId() {
 }
 
 export default function ChatPanel() {
+  const { teamId } = useTeam()
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE])
   const [input, setInput] = useState("")
   const [isTyping, setIsTyping] = useState(false)
+  const conversationIdRef = useRef<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, isTyping])
 
-  function sendMessage(text: string) {
+  async function sendMessage(text: string) {
     const trimmed = text.trim()
     if (!trimmed || isTyping) return
 
@@ -44,16 +69,18 @@ export default function ChatPanel() {
     setInput("")
     setIsTyping(true)
 
-    setTimeout(() => {
-      const reply: ChatMessage = {
-        id: makeId(),
-        role: "assistant",
-        content: findResponse(trimmed),
-        timestamp: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, reply])
+    try {
+      const { conversation_id, reply } = await sendChatMessage(teamId, trimmed, conversationIdRef.current)
+      conversationIdRef.current = conversation_id
+      setMessages((prev) => [
+        ...prev,
+        { id: makeId(), role: "assistant", content: reply, timestamp: new Date().toISOString() },
+      ])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Chat request failed")
+    } finally {
       setIsTyping(false)
-    }, 1800)
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

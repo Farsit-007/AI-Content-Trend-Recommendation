@@ -12,7 +12,10 @@ import {
 import { buildResourcePaths } from './paths';
 import { authTeamPaths } from './authTeamPaths';
 import { contentGenerationPaths } from './contentGenerationPaths';
+import { chatPaths } from './chatPaths';
 import {
+  AskChatRequest,
+  AskChatResponse,
   BrandVoiceExample,
   BrandVoiceExampleCreate,
   BrandVoiceExampleUpdate,
@@ -55,6 +58,7 @@ export const openApiDocument = {
     { name: 'Platform Posts', description: 'Historical platform posts and their metrics, scoped per team.' },
     { name: 'Brand Voice Examples', description: 'Reference examples of the desired brand voice, scoped per team.' },
     { name: 'Content Generation', description: 'RAG-grounded generation of multi-format social content from a topic or news item.' },
+    { name: 'Chat', description: "Conversational Q&A grounded in the team's own trending news and platform performance data." },
   ],
   paths: {
     ...authTeamPaths,
@@ -74,6 +78,7 @@ export const openApiDocument = {
       schema: 'BrandVoiceExample',
     }),
     ...contentGenerationPaths,
+    ...chatPaths,
   },
   components: {
     securitySchemes: {
@@ -104,6 +109,8 @@ export const openApiDocument = {
       BrandVoiceExampleUpdate,
       GenerateContentRequest,
       GeneratedContent,
+      AskChatRequest,
+      AskChatResponse,
     },
   },
 };

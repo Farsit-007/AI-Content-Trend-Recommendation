@@ -339,3 +339,26 @@ export const GeneratedContent = {
   },
   required: ['topic', 'facebook_post', 'facebook_reel_script', 'linkedin_post', 'youtube_idea', 'caption'],
 } as const;
+
+export const AskChatRequest = {
+  type: 'object',
+  properties: {
+    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    message: { type: 'string', example: 'এই সপ্তাহে AI নিয়ে কোন news আছে?' },
+    conversation_id: {
+      type: 'string',
+      description: 'Omit to start a new conversation; pass back the value from a prior response to continue it.',
+      example: 'b3a1e0f0-...-uuid',
+    },
+  },
+  required: ['team_id', 'message'],
+} as const;
+
+export const AskChatResponse = {
+  type: 'object',
+  properties: {
+    conversation_id: { type: 'string' },
+    reply: { type: 'string' },
+  },
+  required: ['conversation_id', 'reply'],
+} as const;

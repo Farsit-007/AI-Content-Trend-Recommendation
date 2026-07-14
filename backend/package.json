@@ -19,6 +19,8 @@
     "verify:credentials": "ts-node src/scripts/verifyPlatformCredentials.ts",
     "verify:semantic-dedup": "ts-node src/scripts/verifySemanticDedup.ts",
     "verify:content-generation-retrieval": "ts-node src/scripts/verifyContentGenerationRetrieval.ts",
+    "verify:chat-retrieval": "ts-node src/scripts/verifyChatRetrieval.ts",
+    "verify:chat-live": "ts-node src/scripts/verifyChatLive.ts",
     "verify:semantic-dedup-live": "ts-node src/scripts/verifySemanticDedupLive.ts",
     "seed:admin": "ts-node src/scripts/seedAdmin.ts"
   },
