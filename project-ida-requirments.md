@@ -84,6 +84,8 @@ The marketing team opens one dashboard. They see what's trending, what's working
 **Layer 4 — Relevance gate:** Only survivors go to LLM via OpenRouter. Items scoring < 4/10 stored but never surfaced.
 **Why this matters:** AI cost stays $0 as volume scales — free OpenRouter models + Atlas Vector Search on already-free MongoDB M0 + Redis caching.
 
+> **Built differently 2026-07-14** (`news-ingestion-pipeline`, see `SAMIN.md`): the 4 layers that shipped are (1) fetch & normalize, (2) dedupe by exact-match `content_hash` (SHA-256 of `source:url`, checked directly against MongoDB — no Redis, no 24h TTL, permanent) + a freshness window, (3) relevance scored as max cosine similarity against the **pooled embeddings of every team's `BrandVoiceExample`** (not a fixed PH-keyword list, and not per-team, since `NewsItem` stays global) with a cold-start fallback, plus a deterministic log-scaled `trend_score`, (4) batched LLM categorization + `opportunity_score`. No dedicated keyword pre-filter layer, no vector-based near-duplicate detection (two different URLs for the same story aren't caught), and no Redis involvement at all in this pipeline. This was a deliberate scope decision for the hackathon timeline, confirmed with the user rather than assumed — not a bug. If the keyword layer, Redis-backed cache, or true semantic near-dup detection matter later, that's follow-up work.
+
 ---
 
 ### Feature 3: AI Categorization + Relevance Scoring
@@ -210,9 +212,9 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 | ID | Requirement | Priority | Feature |
 |---|---|---|---|
 | FR-01 | System fetches news from ≥3 sources every 3 hours | Must Have | News Aggregation |
-| FR-02 | Duplicate news items filtered via vector similarity | Must Have | Filter Pipeline |
+| FR-02 | Duplicate news items filtered via vector similarity **(built 2026-07-14 as exact-match `content_hash` dedup instead — not vector similarity; near-duplicate/semantic dedup across sources deferred, see `news-ingestion-pipeline` design.md)** | Must Have | Filter Pipeline |
 | FR-03 | Each news item has category, relevance score, trend score, impact note | Must Have | AI Scoring |
-| FR-04 | Items with relevance < 4 not surfaced to users | Must Have | Filter Pipeline |
+| FR-04 | Items with relevance < 4 not surfaced to users **(built 2026-07-14 — `NEWS_INGESTION_MIN_RELEVANCE`, default 4.0; skipped when no `BrandVoiceExample` docs exist yet, cold start)** | Must Have | Filter Pipeline |
 | FR-05 | User can filter feed by category and sort by latest/relevance/trend | Must Have | Dashboard |
 | FR-06 | System pulls last-30-day analytics for every platform a team has enabled, via a per-platform adapter (Facebook/Meta Graph API and YouTube/Data API v3 built in as Must Have; LinkedIn and any further catalog platform as Should Have — degrades to "pending approval" per platform, never blocks the others) | Must Have | Social Handle Analytics |
 | ~~FR-07~~ | *Retired 2026-07-14 — merged into FR-06* (was: YouTube analytics as its own requirement) | — | — |
@@ -233,7 +235,7 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 | FR-22 | User can ask natural language questions about news + their analytics | Should Have | Chat |
 | FR-23 | Chat answers grounded in real news + real platform data via RAG | Should Have | Chat |
 | FR-24 | News cards show "High opportunity" badge when topic matches user's top engagement patterns | Should Have | Dashboard |
-| FR-25 | Admin can manually trigger news ingestion run | Should Have | Demo tool |
+| FR-25 | Admin can manually trigger news ingestion run **(built 2026-07-14 — `POST /news-items/ingest`, admin-only)** | Should Have | Demo tool |
 | FR-26 | Admin can manually trigger platform analytics refresh | Should Have | Demo tool |
 
 ### Non-Functional Requirements

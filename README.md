@@ -57,13 +57,12 @@ flowchart TB
         FB[(Meta Graph API)]; YT[(YouTube Data API)]; LI[(LinkedIn API)]
     end
 
-    subgraph Ingest["News Ingestion Pipeline · every 3h"]
-        FETCH[Fetchers] --> F1[L1 Keyword pre-filter]
-        F1 --> F2[L2 Vector dedup]
-        F2 --> F3[L3 Redis cache check]
-        F3 --> F4[L4 Relevance gate]
-        F4 --> CAT[AI categorize + score]
-        F4 --> TS[Trend score · math, no AI]
+    subgraph Ingest["News Ingestion Pipeline · every 3h (cron) or on demand (admin)"]
+        FETCH[Fetchers] --> F1[L1 Dedupe · content_hash + freshness]
+        F1 --> F2[L2 Relevance · pooled brand-voice cosine sim]
+        F2 --> F3[L3 Trend score · math, no AI]
+        F2 --> F4[L4 AI categorize + opportunity score]
+        F3 --> F4
     end
 
     subgraph Analytics["Analytics Pipeline · every 6h"]
@@ -90,8 +89,8 @@ flowchart TB
     HN & DEV & GH & RD & RSS --> FETCH
     FB & YT & LI --> ACOL
     CAT --> MONGO; TS --> MONGO; ANORM --> MONGO
-    F2 -. $vectorSearch .-> MONGO
-    F3 <--> REDIS
+    F1 <-. content_hash lookup .-> MONGO
+    F2 -. brand_voice_examples pool .-> MONGO
     CAT --> OR; ANORM --> OR
     Serve <--> MONGO; Serve <--> REDIS; GEN & REP & CHAT --> OR
     FE <--> Serve
@@ -99,28 +98,31 @@ flowchart TB
     ADMIN -.manual run.-> Analytics
 ```
 
-**Design principle running through everything:** *AI is used only where it adds value.* Cheap string matching, vector dedup, Redis caching, and pure-math scoring gate the expensive LLM calls, keeping cost at **$0** as volume scales.
+**Design principle running through everything:** *AI is used only where it adds value.* Cheap hash-based dedup and pure-math trend scoring gate the expensive LLM calls, keeping ingestion cost near **$0** as volume scales — the LLM only runs on items that survive dedup + relevance.
+
+> **Built differently than originally planned (2026-07-14):** the ingestion pipeline that shipped uses exact `content_hash` dedup (not vector similarity) and has no Redis-cache layer or keyword pre-filter — see [`project-ida-requirments.md`](./project-ida-requirments.md)'s FR-02/FR-04 notes and `SAMIN.md` for the full deviation writeup. Redis is still used elsewhere (generation/report caching), just not in this pipeline.
 
 ---
 
 ## Subsystems
 
-### 1. News Ingestion Pipeline (every 3h, unattended)
-Fetches from 5+ free sources, then runs the **4-layer AI-cost filter** that reduces 200+ raw items to the 20–30 that matter *before any LLM runs*:
+### 1. News Ingestion Pipeline (every 3h via cron, or on demand via admin trigger)
+Fetches from 5 free sources (HackerNews, Dev.to, GitHub Trending, Reddit, RSS — each isolated so one failing source never kills the run), then runs a **4-layer pipeline**:
 
 | Layer | Check | Cost |
 |------|-------|------|
-| **L1 — Keyword pre-filter** | Drop items with no PH-relevant keywords | Zero (string match) |
-| **L2 — Vector dedup** | 768-dim embedding → `$vectorSearch`; cosine > 0.9 = duplicate | Embedding only |
-| **L3 — Redis cache** | `SHA256(title+url)` seen in last 24h → skip | Zero |
-| **L4 — Relevance gate** | LLM scores 1–10; < 4 stored but never surfaced | LLM (survivors only) |
+| **L1 — Dedupe + freshness** | Exact-match `content_hash` (SHA-256 of `source:url`) against MongoDB + already-seen-this-run; drop items older than `NEWS_INGESTION_MAX_AGE_HOURS` (default 72h) | Zero (hash + DB lookup, no embedding) |
+| **L2 — Relevance gate** | Embed the item, score = max cosine similarity vs. the **pooled embeddings of every team's `BrandVoiceExample`**; drop if below `NEWS_INGESTION_MIN_RELEVANCE` (default 4.0) — *skipped entirely if no brand voice examples exist yet (cold start)* | Embedding only |
+| **L3 — Trend score** | Pure math from source engagement, no AI | Zero |
+| **L4 — AI categorize + opportunity score** | Batched LLM call (~10 items/call) assigns category, impact note, opportunity score; falls back to `category: 'Other'` on a malformed response | LLM (survivors only) |
 
-Survivors get **AI categorization** (batched 10/call) and a **trend score** computed by pure math:
+Trend score is computed by pure math (no AI):
 
 ```
-trend_score = normalize(points,500)×4 + normalize(comments,200)×3 + recency_decay×3
-recency_decay = max(0, 1 − hoursOld/48)     # 🔥 badge when score ≥ 7
+trend_score = min(10, log10(points + comments×2 + stars_delta×3 + 1) × 3)
 ```
+
+> **Deviates from the original plan** (keyword pre-filter → vector dedup → Redis cache → relevance gate): this is exact-hash dedup, not vector/semantic similarity, so two different URLs covering the same story (e.g. the same launch on both HN and Dev.to) are **not** caught as duplicates — that was a deliberate hackathon-timeline scope call, not an oversight. See `SAMIN.md` and [`project-ida-requirments.md`](./project-ida-requirments.md) FR-02/FR-04 for the full write-up.
 
 ### 2. Analytics Pipeline (every 6h, unattended)
 Pulls 30 days from **Meta Graph API** (FB), **YouTube Data API v3**, and **LinkedIn API** — reach, engagement, top posts, best times, format breakdown — into `platform_analytics`, and embeds individual posts into `platform_posts` for opportunity scoring.
@@ -143,7 +145,8 @@ daily.dev-style dark dashboard: card feed with tabs, one-click generation, repor
 
 | Flow | Trigger | Path |
 |------|---------|------|
-| **Semantic dedup** | Ingestion | embed → `$vectorSearch news_items` limit 1 → score > 0.9 = skip |
+| **Dedup** *(not the vector flow originally planned — built as exact-match instead, see note above)* | Ingestion | `content_hash` (SHA-256 of `source:url`) checked against MongoDB — no embedding, no `$vectorSearch` |
+| **Relevance gate** | Ingestion | embed item → cosine similarity vs. pooled `BrandVoiceExample` embeddings (in-memory, not `$vectorSearch`) → max score, or skip filtering entirely if the pool is empty |
 | **Ask Growth Studio** | User question | embed query → `$vectorSearch news_items` limit 5 → LLM → Banglish answer |
 | **Brand Voice RAG** | Generate click | embed topic → `$vectorSearch brand_voice_examples` limit 3 → few-shot into prompt |
 | **Opportunity scoring** | Cross-reference | embed trend → `$vectorSearch platform_posts` limit 10 → `opportunity_score = trend_score × avg_engagement_of_similar_posts` |
