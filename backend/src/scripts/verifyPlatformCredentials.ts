@@ -1,12 +1,10 @@
 /**
- * Proves a platform credential *authenticates* — nothing more.
+ * Proves a team's platform credential authenticates — nothing more.
+ * Credentials are now team-owned (added via the frontend), not .env bootstrap tokens.
  *
- * Deliberately calls only cheap, read-only identity endpoints, never the insights/analytics
- * endpoints: those belong to facebook-analytics / youtube-analytics / linkedin-analytics.
- * The only question this script answers is "does this token work?".
- *
- * Run: npm run verify:credentials
+ * Run: npm run verify:credentials -- <team_id>
  */
+import mongoose from 'mongoose';
 import {
   getPlatformToken,
   isPlatformConfigured,
@@ -22,8 +20,6 @@ const identityUrl = (platform: KnownPlatform, token: string): string => {
     case 'facebook':
       return `https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${encodeURIComponent(token)}`;
     case 'youtube':
-      // The bootstrap YouTube credential is an API key, not an OAuth token, so it goes in the
-      // query string. A channel id makes this a valid lookup without needing OAuth's `mine=true`.
       return `https://www.googleapis.com/youtube/v3/channels?part=id&${
         config.platforms.youtube.accountId
           ? `id=${encodeURIComponent(config.platforms.youtube.accountId)}`
@@ -34,15 +30,19 @@ const identityUrl = (platform: KnownPlatform, token: string): string => {
   }
 };
 
-const verify = async (platform: KnownPlatform): Promise<{ outcome: Outcome; detail: string }> => {
-  if (!(await isPlatformConfigured(platform))) {
+const verify = async (platform: KnownPlatform, teamId: string): Promise<{ outcome: Outcome; detail: string }> => {
+  if (!(await isPlatformConfigured(platform, teamId))) {
     return {
       outcome: 'SKIP',
-      detail: 'not configured (no stored credential, no bootstrap token in .env)',
+      detail: 'not configured (team has not added credentials for this platform)',
     };
   }
 
-  const token = await getPlatformToken(platform);
+  const token = await getPlatformToken(platform, teamId);
+  if (!token) {
+    return { outcome: 'SKIP', detail: 'no credential found' };
+  }
+
   const headers: Record<string, string> =
     platform === 'linkedin' ? { Authorization: `Bearer ${token}` } : {};
 
@@ -62,22 +62,29 @@ const verify = async (platform: KnownPlatform): Promise<{ outcome: Outcome; deta
 };
 
 const main = async () => {
-  console.log('Verifying platform credentials...\n');
+  const teamId = process.argv[2];
+  if (!teamId) {
+    console.error('Usage: npm run verify:credentials -- <team_id>');
+    process.exit(1);
+  }
+
+  await mongoose.connect(config.database_url as string);
+  console.log(`Verifying platform credentials for team: ${teamId}\n`);
   const results: Record<string, Outcome> = {};
 
   for (const platform of KNOWN_PLATFORMS) {
-    const { outcome, detail } = await verify(platform);
+    const { outcome, detail } = await verify(platform, teamId);
     results[platform] = outcome;
     console.log(`  ${outcome.padEnd(4)} ${platform.padEnd(9)} ${detail}`);
   }
 
-  // A SKIP is an acceptable outcome (LinkedIn approval may never arrive — requirements §5.6).
-  // Only a real FAIL — a token that exists but is rejected — is worth a non-zero exit.
+  await mongoose.disconnect();
+
   const failed = Object.entries(results).filter(([, outcome]) => outcome === 'FAIL');
   console.log(
     failed.length
       ? `\n${failed.length} platform(s) FAILED: ${failed.map(([p]) => p).join(', ')}`
-      : '\nNo failures. (SKIP = not configured yet, which is expected until tokens land.)',
+      : '\nNo failures. (SKIP = team has not added credentials yet.)',
   );
 
   process.exit(failed.length ? 1 : 0);

@@ -21,6 +21,17 @@ const createNewsItemValidation = z.object({
   }),
 });
 
+const getAllNewsItemsValidation = z.object({
+  query: z.object({
+    team_id: z.string().optional(),
+    search: z.string().optional(),
+    category: z.string().optional(),
+    sort: z.string().optional(),
+    page: z.string().optional(),
+    limit: z.string().optional(),
+  }),
+});
+
 const updateNewsItemValidation = z.object({
   body: z.object({
     title: z.string().optional(),
@@ -39,5 +50,6 @@ const updateNewsItemValidation = z.object({
 
 export const NewsItemValidation = {
   createNewsItemValidation,
+  getAllNewsItemsValidation,
   updateNewsItemValidation,
 };

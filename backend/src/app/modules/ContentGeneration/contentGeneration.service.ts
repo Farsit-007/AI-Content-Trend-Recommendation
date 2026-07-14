@@ -1,6 +1,8 @@
+import crypto from 'crypto';
 import AppError from '../../errors/AppError';
 import { embed } from '../../lib/embeddings';
 import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { redis } from '../../lib/redis';
 import { resolveVoiceOptions } from '../../lib/voiceProfile';
 import { httpStatus } from '../../utils/httpStatus';
 import { NewsItem } from '../NewsItem/newsItem.model';
@@ -9,6 +11,14 @@ import { GenerateContentRequest, GeneratedContent, NewsItemContext } from './con
 import { buildMessages } from './contentGeneration.prompt';
 import { parseGeneratedContent } from './contentGeneration.parse';
 import { fetchTopBrandVoiceExamples, fetchTopPerformingPosts, hasBrandVoiceExamples } from './contentGeneration.retrieval';
+import config from '../../config';
+
+const CONTENT_TTL = config.analytics.content_cache_ttl;
+
+const buildCacheKey = (teamId: string, newsItemId?: string, topic?: string): string => {
+  const item = newsItemId ?? crypto.createHash('sha256').update(topic ?? '').digest('hex');
+  return `content:${teamId}:${item}`;
+};
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
   if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') return;
@@ -40,6 +50,12 @@ const generateContent = async (
   requestingUser: IRequestUser,
 ): Promise<GeneratedContent> => {
   assertTeamAccess(payload.team_id, requestingUser);
+
+  const cacheKey = buildCacheKey(payload.team_id, payload.news_item_id, payload.topic);
+  const cached = await redis.get(cacheKey);
+  if (cached) {
+    return JSON.parse(cached) as GeneratedContent;
+  }
 
   const [{ embedding: newsItemEmbedding, context: newsContext }, voiceOptions] = await Promise.all([
     resolveNewsItemContext(payload.news_item_id),
@@ -73,7 +89,9 @@ const generateContent = async (
     throw new AppError(httpStatus.BAD_GATEWAY, 'Content generation failed — please try again');
   }
 
-  return { topic: payload.topic, ...parsed };
+  const result: GeneratedContent = { topic: payload.topic, ...parsed };
+  await redis.setex(cacheKey, CONTENT_TTL, JSON.stringify(result));
+  return result;
 };
 
 export const ContentGenerationService = {

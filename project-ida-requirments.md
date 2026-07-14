@@ -37,7 +37,7 @@ Growth Studio is a **full marketing intelligence platform** that does four thing
 1. **Monitors** external tech trends 24/7 across HackerNews, Dev.to, GitHub, Reddit, RSS
 2. **Analyzes** your own Facebook page, YouTube channel, and LinkedIn performance over the last 30 days — reach, views, engagement, best times, top content
 3. **Cross-references** trending topics with your own audience data to surface the highest-opportunity content ideas ranked by what will work for YOUR specific followers
-4. **Generates** platform-specific content in one click: Facebook post (text + Reel script), LinkedIn post, YouTube video idea (title + hook + full chapter outline + thumbnail concept), and short captions — all in Banglish, in your brand voice, personalized to your page's own performance history
+4. **Generates** platform-specific content in one click: Facebook post (text + Reel script), LinkedIn post, YouTube video idea (title + hook + full chapter outline + thumbnail concept), and short captions — all in **Bangla script (বাংলা)** by default (configurable per team and per request), in your brand voice, personalized to your page's own performance history
 
 The marketing team opens one dashboard. They see what's trending, what's working on their channels, and what to create next. Everything generated. Nothing left to guess.
 
@@ -153,13 +153,13 @@ recency_decay = max(0, 1 − hoursOld / 48)
 **What it does:** One trending topic → all content formats generated in one click, personalized to each platform's performance patterns.
 
 **Format 1 — Facebook text post:**
-Casual Banglish, emoji-friendly, storytelling hook, 100–150 words. Brand voice RAG: uses vector search to find 3 most similar high-engagement real posts from your page, injects as few-shot examples.
+Casual Bangla script (বাংলা), emoji-friendly, storytelling hook, 100–150 words. Brand voice RAG: uses vector search to find 3 most similar high-engagement real posts from your page, injects as few-shot examples.
 
 **Format 2 — Facebook Reel script (60–90 sec):**
 Hook line (first 3 sec), 3 key points with timestamps, CTA. Structured for vertical video. Tone matched to your best-performing Reels.
 
 **Format 3 — LinkedIn post:**
-Professional Banglish, insight-driven, career angle, 150–200 words. Ends with a question to drive comments. Based on your LinkedIn engagement patterns.
+Professional Bangla script, insight-driven, career angle, 150–200 words. Ends with a question to drive comments. Based on your LinkedIn engagement patterns.
 
 **Format 4 — YouTube video idea (full):**
 - Title (optimized for your channel's CTR patterns)
@@ -171,19 +171,22 @@ Professional Banglish, insight-driven, career angle, 150–200 words. Ends with 
 **Format 5 — Short caption:**
 Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 
-**All formats:** Lazy generation (fires only on click), cached Redis 24h, copy to clipboard.
+**All formats:** Lazy generation (fires only on click), cached Redis 24h, copy to clipboard. Language configurable via `team.voice_profile.default_language` (bangla / english / banglish) or per-request `language` override — so one team can write Bangla on Facebook and English on LinkedIn.
+
+> **Built 2026-07-15 (`rag-bangla`):** The team voice profile (`default_language`, `custom_instructions`) and per-request language override are live on `POST /content/generate` and `POST /chat`. The `seedBrandVoice.ts` script (`npm run seed:brand-voice -- <team_id> <file.json>`) embeds and upserts a batch of real posts as few-shot examples; `seed/brand-voice.example.json` provides the format with 5 Bangla-script sample posts. **Language decision 2026-07-15: default output is pure Bangla script (বাংলা), not Banglish** — LLM is instructed to keep widely-used English technical terms (AI, JavaScript, framework) in English as Bangla tech content naturally does, but never write Bengali words in Latin letters. Banglish remains selectable per-team.
 
 ---
 
 ### Feature 9: Brand Voice RAG
-**What it does:** Ensures all generated content sounds like YOUR brand, not generic AI Banglish.
+**What it does:** Ensures all generated content sounds like YOUR brand, in YOUR language, not generic AI output.
 **How it works:**
-1. Marketing team collects 25–30 real high-engagement posts from their Facebook + LinkedIn pages → seeded into `brand_voice_examples` MongoDB collection with embeddings
-2. On every generation click → embed the news topic → `$vectorSearch` `brand_voice_examples` → fetch 3 most semantically similar real posts
-3. Inject as few-shot examples into the generation prompt
-4. LLM writes in your voice, not a generic voice
+1. Marketing team collects 25–30 real high-engagement posts from their Facebook + LinkedIn pages → seeded into `brand_voice_examples` MongoDB collection with embeddings via `npm run seed:brand-voice -- <team_id> <file.json>` (idempotent, can be re-run after adding new posts)
+2. On every generation click → embed the news topic → vector search `brand_voice_examples` → fetch 3 most semantically similar real posts
+3. Inject as few-shot examples into the generation prompt alongside the team's `voice_profile` (language + standing instructions)
+4. LLM writes in your voice, in your language — Bangla script if that's what your examples are in
 **Why vector over keyword:** "React 19 Server Components" should match a brand voice example about "web dev career growth" — same audience intent, same tone needed. Vector similarity catches this; keyword matching misses it.
-**Pitch line:** "Growth Studio doesn't just write Banglish — it writes YOUR Banglish, learned from your own best-performing posts."
+**Pitch line:** "Growth Studio doesn't just write Bangla — it writes YOUR Bangla, learned from your own best-performing posts."
+**Team voice profile** (`team.voice_profile`): `default_language` (bangla / english / banglish, default bangla) + `custom_instructions` (free-text standing rules — "always end with a question", "never use more than 2 emojis" — appended to every prompt with no deploy needed to change). Editable via `PATCH /teams/:teamId`.
 
 ---
 
@@ -195,6 +198,25 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 - "React 19 নিয়ে কি YouTube video বানানো উচিত?"
 **How it works (RAG):** Query → embed → `$vectorSearch` news_items + platform_analytics context → top 5 relevant items → OpenRouter LLM → Banglish answer grounded in real data.
 **Demo wow factor:** Judge types a live question. Gets a real, data-grounded answer in seconds. Unpredictable and always impressive.
+
+---
+
+### Feature 10.5: Auto-Generated Content Drafts (built 2026-07-15)
+**What it does:** Growth Studio generates a full week of content per team automatically every day — no clicks required. Each morning, the system picks the top-opportunity news items for each team, generates all 5 content formats in that team's brand voice and language, and queues them as reviewable drafts.
+
+**How it works:**
+- Daily cron (`AUTO_GENERATION_CRON`, default `0 6 * * *`) runs the auto-generation job
+- For each team with ≥1 brand voice example: fetch top-3 news items by `opportunity_score` → skip items already drafted for that team → call `ContentGenerationService.generateContent()` → save as `status: 'draft'`
+- Teams with zero brand voice examples are skipped (cold-start guard — avoids generic content)
+- `AUTO_GENERATION_MAX_PER_RUN` (default 10) caps total LLM calls per run to protect the OpenRouter free tier
+- Admin can trigger an immediate run via `POST /generated-content/run`
+
+**Draft management endpoints:**
+- `GET /generated-content?team_id=&status=draft` — list drafts, filterable by status/source
+- `POST /generated-content/run` — admin on-demand trigger (returns `{ teams_processed, drafts_created, skipped }`)
+- `PATCH /generated-content/:id` — approve or dismiss a draft
+
+**Demo pitch:** "Growth Studio drafts a full week of Bangla content for your team while you sleep — you wake up to 3 ready-to-post drafts. One click to approve."
 
 ---
 
@@ -223,7 +245,7 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 | ~~FR-08~~ | *Retired 2026-07-14 — merged into FR-06* (was: LinkedIn analytics as its own requirement) | — | — |
 | FR-09 | 30-day cross-platform performance report generated on demand | Must Have | Report |
 | FR-10 | Report includes top posts, best times, engagement trends per platform | Must Have | Report |
-| FR-11 | Report includes AI-generated cross-platform insight in Banglish | Must Have | Report |
+| FR-11 | Report includes AI-generated cross-platform insight in **Bangla script (বাংলা)** **(language decision updated 2026-07-15 — was "Banglish")** | Must Have | Report |
 | FR-12 | Content opportunity ranking: trends × your audience data | Must Have | Report |
 | FR-13 | User can generate Facebook text post from any news card | Must Have | Content Generator |
 | FR-14 | User can generate Facebook Reel script (60–90 sec) from any news card | Must Have | Content Generator |
@@ -234,11 +256,15 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 | FR-19 | Generated content personalized using platform analytics (what works for YOUR audience) | Must Have | Content Generator |
 | FR-20 | Generated content cached in Redis 24h — regenerating is instant | Should Have | Content Generator |
 | FR-21 | User can copy any generated content to clipboard | Must Have | Content Generator |
-| FR-22 | User can ask natural language questions about news + their analytics **(built 2026-07-14 — `POST /chat`, intent-classified retrieval over news + team platform-performance data, multi-turn via `conversation_id`; see `ask-growth-studio-chat` in `SAMIN.md`)** | Should Have | Chat |
+| FR-22 | User can ask natural language questions about news + their analytics in **Bangla or English** **(built 2026-07-14 — `POST /chat`, intent-classified retrieval over news + team platform-performance data, multi-turn via `conversation_id`; language decision updated 2026-07-15 — was "Banglish", now Bangla script by default, per-request override supported)** | Should Have | Chat |
 | FR-23 | Chat answers grounded in real news + real platform data via RAG **(built 2026-07-14 — same change as FR-22; verification partially blocked by an exhausted OpenRouter quota, retrieval pipeline confirmed reaching the LLM call correctly)** | Should Have | Chat |
 | FR-24 | News cards show "High opportunity" badge when topic matches user's top engagement patterns | Should Have | Dashboard |
 | FR-25 | Admin can manually trigger news ingestion run **(built 2026-07-14 — `POST /news-items/ingest`, admin-only)** | Should Have | Demo tool |
 | FR-26 | Admin can manually trigger platform analytics refresh | Should Have | Demo tool |
+| FR-27 | System auto-generates content drafts daily per team (top-opportunity news × brand voice, daily cron 06:00) **(built 2026-07-15 — `generatedContent.job.ts`, `startAutoGenerationScheduler()`; teams without brand voice examples skipped; `AUTO_GENERATION_MAX_PER_RUN` quota cap)** | Should Have | Auto-Generation |
+| FR-28 | Admin can manually trigger auto-generation run for all or one team **(built 2026-07-15 — `POST /generated-content/run`, returns `{ teams_processed, drafts_created, skipped }`)** | Should Have | Demo tool |
+| FR-29 | Team member can approve or dismiss auto-generated drafts **(built 2026-07-15 — `PATCH /generated-content/:id`, `GET /generated-content?team_id=&status=`)** | Should Have | Auto-Generation |
+| FR-30 | Generated content language defaults to Bangla script per team; overridable per request **(built 2026-07-15 — `team.voice_profile.default_language`, per-request `language` param on `/content/generate` and `/chat`)** | Must Have | Content Generator |
 
 ### Non-Functional Requirements
 
@@ -394,16 +420,26 @@ Trending news item → embed → $vectorSearch platform_analytics.posts limit:10
 ### `generated_content`
 ```js
 {
-  _id, news_id, formats: {
+  _id,
+  team_id,                          // owning team — team-scoped, see §5.9
+  news_item_id,                     // optional; compound unique index with team_id (sparse)
+  topic: String,
+  formats: {
     facebook_post: String,
     facebook_reel_script: String,
     linkedin_post: String,
-    youtube_idea: { title, hook, chapters, thumbnail_concept },
+    youtube_idea: { title, hook, chapters: [String], thumbnail_concept },
     caption: String
   },
-  opportunity_score, created_at
+  source: 'auto' | 'manual',        // 'auto' = daily job; 'manual' = user-triggered
+  status: 'draft' | 'approved' | 'dismissed',
+  model_used: String,
+  created_at: Date
 }
+// Indexes: (team_id, news_item_id) unique sparse — prevents duplicate drafts per team+item
+//          (team_id, created_at desc) — list query
 ```
+> **Updated 2026-07-15 (`rag-bangla`):** Schema extended vs. original plan — added `team_id`, `topic`, `source`, `status`, `model_used`; removed `opportunity_score` (already on the `NewsItem`). The compound unique index on `(team_id, news_item_id)` prevents the daily auto-generation job from creating duplicate drafts for the same team+news-item pair.
 
 ### `brand_voice_examples`
 ```js
@@ -457,6 +493,8 @@ The MVP scope originally assumed one company, one set of social accounts. In pra
 > **Scope update (2026-07-14):** the line below — "user authentication and multi-workspace" — described the *original* MVP assumption of one team (Programming Hero) with one Facebook/YouTube/LinkedIn account each. That assumption turned out to be wrong: the company actually runs several independent growth teams, each with its own members and its own social accounts, that must never see each other's data. Auth + multi-team was pulled into scope and built on the backend as a result — see new §5.9 below. What's still Phase 2 is the *frontend* for it (login screen, admin/super_admin dashboards, per-team platform toggles).
 
 - ~~User authentication and multi-workspace~~ — built, see §5.9
+- ~~Auto-generated daily content drafts per team~~ — built 2026-07-15, see Feature 10.5 and FR-27–29
+- ~~Bangla script output (was listed as Banglish)~~ — language decision updated 2026-07-15; pure Bangla script is now the default with per-team and per-request language override
 - Auto-publishing directly to platforms (API approval + scheduling complexity)
 - Dedicated vector database (Pinecone, Weaviate) — Atlas covers all needs free
 - Slack/Discord notifications

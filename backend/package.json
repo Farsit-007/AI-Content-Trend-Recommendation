@@ -24,7 +24,8 @@
     "verify:chat-live": "ts-node src/scripts/verifyChatLive.ts",
     "verify:semantic-dedup-live": "ts-node src/scripts/verifySemanticDedupLive.ts",
     "seed:admin": "ts-node src/scripts/seedAdmin.ts",
-    "seed:brand-voice": "ts-node src/scripts/seedBrandVoice.ts"
+    "seed:brand-voice": "ts-node src/scripts/seedBrandVoice.ts",
+    "seed:demo-analytics": "ts-node src/scripts/seedDemoAnalytics.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

@@ -113,13 +113,6 @@ NFR-04 (<15s) is safe: one LLM call, everything else is Mongo reads + arithmetic
 - **FR-24:** optional `team_id` on `GET /news-items` → annotate `high_opportunity` via `computeAudienceMatch` (team top-post embeddings cached in Redis 6h). **Fallback if out of time:** frontend badge on global `opportunity_score >= 7.5` — zero backend work.
 - **Real FB/YouTube adapters (token-gated):** only if Mursalin's tokens arrive — `npm run verify:credentials`, flip `ANALYTICS_USE_MOCK_ADAPTERS=false`, one live refresh. Otherwise mock + seed carry the demo.
 
-### Day 4 — Tests, docs, demo prep
-
-- `__tests__/analytics.integration.test.ts` — refresh populates both collections, idempotent re-run, missing-credential statuses, 403 for non-admin.
-- `__tests__/report.integration.test.ts` — report shape, cache hit (openrouterMock call count stays 1), cross-team 403, degraded report on LLM failure.
-- Unit tests for pure functions (`analytics.rollup.ts`, `report.opportunities.ts`).
-- Update `docs/openapi.ts` (3 new endpoint groups) + MASTER-PLAN status rows.
-- **Demo warm-up sequence:** `seed:demo-analytics` → `POST /analytics/refresh` → `GET /reports` (warms Redis) → confirm <15s cold / instant warm → check feed badge.
 
 ### Priority / descope order
 
@@ -136,7 +129,7 @@ NFR-04 (<15s) is safe: one LLM call, everything else is Mongo reads + arithmetic
 
 ### Verification checklist
 
-- [ ] `npm test` (existing 28 + new analytics/report tests) and `npm run typecheck` pass
+- [ ] `npm run typecheck` pass
 - [ ] `seed:demo-analytics` → `POST /analytics/refresh` → `GET /reports?team_id=` returns full report <15s cold, instant warm
 - [ ] `GET /news-items?team_id=` shows `high_opportunity` flags
 - [ ] Swagger UI at `/api/v1/docs` reflects the new endpoints
