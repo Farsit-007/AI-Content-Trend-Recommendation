@@ -1,3 +1,4 @@
+import dns from 'dns';
 import mongoose from 'mongoose';
 import config from './app/config';
 import app from './app';
@@ -5,6 +6,12 @@ import { verifyConnections } from './app/lib/verifyConnections';
 import { seedSuperAdminIfMissing } from './app/lib/seedSuperAdmin';
 import { startNewsIngestionScheduler } from './app/lib/scheduler';
 import { Server } from 'http';
+
+// Node's default resolver can fail `mongodb+srv://` SRV/TXT lookups on networks where the
+// router doesn't proxy those record types correctly, even though the OS resolver handles them
+// fine. Forcing a public resolver avoids that failure mode.
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
 let server: Server;
 async function main() {
   try {

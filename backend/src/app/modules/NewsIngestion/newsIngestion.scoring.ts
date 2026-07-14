@@ -1,23 +1,11 @@
 import { BrandVoiceExample } from '../BrandVoiceExample/brandVoiceExample.model';
+import { cosineSimilarity } from './newsIngestion.utils';
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 export const fetchBrandVoicePool = async (): Promise<number[][]> => {
   const examples = await BrandVoiceExample.find({}, { embedding: 1 });
   return examples.map((example) => example.embedding);
-};
-
-const cosineSimilarity = (a: number[], b: number[]): number => {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  if (normA === 0 || normB === 0) return 0;
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 };
 
 /**

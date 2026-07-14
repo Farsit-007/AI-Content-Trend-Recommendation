@@ -5,7 +5,15 @@ import { runAllAdapters } from './adapters';
 import { categorizeBatch } from './newsIngestion.categorize';
 import { CategorizedNewsItem, IngestionSummary, ScoredNewsItem, SourceSummary } from './newsIngestion.interface';
 import { fetchBrandVoicePool, scoreRelevance, scoreTrend } from './newsIngestion.scoring';
-import { HashedNewsItem, attachContentHash, dedupeAgainstStored, filterFresh } from './newsIngestion.utils';
+import {
+  EmbeddedNewsItem,
+  HashedNewsItem,
+  attachContentHash,
+  dedupeAgainstStored,
+  dedupeSemantic,
+  fetchRecentEmbeddings,
+  filterFresh,
+} from './newsIngestion.utils';
 
 const countBySource = (items: { source: string }[]): Record<string, number> => {
   const counts: Record<string, number> = {};
@@ -29,19 +37,29 @@ export const runIngestionPipeline = async (): Promise<IngestionSummary> => {
   const unique = await dedupeAgainstStored(fresh);
   const uniqueCounts = countBySource(unique);
 
+  // Layer 2b: Semantic Dedup (cross-source, same story under different URLs)
+  const embedded: EmbeddedNewsItem[] = await Promise.all(
+    unique.map(async (item) => ({
+      ...item,
+      embedding: await embed(`${item.title} ${item.snippet ?? ''}`.trim()),
+    })),
+  );
+
+  const dedupCutoff = new Date(Date.now() - config.news_ingestion.max_age_hours * 60 * 60 * 1000);
+  const recentPool = await fetchRecentEmbeddings(dedupCutoff);
+  const deduped = dedupeSemantic(embedded, recentPool, config.news_ingestion.semantic_dedup_threshold);
+  console.log(
+    `[NewsIngestion] semantic dedup: ${embedded.length} candidates -> ${deduped.length} survived ` +
+      `(${embedded.length - deduped.length} dropped, recent pool size ${recentPool.length})`,
+  );
+
   // Layer 3: Relevance & Trend Scoring
   const brandVoicePool = await fetchBrandVoicePool();
-  const scored: ScoredNewsItem[] = await Promise.all(
-    unique.map(async (item) => {
-      const embedding = await embed(`${item.title} ${item.snippet ?? ''}`.trim());
-      return {
-        ...item,
-        embedding,
-        relevance_score: scoreRelevance(embedding, brandVoicePool),
-        trend_score: scoreTrend(item.raw_points, item.raw_comments, item.raw_stars_delta),
-      };
-    }),
-  );
+  const scored: ScoredNewsItem[] = deduped.map((item) => ({
+    ...item,
+    relevance_score: scoreRelevance(item.embedding, brandVoicePool),
+    trend_score: scoreTrend(item.raw_points, item.raw_comments, item.raw_stars_delta),
+  }));
 
   // Cold start: skip relevance filtering entirely when no brand voice examples exist yet.
   const relevant =

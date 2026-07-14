@@ -17,6 +17,8 @@
     "db:create-indexes": "ts-node src/scripts/createVectorIndexes.ts",
     "db:verify-indexes": "ts-node src/scripts/verifyVectorIndexes.ts",
     "verify:credentials": "ts-node src/scripts/verifyPlatformCredentials.ts",
+    "verify:semantic-dedup": "ts-node src/scripts/verifySemanticDedup.ts",
+    "verify:semantic-dedup-live": "ts-node src/scripts/verifySemanticDedupLive.ts",
     "seed:admin": "ts-node src/scripts/seedAdmin.ts"
   },
   "dependencies": {
