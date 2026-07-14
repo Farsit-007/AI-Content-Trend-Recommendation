@@ -13,6 +13,10 @@ export default defineConfig([
     files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
     languageOptions: { globals: globals.node },
   },
+  {
+    files: ["src/__tests__/**/*.ts", "**/__mocks__/**/*.ts"],
+    languageOptions: { globals: globals.jest },
+  },
   tseslint.configs.recommended,
  {
     ignores: ['node_modules', 'dist'],

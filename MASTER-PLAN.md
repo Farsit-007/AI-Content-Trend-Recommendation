@@ -87,7 +87,7 @@
 
 | Developer | Work | Status | Notes |
 |-----------|------|--------|-------|
-| **Samin** | Integration testing | ⬜ Todo | Ingestion → scoring → generation end-to-end |
+| **Samin** | Integration testing | ✅ Done | Backend API integration test suite (Jest + Supertest + `mongodb-memory-server` + `ioredis-mock`), 28 tests across auth/teams/platform-credentials/news-items/content-generation/chat. Done ahead of schedule on 2026-07-14. **Not committed yet** — see `SAMIN.md`. |
 | **Robayat** | Integration testing | ⬜ Todo | Analytics → report-ui data flow |
 | **Mehedi** | UI polish + demo script | ⬜ Todo | Loading/error/empty states, responsive check, demo walkthrough script |
 | **All** | Demo prep | ⬜ Todo | Run ingestion, pre-warm demo topics into Redis, warm app 5 min before presenting (NFR-12) |
