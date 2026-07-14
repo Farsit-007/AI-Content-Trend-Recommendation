@@ -32,10 +32,17 @@ export const createAuthToken = (user: { _id: unknown; email: string }): string =
     expiresIn: config.jwt_expires_in,
   } as SignOptions);
 
-export const createTestTeam = async (overrides: { name?: string; createdBy?: string } = {}) =>
+export const createTestTeam = async (
+  overrides: {
+    name?: string;
+    createdBy?: string;
+    voiceProfile?: { default_language: 'bangla' | 'english' | 'banglish'; custom_instructions?: string };
+  } = {},
+) =>
   Team.create({
     name: overrides.name ?? 'Test Team',
     created_by: overrides.createdBy ?? 'test-seed',
+    ...(overrides.voiceProfile ? { voice_profile: overrides.voiceProfile } : {}),
   });
 
 export const addTeamMember = async (teamId: string, userId: string) =>

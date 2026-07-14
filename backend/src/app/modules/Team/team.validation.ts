@@ -14,6 +14,12 @@ const updateTeamValidation = z.object({
   body: z.object({
     name: z.string().min(1).optional(),
     description: z.string().optional(),
+    voice_profile: z
+      .object({
+        default_language: z.enum(['bangla', 'english', 'banglish']).default('bangla'),
+        custom_instructions: z.string().trim().max(500).optional(),
+      })
+      .optional(),
   }),
 });
 

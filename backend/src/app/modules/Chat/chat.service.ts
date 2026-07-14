@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import AppError from '../../errors/AppError';
 import { embed } from '../../lib/embeddings';
 import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { resolveVoiceOptions } from '../../lib/voiceProfile';
 import { httpStatus } from '../../utils/httpStatus';
 import { IRequestUser } from '../User/user.interface';
 import { ChatContextItem, ChatRequest, ChatResponse } from './chat.interface';
@@ -22,9 +23,10 @@ const askChat = async (payload: ChatRequest, requestingUser: IRequestUser): Prom
 
   const conversationId = payload.conversation_id ?? randomUUID();
 
-  const [questionEmbedding, history] = await Promise.all([
+  const [questionEmbedding, history, voiceOptions] = await Promise.all([
     embed(payload.message),
     fetchConversationHistory(payload.team_id, conversationId),
+    resolveVoiceOptions(payload.team_id, payload.language),
   ]);
 
   const intent = classifyIntent(payload.message);
@@ -36,7 +38,7 @@ const askChat = async (payload: ChatRequest, requestingUser: IRequestUser): Prom
   ]);
   const context = contextGroups.flat();
 
-  const messages = buildMessages(payload.message, context, history);
+  const messages = buildMessages(payload.message, context, history, voiceOptions);
 
   await ChatMessage.create({
     team_id: payload.team_id,

@@ -51,7 +51,10 @@ const getTeamById = async (teamId: string) => {
   return { team, members: memberships.map((m) => m.user_id) };
 };
 
-const updateTeam = async (teamId: string, payload: Partial<Pick<ITeam, 'name' | 'description'>>) => {
+const updateTeam = async (
+  teamId: string,
+  payload: Partial<Pick<ITeam, 'name' | 'description' | 'voice_profile'>>,
+) => {
   const team = await Team.findByIdAndUpdate(teamId, payload, { new: true, runValidators: true });
   if (!team) {
     throw new AppError(httpStatus.NOT_FOUND, 'Team not found');

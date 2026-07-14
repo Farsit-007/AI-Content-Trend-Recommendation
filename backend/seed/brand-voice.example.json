@@ -1,0 +1,20 @@
+[
+  {
+    "platform": "facebook",
+    "category": "AI",
+    "content": "AI দিয়ে এখন ওয়েবসাইট বানানো যায় মিনিটেই! 🤖 কিন্তু প্রশ্ন হলো — ডেভেলপারদের কি তাহলে চাকরি থাকবে না? সত্যিটা হলো, AI tool চালাতে জানা ডেভেলপাররাই এখন সবচেয়ে বেশি demand-এ। আপনি কি AI শেখা শুরু করেছেন? কমেন্টে জানান! 👇",
+    "engagement_hint": "2.4k likes, 310 comments, 180 shares"
+  },
+  {
+    "platform": "facebook",
+    "category": "Career",
+    "content": "প্রথম চাকরির interview-তে গিয়ে nervous? 😅 মনে রাখবেন — interviewer আপনার syntax মুখস্থ আছে কিনা দেখতে চায় না, দেখতে চায় আপনি problem কীভাবে solve করেন। তাই code মুখস্থ না করে logic practice করুন। আজকেই একটা problem solve করে ফেলুন! 💪",
+    "engagement_hint": "1.8k likes, 220 comments"
+  },
+  {
+    "platform": "linkedin",
+    "category": "Web Dev",
+    "content": "JavaScript শিখতে গিয়ে অনেকেই framework নিয়ে confusion-এ পড়েন। React আগে নাকি Node আগে? আমাদের পরামর্শ: আগে vanilla JavaScript-এর fundamentals শক্ত করুন। Framework আসবে-যাবে, কিন্তু fundamentals সারাজীবন কাজে লাগবে।",
+    "engagement_hint": "950 reactions, 85 comments"
+  }
+]

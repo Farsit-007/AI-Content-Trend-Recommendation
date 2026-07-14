@@ -1,6 +1,7 @@
 import AppError from '../../errors/AppError';
 import { embed } from '../../lib/embeddings';
 import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { resolveVoiceOptions } from '../../lib/voiceProfile';
 import { httpStatus } from '../../utils/httpStatus';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { IRequestUser } from '../User/user.interface';
@@ -40,7 +41,10 @@ const generateContent = async (
 ): Promise<GeneratedContent> => {
   assertTeamAccess(payload.team_id, requestingUser);
 
-  const { embedding: newsItemEmbedding, context: newsContext } = await resolveNewsItemContext(payload.news_item_id);
+  const [{ embedding: newsItemEmbedding, context: newsContext }, voiceOptions] = await Promise.all([
+    resolveNewsItemContext(payload.news_item_id),
+    resolveVoiceOptions(payload.team_id, payload.language),
+  ]);
   const topicEmbedding = newsItemEmbedding ?? (await embed(payload.topic));
 
   const coldStart = !(await hasBrandVoiceExamples(payload.team_id));
@@ -53,7 +57,7 @@ const generateContent = async (
         ])
       ).flat();
 
-  const messages = buildMessages(payload.topic, fewShotExamples, newsContext);
+  const messages = buildMessages(payload.topic, fewShotExamples, voiceOptions, newsContext);
 
   let raw: string;
   try {

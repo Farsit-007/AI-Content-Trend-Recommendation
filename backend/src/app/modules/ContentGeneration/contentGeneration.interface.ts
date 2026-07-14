@@ -1,3 +1,5 @@
+import { LanguageStyle } from '../Team/team.interface';
+
 export interface YoutubeIdea {
   title: string;
   hook: string;
@@ -18,6 +20,8 @@ export interface GenerateContentRequest {
   team_id: string;
   topic: string;
   news_item_id?: string;
+  /** Per-request override of the team's voice_profile.default_language. */
+  language?: LanguageStyle;
 }
 
 export interface FewShotExample {

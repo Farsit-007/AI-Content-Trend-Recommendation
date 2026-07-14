@@ -4,7 +4,12 @@ import request from 'supertest';
 import app from '../app';
 import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
 import { createAuthToken, createTestTeam, createTestUser } from './support/fixtures';
-import { getOpenRouterCallCounts, mockChatCompletion, mockEmbedding } from './support/openrouterMock';
+import {
+  getLastChatCompletionRequest,
+  getOpenRouterCallCounts,
+  mockChatCompletion,
+  mockEmbedding,
+} from './support/openrouterMock';
 
 beforeAll(connectTestDb);
 afterEach(clearTestDb);
@@ -54,5 +59,62 @@ describe('POST /api/v1/content/generate', () => {
       .send({ team_id: '507f1f77bcf86cd799439011', topic: 'AI agents' });
 
     expect(res.status).toBe(401);
+  });
+
+  it('defaults the prompt to Bangla and includes the team custom instructions', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-voice-default@example.test' });
+    const team = await createTestTeam({
+      createdBy: admin._id.toString(),
+      voiceProfile: { default_language: 'bangla', custom_instructions: 'Always end with a question.' },
+    });
+    const token = createAuthToken(admin);
+
+    mockEmbedding();
+    mockChatCompletion(JSON.stringify(CANNED_CONTENT));
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing' });
+
+    expect(res.status).toBe(200);
+    const systemPrompt = getLastChatCompletionRequest().messages[0].content;
+    expect(systemPrompt).toContain('Bengali (বাংলা script)');
+    expect(systemPrompt).toContain('Always end with a question.');
+  });
+
+  it('lets the request language override the team default', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-voice-override@example.test' });
+    const team = await createTestTeam({
+      createdBy: admin._id.toString(),
+      voiceProfile: { default_language: 'bangla' },
+    });
+    const token = createAuthToken(admin);
+
+    mockEmbedding();
+    mockChatCompletion(JSON.stringify(CANNED_CONTENT));
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', language: 'english' });
+
+    expect(res.status).toBe(200);
+    const systemPrompt = getLastChatCompletionRequest().messages[0].content;
+    expect(systemPrompt).toContain('Write in clear, natural English.');
+    expect(systemPrompt).not.toContain('বাংলা');
+  });
+
+  it('rejects an invalid language value', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-voice-invalid@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', language: 'french' });
+
+    expect(res.status).toBe(400);
   });
 });

@@ -1,11 +1,24 @@
 import { Schema, model } from 'mongoose';
-import { ITeam, ITeamMembership } from './team.interface';
+import { ITeam, ITeamMembership, ITeamVoiceProfile } from './team.interface';
+
+const voiceProfileSchema = new Schema<ITeamVoiceProfile>(
+  {
+    default_language: {
+      type: String,
+      enum: ['bangla', 'english', 'banglish'],
+      default: 'bangla',
+    },
+    custom_instructions: { type: String, trim: true, maxlength: 500 },
+  },
+  { _id: false },
+);
 
 const teamSchema = new Schema<ITeam>({
   name: { type: String, required: true, trim: true },
   description: { type: String, trim: true },
   created_by: { type: String, required: true },
   custom_categories: { type: [String], default: [] },
+  voice_profile: { type: voiceProfileSchema, default: () => ({}) },
   created_at: { type: Date, default: Date.now },
 });
 

@@ -7,6 +7,7 @@ const askChatValidation = z.object({
     team_id: objectId,
     message: z.string({ required_error: 'message is required' }).min(1, 'message is required'),
     conversation_id: z.string().optional(),
+    language: z.enum(['bangla', 'english', 'banglish']).optional(),
   }),
 });
 

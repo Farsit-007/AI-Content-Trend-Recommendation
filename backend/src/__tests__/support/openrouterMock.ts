@@ -26,3 +26,12 @@ export const getOpenRouterCallCounts = () => ({
   chatCompletionCalls: mocked.chat.completions.create.mock.calls.length,
   embeddingCalls: mocked.embeddings.create.mock.calls.length,
 });
+
+/** Returns the request body of the most recent mocked chat-completion call (for prompt assertions). */
+export const getLastChatCompletionRequest = (): {
+  messages: { role: string; content: string }[];
+} => {
+  const calls = mocked.chat.completions.create.mock.calls;
+  if (calls.length === 0) throw new Error('No chat-completion calls were made');
+  return calls[calls.length - 1][0];
+};

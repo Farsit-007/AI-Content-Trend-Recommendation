@@ -1,4 +1,5 @@
 import { ChatMessage } from '../../lib/llmClient';
+import { VoiceOptions, languageInstruction } from '../../lib/voiceProfile';
 import { FewShotExample, NewsItemContext } from './contentGeneration.interface';
 
 const RESPONSE_SHAPE_INSTRUCTION =
@@ -15,12 +16,22 @@ const formatExamples = (examples: FewShotExample[]): string =>
     })
     .join('\n\n');
 
-export const buildSystemPrompt = (fewShotExamples: FewShotExample[]): string => {
+export const buildSystemPrompt = (
+  fewShotExamples: FewShotExample[],
+  voiceOptions: VoiceOptions,
+): string => {
+  const voiceInstructions =
+    `Language: ${languageInstruction(voiceOptions.language)}` +
+    (voiceOptions.custom_instructions
+      ? `\nTeam instructions (always follow these): ${voiceOptions.custom_instructions}`
+      : '');
+
   if (fewShotExamples.length === 0) {
     return (
       'You are a social media content generator for a growth marketing team. ' +
       'Write engaging, platform-appropriate content in a clear, professional, brand-neutral tone — ' +
-      'this team has not yet submitted brand-voice examples, so do not invent a specific persona or slang. ' +
+      'this team has not yet submitted brand-voice examples, so do not invent a specific persona or slang.\n\n' +
+      `${voiceInstructions}\n\n` +
       RESPONSE_SHAPE_INSTRUCTION
     );
   }
@@ -30,6 +41,7 @@ export const buildSystemPrompt = (fewShotExamples: FewShotExample[]): string => 
     "Match the team's own voice, tone, and style shown in the examples below — these are real examples of how " +
     'this team writes, including past posts and their performance. Study word choice, tone, formatting, emoji use, ' +
     'and structure, then write new content that reads as if the same team wrote it.\n\n' +
+    `${voiceInstructions}\n\n` +
     `Brand voice examples:\n${formatExamples(fewShotExamples)}\n\n` +
     RESPONSE_SHAPE_INSTRUCTION
   );
@@ -51,8 +63,9 @@ export const buildUserPrompt = (topic: string, newsContext?: NewsItemContext): s
 export const buildMessages = (
   topic: string,
   fewShotExamples: FewShotExample[],
+  voiceOptions: VoiceOptions,
   newsContext?: NewsItemContext,
 ): ChatMessage[] => [
-  { role: 'system', content: buildSystemPrompt(fewShotExamples) },
+  { role: 'system', content: buildSystemPrompt(fewShotExamples, voiceOptions) },
   { role: 'user', content: buildUserPrompt(topic, newsContext) },
 ];
