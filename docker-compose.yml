@@ -51,19 +51,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      network: host
     container_name: growth-studio-frontend
     restart: unless-stopped
-    init: true
     ports:
       - "3000:3000"
-    environment:
-      NODE_ENV: development
-      NEXT_TELEMETRY_DISABLED: "1"
-      WATCHPACK_POLLING: "true"
-      NEXT_PUBLIC_API_URL: http://localhost:5000
-    volumes:
-      - ./frontend:/app
     depends_on:
       - backend
     networks:

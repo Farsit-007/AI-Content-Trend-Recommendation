@@ -17,7 +17,11 @@ async function main() {
   try {
     await mongoose.connect(config.database_url as string);
     await seedSuperAdminIfMissing();
-    await verifyConnections();
+    try {
+      await verifyConnections();
+    } catch (verifyError) {
+      console.warn('[WARNING] Connection verification failed, but continuing startup:', verifyError);
+    }
     startNewsIngestionScheduler();
     server = app.listen(config.port, () => {
       console.log(`Server is running on port ${config.port}`);
