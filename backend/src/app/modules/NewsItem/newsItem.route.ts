@@ -1,9 +1,13 @@
 import { Router } from 'express';
+import { requireAdmin, requireAuth } from '../../middleware/auth';
 import { validation } from '../../middleware/validation';
+import { NewsIngestionController } from '../NewsIngestion/newsIngestion.controller';
 import { NewsItemController } from './newsItem.controller';
 import { NewsItemValidation } from './newsItem.validation';
 
 const router = Router();
+
+router.post('/ingest', requireAuth, requireAdmin, NewsIngestionController.ingestNews);
 
 router.post(
   '/',

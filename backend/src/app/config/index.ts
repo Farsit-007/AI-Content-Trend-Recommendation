@@ -57,6 +57,14 @@ const envSchema = z.object({
   LINKEDIN_CLIENT_SECRET: z.string().optional(),
   LINKEDIN_TOKEN: z.string().optional(),
   LINKEDIN_ORG_ID: z.string().optional(),
+
+  // News ingestion pipeline — all optional so the server boots fine before an operator
+  // has configured RSS feeds or tuned the scoring thresholds.
+  NEWS_INGESTION_RSS_FEEDS: z.string().optional(),
+  NEWS_INGESTION_MAX_AGE_HOURS: z.string().default('72'),
+  NEWS_INGESTION_MIN_RELEVANCE: z.string().default('4.0'),
+  NEWS_INGESTION_CRON: z.string().default('0 */3 * * *'),
+  REDDIT_SUBREDDITS: z.string().default('programming,technology,artificial'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -115,5 +123,18 @@ export default {
       bootstrapToken: env.LINKEDIN_TOKEN,
       accountId: env.LINKEDIN_ORG_ID,
     },
+  },
+
+  news_ingestion: {
+    rss_feeds: (env.NEWS_INGESTION_RSS_FEEDS ?? '')
+      .split(',')
+      .map((url) => url.trim())
+      .filter(Boolean),
+    max_age_hours: Number(env.NEWS_INGESTION_MAX_AGE_HOURS),
+    min_relevance: Number(env.NEWS_INGESTION_MIN_RELEVANCE),
+    cron: env.NEWS_INGESTION_CRON,
+    reddit_subreddits: env.REDDIT_SUBREDDITS.split(',')
+      .map((sub) => sub.trim())
+      .filter(Boolean),
   },
 };

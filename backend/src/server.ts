@@ -3,6 +3,7 @@ import config from './app/config';
 import app from './app';
 import { verifyConnections } from './app/lib/verifyConnections';
 import { seedSuperAdminIfMissing } from './app/lib/seedSuperAdmin';
+import { startNewsIngestionScheduler } from './app/lib/scheduler';
 import { Server } from 'http';
 let server: Server;
 async function main() {
@@ -10,6 +11,7 @@ async function main() {
     await mongoose.connect(config.database_url as string);
     await seedSuperAdminIfMissing();
     await verifyConnections();
+    startNewsIngestionScheduler();
     server = app.listen(config.port, () => {
       console.log(`Server is running on port ${config.port}`);
     });

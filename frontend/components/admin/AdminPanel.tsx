@@ -16,6 +16,7 @@ type ActionCardProps = {
   lastRun: string
   buttonLabel: string
   successMessage: string
+  onRun?: () => Promise<string>
 }
 
 function ActionCard({
@@ -25,16 +26,30 @@ function ActionCard({
   lastRun,
   buttonLabel,
   successMessage,
+  onRun,
 }: ActionCardProps) {
   const [status, setStatus] = useState<Status>("idle")
 
-  function handleRun() {
+  async function handleRun() {
     if (status === "running") return
     setStatus("running")
-    setTimeout(() => {
+
+    if (!onRun) {
+      setTimeout(() => {
+        setStatus("complete")
+        toast.success(successMessage)
+      }, 2000)
+      return
+    }
+
+    try {
+      const detail = await onRun()
       setStatus("complete")
-      toast.success(successMessage)
-    }, 2000)
+      toast.success(successMessage, { description: detail })
+    } catch (err) {
+      setStatus("idle")
+      toast.error(err instanceof Error ? err.message : "Request failed")
+    }
   }
 
   return (
@@ -90,6 +105,38 @@ function ActionCard({
   )
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1"
+
+type SourceSummary = {
+  source: string
+  fetched: number
+  deduped: number
+  discarded: number
+  stored: number
+}
+
+type IngestionSummary = {
+  sources: SourceSummary[]
+  totalStored: number
+}
+
+async function runNewsIngestion(): Promise<string> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null
+
+  const res = await fetch(`${API_URL}/news-items/ingest`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+
+  const body = await res.json()
+  if (!res.ok) {
+    throw new Error(body?.message ?? `Ingestion request failed (${res.status})`)
+  }
+
+  const summary = body.data as IngestionSummary
+  return `${summary.totalStored} new items stored across ${summary.sources.length} sources`
+}
+
 export default function AdminPanel() {
   return (
     <div className="max-w-2xl mx-auto">
@@ -106,6 +153,7 @@ export default function AdminPanel() {
           lastRun="2 hours ago"
           buttonLabel="Run"
           successMessage="Ingestion triggered successfully"
+          onRun={runNewsIngestion}
         />
         <ActionCard
           icon={RefreshCw}
