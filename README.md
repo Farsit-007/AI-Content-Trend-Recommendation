@@ -129,7 +129,7 @@ Pulls 30 days from **Meta Graph API** (FB), **YouTube Data API v3**, and **Linke
 
 ### 3. Serving / API Layer (on demand)
 - **News feed** — filter by category, sort by latest/relevance/trend, "High opportunity" badges
-- **Content generator** — lazy (fires on click), 5 formats, Brand Voice RAG, cached 24h
+- **Content generator** — lazy (fires on click), 5 formats, Brand Voice RAG *(built without the 24h cache — see deviation note below)*
 - **Report generator** — unified 30-day cross-platform report with AI insight
 - **Ask Growth Studio** — natural-language RAG chat grounded in real data
 - **Admin triggers** — manually run ingestion / analytics refresh (demo tooling)
@@ -148,8 +148,15 @@ daily.dev-style dark dashboard: card feed with tabs, one-click generation, repor
 | **Dedup** *(not the vector flow originally planned — built as exact-match instead, see note above)* | Ingestion | `content_hash` (SHA-256 of `source:url`) checked against MongoDB — no embedding, no `$vectorSearch` |
 | **Relevance gate** | Ingestion | embed item → cosine similarity vs. pooled `BrandVoiceExample` embeddings (in-memory, not `$vectorSearch`) → max score, or skip filtering entirely if the pool is empty |
 | **Ask Growth Studio** | User question | embed query → `$vectorSearch news_items` limit 5 → LLM → Banglish answer |
-| **Brand Voice RAG** | Generate click | embed topic → `$vectorSearch brand_voice_examples` limit 3 → few-shot into prompt |
+| **Brand Voice RAG** *(built differently — see note below)* | Generate click | embed topic → **in-app cosine similarity** (not `$vectorSearch`) over the *requesting team's own* `brand_voice_examples` (top 3) **and** top-performing `platform_posts` (top 3) → few-shot into a single structured-JSON prompt |
 | **Opportunity scoring** | Cross-reference | embed trend → `$vectorSearch platform_posts` limit 10 → `opportunity_score = trend_score × avg_engagement_of_similar_posts` |
+
+> **Built differently than originally planned (2026-07-14):** `brand-voice-rag` (`POST /content/generate`, `backend/src/app/modules/ContentGeneration/`) shipped as a deliberate, confirmed-with-the-user scope cut from the row above and the sequence diagram below — see `SAMIN.md` for the full write-up:
+> - Retrieval is **team-scoped, in-app cosine similarity** (mirroring the existing `newsIngestion.scoring.ts` pattern), not an Atlas `$vectorSearch` aggregation — per-team pools are small enough that the extra complexity isn't worth it yet.
+> - Grounding draws on **two sources**, not one: `brand_voice_examples` (top 3 by similarity) *and* the team's top-performing `platform_posts` (top 20 by engagement, then top 3 of those by similarity) — not just `brand_voice_examples`.
+> - **Cold start** (a team with zero `brand_voice_examples`) skips all few-shot retrieval and falls back to a generic brand-neutral prompt, rather than borrowing another team's examples.
+> - **No Redis caching, no `generated_content` collection** — this is a stateless generate-and-return endpoint; a history/caching feature is a separate future change, not built here.
+> - All 5 formats come from **one structured-JSON LLM call**, not 5 separate calls.
 
 Content generation end to end:
 
@@ -175,6 +182,8 @@ sequenceDiagram
     API-->>U: 5 Banglish formats (copy to clipboard)
 ```
 
+> This diagram reflects the **original plan**, not what shipped — no Redis cache step and a different retrieval mechanism/sources exist in the real implementation. See the deviation note above.
+
 ---
 
 ## Data Model
@@ -186,7 +195,7 @@ MongoDB collections (see [`project-ida-requirments.md`](./project-ida-requirment
 | `news_items` | Ingested + enriched news (trend/relevance/impact) — global, not team-scoped | ✅ |
 | `platform_analytics` | Per-platform 30-day rollups | — |
 | `platform_posts` | Individual posts + embeddings for opportunity scoring — scoped per team (`team_id`) | ✅ |
-| `generated_content` | Cached multi-format generations | — |
+| `generated_content` | *(not built — `brand-voice-rag` shipped as a stateless endpoint, no generation history/cache; see deviation note in [Key Data Flows](#key-data-flows))* | — |
 | `brand_voice_examples` | 25–30 real posts seeded as few-shot voice — scoped per team (`team_id`) | ✅ |
 | `reports` | Cross-platform 30-day reports | — |
 
@@ -210,7 +219,7 @@ MongoDB collections (see [`project-ida-requirments.md`](./project-ida-requirment
 | **Frontend** | Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4, shadcn/ui | Dark-first, mobile responsive |
 | **Backend** | Node.js + TypeScript (in `backend/`) | REST + OpenAPI spec; JWT auth, roles (`user`/`admin`/`super_admin`), multi-team data isolation |
 | **Database** | MongoDB Atlas M0 + Atlas Vector Search | 3 vector indexes, free tier |
-| **Cache** | Redis | Dedup keys, generation & report caching |
+| **Cache** | Redis | Dedup keys, report caching *(generation caching not built — `brand-voice-rag` is a stateless endpoint, see [Key Data Flows](#key-data-flows))* |
 | **AI** | OpenRouter free tier | LLMs + `nomic-embed-text` embeddings |
 | **Scheduling** | Cron jobs | Ingestion 3h, analytics 6h |
 
