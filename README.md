@@ -114,7 +114,7 @@ Fetches from 5 free sources (HackerNews, Dev.to, GitHub Trending, Reddit, RSS �
 | **L1 — Dedupe + freshness** | Exact-match `content_hash` (SHA-256 of `source:url`) against MongoDB + already-seen-this-run; drop items older than `NEWS_INGESTION_MAX_AGE_HOURS` (default 72h) | Zero (hash + DB lookup, no embedding) |
 | **L2 — Relevance gate** | Embed the item, score = max cosine similarity vs. the **pooled embeddings of every team's `BrandVoiceExample`**; drop if below `NEWS_INGESTION_MIN_RELEVANCE` (default 4.0) — *skipped entirely if no brand voice examples exist yet (cold start)* | Embedding only |
 | **L3 — Trend score** | Pure math from source engagement, no AI | Zero |
-| **L4 — AI categorize + opportunity score** | Batched LLM call (~10 items/call) assigns category, impact note, opportunity score; falls back to `category: 'Other'` on a malformed response | LLM (survivors only) |
+| **L4 — AI categorize + opportunity score** | Batched LLM call (~10 items/call) assigns category, impact note, confidence (0-1), and audience fit (0-1); falls back to `category: 'Other'` + zero confidence on a malformed response. `opportunity_score` itself is **not** LLM-picked — it's computed deterministically from `relevance_score`, `trend_score`, and the LLM's audience-fit signal (see note below) | LLM (survivors only) |
 
 Trend score is computed by pure math (no AI):
 
@@ -124,11 +124,13 @@ trend_score = min(10, log10(points + comments×2 + stars_delta×3 + 1) × 3)
 
 > **Deviates from the original plan** (keyword pre-filter → vector dedup → Redis cache → relevance gate): this is exact-hash dedup, not vector/semantic similarity, so two different URLs covering the same story (e.g. the same launch on both HN and Dev.to) are **not** caught as duplicates — that was a deliberate hackathon-timeline scope call, not an oversight. See `SAMIN.md` and [`project-ida-requirments.md`](./project-ida-requirments.md) FR-02/FR-04 for the full write-up.
 
+> **Extended 2026-07-14 (`ai-categorization-scoring`):** `opportunity_score` is no longer picked freely by the LLM — it's now computed in code as `W_RELEVANCE×relevance_score + W_TREND×trend_score + W_FIT×(audience_fit×10)` from a new bounded `audience_fit` (0-1) the LLM supplies alongside `category`, plus a new `confidence` (0-1) that drives a `needs_review` flag on low-confidence items. Teams can also define their own custom categories on top of the fixed default taxonomy and override an item's category/opportunity score for their own view — via a separate `news_item_category_overrides` collection, so the shared `news_items` document itself is never mutated and other teams never see the override. Full write-up in `SAMIN.md`.
+
 ### 2. Analytics Pipeline (every 6h, unattended)
 Pulls 30 days from **Meta Graph API** (FB), **YouTube Data API v3**, and **LinkedIn API** — reach, engagement, top posts, best times, format breakdown — into `platform_analytics`, and embeds individual posts into `platform_posts` for opportunity scoring.
 
 ### 3. Serving / API Layer (on demand)
-- **News feed** — filter by category, sort by latest/relevance/trend, "High opportunity" badges
+- **News feed** — filter by category (fixed defaults + each team's own custom categories), sort by latest/relevance/trend, "High opportunity"/"Needs review" badges, per-team recategorize + opportunity-score override
 - **Content generator** — lazy (fires on click), 5 formats, Brand Voice RAG *(built without the 24h cache — see deviation note below)*
 - **Report generator** — unified 30-day cross-platform report with AI insight
 - **Ask Growth Studio** — natural-language RAG chat grounded in real data
@@ -192,7 +194,8 @@ MongoDB collections (see [`project-ida-requirments.md`](./project-ida-requirment
 
 | Collection | Purpose | Vector index |
 |-----------|---------|:---:|
-| `news_items` | Ingested + enriched news (trend/relevance/impact) — global, not team-scoped | ✅ |
+| `news_items` | Ingested + enriched news (trend/relevance/impact/confidence/needs_review) — global, not team-scoped | ✅ |
+| `news_item_category_overrides` | Per-team override of a `news_items` document's `category`/`opportunity_score` (`news_item_id` + `team_id` unique) — merged into reads for the requesting team only, never mutates the shared item | — |
 | `platform_analytics` | Per-platform 30-day rollups | — |
 | `platform_posts` | Individual posts + embeddings for opportunity scoring — scoped per team (`team_id`) | ✅ |
 | `generated_content` | *(not built — `brand-voice-rag` shipped as a stateless endpoint, no generation history/cache; see deviation note in [Key Data Flows](#key-data-flows))* | — |
@@ -204,7 +207,7 @@ MongoDB collections (see [`project-ida-requirments.md`](./project-ida-requirment
 | Collection | Purpose |
 |-----------|---------|
 | `users` | Accounts; `role: 'super_admin' \| 'admin' \| 'user'`. No public self-registration — admins/super_admins create every account (`POST /users`), plus a `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD`-driven bootstrap on server start |
-| `teams` | Growth teams (many-to-many membership with `users` via `team_memberships`) |
+| `teams` | Growth teams (many-to-many membership with `users` via `team_memberships`); `custom_categories: string[]` lets each team extend the fixed default news-category taxonomy |
 | `team_memberships` | Join collection: which users belong to which teams |
 | `platform_catalog` | super_admin-curated list of social platforms that exist in the system at all, each with a global enable/disable switch |
 | `team_platforms` | Each team's own on/off switch for a catalog platform — must be enabled here (and globally) before the team can add a credential for it |

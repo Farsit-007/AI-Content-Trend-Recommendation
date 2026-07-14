@@ -46,6 +46,13 @@ _Implementation note: the Feed page was still rendering purely from `MOCK_NEWS_I
 
 ## 7. Verification
 
-- [ ] 7.1 Run a manual ingestion trigger and confirm new `NewsItem` documents include `category_confidence`, `needs_review`, and an `opportunity_score` matching the formula given their `relevance_score`/`trend_score`
-- [ ] 7.2 Verify a team can add a custom category, recategorize a news item into it, and see the override reflected on reload; verify another team does not see that override
-- [ ] 7.3 Verify clearing an override reverts the item to its original AI-assigned category/score
+- [x] 7.1 Run a manual ingestion trigger and confirm new `NewsItem` documents include `category_confidence`, `needs_review`, and an `opportunity_score` matching the formula given their `relevance_score`/`trend_score`
+- [x] 7.2 Verify a team can add a custom category, recategorize a news item into it, and see the override reflected on reload; verify another team does not see that override
+- [x] 7.3 Verify clearing an override reverts the item to its original AI-assigned category/score
+
+_Verification notes (live run against backend/.env — real MongoDB Atlas, Redis via a fresh local Docker container, OpenRouter):_
+- _7.1: Triggered `POST /news-items/ingest`, stored 5 new items. Confirmed `category_confidence` (0.8-0.95), `needs_review: false` (all above the 0.6 threshold), and `opportunity_score` matching `0.4×relevance + 0.3×trend + 0.3×(audience_fit×10)` by back-solving audience_fit from each stored score — e.g. item with trend=10, opportunity_score=7.6 implies audience_fit≈0.867, consistent with its "High relevance for DevOps/security" impact_note. `relevance_score` was absent on all items (brand-voice pool still empty), confirming the cold-start fallback path (`opportunity_fallback_relevance=5.0`) was exercised._
+- _7.2: Created two throwaway teams/users. Added a custom category to Team A (200, confirmed in `GET /teams/:id/categories`); a non-member from Team B got 403 on the same write; a duplicate (case-insensitive) add got 400. Set a category override for Team A on a shared news item — Team A's read showed the overridden category with `is_overridden: true`, Team B's read and an anonymous (no-token) read both still showed the original AI category with `is_overridden: false`, confirming per-team isolation and that the shared `NewsItem` document itself was untouched._
+- _7.3: `DELETE .../override` reverted Team A's read back to the original category/`is_overridden: false`; a second delete correctly 404'd (no override left to clear). Also confirmed an override with a category outside the team's effective set is rejected (400)._
+- _Test teams were deleted afterward via `DELETE /teams/:id`; two throwaway users (`verify-user-a@example.com`, `verify-user-b@example.com`) have no delete-user endpoint to clean up via API and were left in the database — harmless but worth a manual DB cleanup if desired._
+- _Environment note: Docker had no containers/images at session start (a full reset), so Redis was recreated with `docker run -d --name growth-studio-redis -p 6379:6379 redis:7-alpine`; the backend dev server (`npm run dev`) was left running in the background on port 5000 for any further manual testing._

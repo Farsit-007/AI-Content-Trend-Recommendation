@@ -74,7 +74,7 @@
 
 | Developer | Change | Branch | Status | Notes |
 |-----------|--------|--------|--------|-------|
-| **Samin** | `ai-categorization-scoring` | `feat/ai-categorization-scoring` | ⬜ Todo | Batched LLM categorize + relevance + trend_score math + impact note |
+| **Samin** | `ai-categorization-scoring` | `main` (direct) | ✅ Done | This row's description was already stale — batched categorize/relevance/trend_score/impact note shipped under `news-ingestion-pipeline`. Actually built: categorization confidence + `needs_review` flag, a deterministic `opportunity_score` formula (`W_RELEVANCE×relevance + W_TREND×trend + W_FIT×audience_fit`, replacing free-form LLM scoring), team-customizable categories, and a per-team category/score override (`NewsItemCategoryOverride`, merged into reads without mutating the shared item). Also wired the Feed to the real API — it was still 100% mock data. Live-verified end-to-end against real Atlas/OpenRouter, including cross-team override isolation. Full write-up in `SAMIN.md`. |
 | **Samin** | `content-generator` | `feat/content-generator` | ⬜ Todo | 5 formats: FB post, Reel, LinkedIn, YouTube idea, caption |
 | **Samin** | `ask-growth-studio-chat` | `feat/ask-growth-studio-chat` | ⬜ Todo | Moved up from Jul 16. **Cut second if behind** (FR-22/23 Should Have) |
 | **Robayat** | `opportunity-scoring` | `feat/opportunity-scoring` | ⬜ Todo | Embed posts → vectorSearch → opportunity_score = trend × audience |
@@ -120,7 +120,7 @@ Review within 2 hours of PR open. Branches must not age overnight.
 |----|---------|----------------|-------------------|
 | FR-01 | News ingestion | Samin | news-feed-dashboard |
 | FR-02, FR-04 | Filter pipeline | Samin | (internal, no UI) |
-| FR-03 | AI categorization + impact note | Samin | trend badges in feed |
+| FR-03 | AI categorization + impact note (+ confidence/needs-review, team-custom categories, per-team override — `ai-categorization-scoring`) | Samin | trend badges in feed + recategorize control |
 | FR-05 | Trend feed | Samin | news-feed-dashboard |
 | FR-06 (was FR-06/07/08) | Social handle analytics — any team-enabled platform, 3 adapters built in | Robayat | report-ui |
 | FR-09–12 | Cross-platform report | Robayat | report-ui |
