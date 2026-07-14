@@ -42,7 +42,7 @@ const data = process.env.NEXT_PUBLIC_USE_MOCK === "true"
 | Status | Change | Branch | FRs | Notes |
 |--------|--------|--------|-----|-------|
 | ⬜ Todo | `report-ui` | `feat/report-ui` | FR-09–11 | 30-day report: overview, per-platform charts, AI insight — **use mock data** |
-| ⬜ Todo | `chat-ui` | `feat/chat-ui` | FR-22 | Ask Growth Studio chat panel — **use mock data** |
+| ✅ Done | `chat-ui` | — | FR-22 | `ChatPanel.tsx`/`MessageBubble.tsx`/`TypingIndicator.tsx` — built and already wired to the real API as part of Samin's `ask-growth-studio-chat` work (see Notes below). Never actually marked done here until now — same gap as `content-generator-ui`. |
 | ⬜ Todo | `admin-triggers-ui` | `feat/admin-triggers-ui` | FR-25, FR-26 | "Run ingestion" + "Refresh analytics" buttons — **use mock data** |
 | ⬜ Todo | Brand-voice seed posts | — | FR-18 | Collect 25–30 real high-engagement posts from PH Facebook/LinkedIn (needs Mursalin's access) — **unblocks Samin's RAG work tomorrow** |
 
@@ -142,3 +142,7 @@ gh pr create --fill
   - `NEXT_PUBLIC_DEFAULT_TEAM_ID` **was not deleted** — it's now a documented last-resort fallback (used only when there's no `auth_token`, `/auth/me`/`/teams` fail, or the user has zero teams), not the primary source of `team_id` anymore. You shouldn't need to touch it.
   - Still no login screen (`auth_token` still just needs to already be in `localStorage` for any of this to activate) — that gap is unchanged and is still `api-wiring`'s job. But the team-resolution plumbing behind it is now real and live-verified, not a stub.
   - If you touch `ContentGenerator.tsx` again: don't reintroduce a local team constant — pull `teamId` from `useTeam()` (it's already a client component, so this is a direct hook call, no extra wiring needed).
+- **2026-07-14**: Samin's `ask-growth-studio-chat` (see `SAMIN.md`) touched **your file**, `frontend/components/chat/ChatPanel.tsx` — the `setTimeout` + `findResponse` mock call is replaced by a real `sendChatMessage()` fetch to `POST /chat` (new `frontend/lib/api/chat.ts`), the component tracks `conversation_id` across turns in a ref so follow-up questions stay in the same thread, and a fetch failure now shows a Sonner error toast instead of falling back to a canned reply. `frontend/lib/mock/chat.ts` is untouched and still present (same convention as `content.ts`). Two things to know:
+  - It reads `teamId` from `useTeam()` (the `team-selector` context), same pattern `ContentGenerator.tsx` already uses — no new placeholder env var this time, and no team constant to worry about if you touch this file again.
+  - Same `localStorage('auth_token')` gap as the other real-endpoint wiring — no login screen yet, so a real (non-mocked) chat send will 401 until `api-wiring` lands.
+  - Not fully live-verified on Samin's end: an OpenRouter free-tier quota ran out mid-session, so the actual multi-turn/answer-quality behavior through the UI hasn't been eyeballed yet — worth a manual click-through once quota resets, before demo day.

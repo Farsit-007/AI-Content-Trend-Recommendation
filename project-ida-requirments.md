@@ -234,8 +234,8 @@ Under 50 words. Works for Instagram, Twitter/X, YouTube community post.
 | FR-19 | Generated content personalized using platform analytics (what works for YOUR audience) | Must Have | Content Generator |
 | FR-20 | Generated content cached in Redis 24h — regenerating is instant | Should Have | Content Generator |
 | FR-21 | User can copy any generated content to clipboard | Must Have | Content Generator |
-| FR-22 | User can ask natural language questions about news + their analytics | Should Have | Chat |
-| FR-23 | Chat answers grounded in real news + real platform data via RAG | Should Have | Chat |
+| FR-22 | User can ask natural language questions about news + their analytics **(built 2026-07-14 — `POST /chat`, intent-classified retrieval over news + team platform-performance data, multi-turn via `conversation_id`; see `ask-growth-studio-chat` in `SAMIN.md`)** | Should Have | Chat |
+| FR-23 | Chat answers grounded in real news + real platform data via RAG **(built 2026-07-14 — same change as FR-22; verification partially blocked by an exhausted OpenRouter quota, retrieval pipeline confirmed reaching the LLM call correctly)** | Should Have | Chat |
 | FR-24 | News cards show "High opportunity" badge when topic matches user's top engagement patterns | Should Have | Dashboard |
 | FR-25 | Admin can manually trigger news ingestion run **(built 2026-07-14 — `POST /news-items/ingest`, admin-only)** | Should Have | Demo tool |
 | FR-26 | Admin can manually trigger platform analytics refresh | Should Have | Demo tool |

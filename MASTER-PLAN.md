@@ -76,7 +76,7 @@
 |-----------|--------|--------|--------|-------|
 | **Samin** | `ai-categorization-scoring` | `main` (direct) | ✅ Done | This row's description was already stale — batched categorize/relevance/trend_score/impact note shipped under `news-ingestion-pipeline`. Actually built: categorization confidence + `needs_review` flag, a deterministic `opportunity_score` formula (`W_RELEVANCE×relevance + W_TREND×trend + W_FIT×audience_fit`, replacing free-form LLM scoring), team-customizable categories, and a per-team category/score override (`NewsItemCategoryOverride`, merged into reads without mutating the shared item). Also wired the Feed to the real API — it was still 100% mock data. Live-verified end-to-end against real Atlas/OpenRouter, including cross-team override isolation. Full write-up in `SAMIN.md`. |
 | **Samin** | `content-generator` | `main` (direct) | ✅ Done | Also stale — the 5 formats shipped under `brand-voice-rag` already. What was actually missing and got built: `team-selector`, a real `TeamProvider`/`TeamSelector` (backed by `GET /auth/me` + `GET /teams`) replacing the `NEXT_PUBLIC_DEFAULT_TEAM_ID` placeholder that `brand-voice-rag` had left behind. Live-verified via a real headless-browser session against the running backend (no `chromium-cli`/Playwright available, so driven directly over the Chrome DevTools Protocol) — caught and fixed two real bugs (a `_id`/`id` field-shape mismatch, and a responsive bug that hid the single-team label below 768px). `typecheck`/`lint` clean. **Not committed yet** — see `SAMIN.md`. |
-| **Samin** | `ask-growth-studio-chat` | `feat/ask-growth-studio-chat` | ⬜ Todo | Moved up from Jul 16. **Cut second if behind** (FR-22/23 Should Have) |
+| **Samin** | `ask-growth-studio-chat` | `main` (direct) | ✅ Done | Moved up from Jul 16, **not cut** — see the Descope Order note below. New `POST /chat`: intent-classified retrieval (news vs. platform-performance context, both on ambiguous questions), multi-turn conversation history, cross-team `conversation_id` isolation live-verified. `ChatPanel.tsx` wired to the real endpoint. 4/6 verification tasks live-verified; 2 blocked by an exhausted OpenRouter free-tier quota (pipeline confirmed working end-to-end up to the final LLM call — re-run `npm run verify:chat-live` once quota resets). Full write-up in `SAMIN.md`. |
 | **Robayat** | `opportunity-scoring` | `feat/opportunity-scoring` | ⬜ Todo | Embed posts → vectorSearch → opportunity_score = trend × audience |
 | **Robayat** | `cross-platform-report` | `feat/cross-platform-report` | ⬜ Todo | Unified 30-day report + AI insight + content-opportunity ranking |
 | **Mehedi** | `api-wiring` | `feat/api-wiring` | ⬜ Todo | Swap mocks → real `fetch()` behind a `USE_MOCK` flag. **Do NOT delete the mock folder** — it's the demo fallback. |
@@ -97,7 +97,7 @@
 ## Descope Order (pre-agreed — no debates at 11pm)
 
 1. **Cut first:** the LinkedIn adapter within `social-handle-analytics` — Should-Have tier; degrades to "pending approval" per team without touching the Facebook/YouTube adapters or blocking the task
-2. **Cut second:** `ask-growth-studio-chat` + `chat-ui` — FR-22/23 Should Have; demo survives without it
+2. ~~**Cut second:** `ask-growth-studio-chat` + `chat-ui` — FR-22/23 Should Have; demo survives without it~~ **Not needed — shipped 2026-07-14.** Both sides done (see Samin's July 15 row above and `chat-ui` in `MEHEDI.md`); only the 2 blocked-on-quota verification tasks remain before demo day.
 3. **Never cut:** news feed, content generator, cross-platform report — these ARE the demo
 
 ---
@@ -126,7 +126,7 @@ Review within 2 hours of PR open. Branches must not age overnight.
 | FR-09–12 | Cross-platform report | Robayat | report-ui |
 | FR-13–17, FR-19–21 | Content generator (+ real team-selector, closing the `NEXT_PUBLIC_DEFAULT_TEAM_ID` placeholder — `team-selector`) | Samin | content-generator-ui |
 | FR-18 | Brand voice RAG | Samin | (internal) |
-| FR-22, FR-23 | Ask Growth Studio chat | Samin | chat-ui |
+| FR-22, FR-23 | Ask Growth Studio chat (`ask-growth-studio-chat`, done 2026-07-14) | Samin | chat-ui (done, see `MEHEDI.md`) |
 | FR-24 | Opportunity scoring | Robayat | "High opportunity" badge |
 | FR-25 | Manual ingestion trigger | Samin (in `news-ingestion-pipeline`) | admin-triggers-ui |
 | FR-26 | Manual analytics refresh | Robayat (in `social-handle-analytics`) | admin-triggers-ui |
