@@ -45,14 +45,14 @@ export default function Login() {
 
   // Already signed in → don't show the login form.
   if (!isLoading && isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   async function onSubmit(values: LoginValues) {
     setSubmitting(true);
     try {
       await login(values.email, values.password);
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : 'Something went wrong. Try again.';

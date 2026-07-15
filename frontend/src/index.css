@@ -95,9 +95,15 @@
   }
 }
 
-/* Design token utility from CLAUDE.md */
+/* Design token utilities from CLAUDE.md */
 @utility gradient-text {
   background-image: linear-gradient(to right, oklch(0.7 0.2 295), oklch(0.75 0.15 200));
   background-clip: text;
   color: transparent;
+}
+
+@utility glass-card {
+  background-color: rgb(255 255 255 / 0.05);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgb(255 255 255 / 0.1);
 }

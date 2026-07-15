@@ -1,10 +1,12 @@
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
+import { useTheme } from '@/context/theme-context';
 
-// Dark is the app default; no next-themes here, so pass the theme directly.
+// Follows the app's class-based theme (defaults to dark).
 function Toaster(props: ToasterProps) {
+  const { theme } = useTheme();
   return (
     <Sonner
-      theme="dark"
+      theme={theme}
       className="toaster group"
       style={
         {
