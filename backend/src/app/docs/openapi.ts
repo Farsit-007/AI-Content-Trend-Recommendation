@@ -10,6 +10,7 @@ import {
   SuccessEnvelope,
 } from './components';
 import { buildResourcePaths } from './paths';
+import { analyticsReportPaths } from './analyticsReportPaths';
 import { authTeamPaths } from './authTeamPaths';
 import { contentGenerationPaths } from './contentGenerationPaths';
 import { chatPaths } from './chatPaths';
@@ -68,6 +69,8 @@ export const openApiDocument = {
     { name: 'Content Generation', description: 'RAG-grounded generation of multi-format social content from a topic or news item.' },
     { name: 'Chat', description: "Conversational Q&A grounded in the team's own trending news and platform performance data." },
     { name: 'Generated Content', description: 'Persisted generated content drafts; auto-generated daily per team in their brand voice.' },
+    { name: 'Analytics', description: 'Per-team, per-platform 30-day analytics rollups and the admin refresh trigger.' },
+    { name: 'Reports', description: 'Cross-platform 30-day performance report with AI insight and content opportunities.' },
   ],
   paths: {
     ...authTeamPaths,
@@ -90,6 +93,7 @@ export const openApiDocument = {
     ...contentGenerationPaths,
     ...chatPaths,
     ...generatedContentPaths,
+    ...analyticsReportPaths,
   },
   components: {
     securitySchemes: {
@@ -148,6 +152,92 @@ export const openApiDocument = {
           teams_processed: { type: 'integer' },
           drafts_created: { type: 'integer' },
           skipped: { type: 'integer' },
+        },
+      },
+      AuthTokens: {
+        type: 'object',
+        properties: {
+          token: { type: 'string', description: 'Short-lived JWT access token — send as `Authorization: Bearer`.' },
+          refresh_token: {
+            type: 'string',
+            description: 'Long-lived refresh token; also set as an httpOnly cookie for browser clients.',
+          },
+          user: { $ref: '#/components/schemas/User' },
+        },
+      },
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['old_password', 'new_password'],
+        properties: {
+          old_password: { type: 'string' },
+          new_password: { type: 'string', minLength: 8 },
+        },
+      },
+      AnalyticsRollup: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          team_id: { type: 'string' },
+          platform: { type: 'string' },
+          status: { type: 'string', enum: ['ok', 'not_connected', 'pending_approval', 'error'] },
+          period: {
+            type: 'object',
+            properties: {
+              start: { type: 'string', format: 'date-time' },
+              end: { type: 'string', format: 'date-time' },
+            },
+          },
+          overview: {
+            type: 'object',
+            properties: {
+              reach: { type: 'number' },
+              engagements: { type: 'number' },
+              views: { type: 'number' },
+              engagement_rate: { type: 'number' },
+            },
+          },
+          top_posts: { type: 'array', items: { type: 'object' } },
+          best_times: { type: 'array', items: { type: 'object' } },
+          content_breakdown: { type: 'array', items: { type: 'object' } },
+          fetched_at: { type: 'string', format: 'date-time' },
+        },
+      },
+      Report: {
+        type: 'object',
+        properties: {
+          team_id: { type: 'string' },
+          period: {
+            type: 'object',
+            properties: {
+              start: { type: 'string', format: 'date-time' },
+              end: { type: 'string', format: 'date-time' },
+            },
+          },
+          overview: {
+            type: 'object',
+            properties: {
+              total_reach: { type: 'number' },
+              total_engagements: { type: 'number' },
+              total_views: { type: 'number' },
+              avg_engagement_rate: { type: 'number' },
+            },
+          },
+          platform_summaries: { type: 'object', additionalProperties: { type: 'object' } },
+          ai_insight: { type: 'string', description: 'AI-generated narrative insight (Bangla/Banglish).' },
+          content_opportunities: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                rank: { type: 'integer' },
+                topic: { type: 'string' },
+                formats: { type: 'array', items: { type: 'string' } },
+                opportunity_score: { type: 'number' },
+                reason: { type: 'string' },
+              },
+            },
+          },
+          generated_at: { type: 'string', format: 'date-time' },
         },
       },
     },

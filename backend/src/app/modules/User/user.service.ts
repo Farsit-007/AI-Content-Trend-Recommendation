@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import config from '../../config';
 import AppError from '../../errors/AppError';
+import { logger } from '../../lib/logger';
 import { httpStatus } from '../../utils/httpStatus';
 import { TeamMembership } from '../Team/team.model';
 import { TeamService } from '../Team/team.service';
@@ -10,10 +11,27 @@ import { User } from './user.model';
 
 const BCRYPT_COST = 10;
 
-const signToken = (payload: IAuthPayload): string =>
-  jwt.sign(payload, config.jwt_secret, {
+const signAccessToken = (payload: Pick<IAuthPayload, 'id' | 'email'>): string =>
+  jwt.sign({ ...payload, token_type: 'access' }, config.jwt_secret, {
     expiresIn: config.jwt_expires_in,
   } as SignOptions);
+
+const signRefreshToken = (payload: Pick<IAuthPayload, 'id' | 'email'>): string =>
+  jwt.sign({ ...payload, token_type: 'refresh' }, config.jwt_refresh_secret, {
+    expiresIn: config.jwt_refresh_expires_in,
+  } as SignOptions);
+
+/**
+ * True when the token was issued before the user's last password change — such tokens are
+ * dead. Backdated 1s on write (see changePassword) so a token issued in the same second as
+ * the change itself stays valid.
+ */
+const issuedBeforePasswordChange = (user: { password_changed_at?: Date }, iat?: number): boolean => {
+  if (!user.password_changed_at || typeof iat !== 'number') return false;
+  // iat has whole-second granularity; keep the change time fractional so the 1s backdate
+  // isn't rounded away (flooring both sides would let a just-invalidated token survive).
+  return iat < user.password_changed_at.getTime() / 1000;
+};
 
 /**
  * Admin-only. Self-registration was removed — every account is created deliberately, with a
@@ -77,8 +95,117 @@ const login = async (payload: { email: string; password: string }) => {
     throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid email or password');
   }
 
-  const token = signToken({ id: user._id.toString(), email: user.email });
-  return { token, user };
+  const tokenPayload = { id: user._id.toString(), email: user.email };
+  return {
+    token: signAccessToken(tokenPayload),
+    refresh_token: signRefreshToken(tokenPayload),
+    user,
+  };
+};
+
+/**
+ * Exchanges a valid refresh token for a fresh access token (and a rotated refresh token).
+ * Rejects access tokens passed here, deleted users, and refresh tokens issued before the
+ * user's last password change.
+ */
+const refreshToken = async (token: string) => {
+  let payload: IAuthPayload;
+  try {
+    payload = jwt.verify(token, config.jwt_refresh_secret) as IAuthPayload;
+  } catch {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired refresh token');
+  }
+
+  if (payload.token_type !== 'refresh') {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired refresh token');
+  }
+
+  const user = await User.findById(payload.id);
+  if (!user || issuedBeforePasswordChange(user, payload.iat)) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired refresh token');
+  }
+
+  const tokenPayload = { id: user._id.toString(), email: user.email };
+  return {
+    token: signAccessToken(tokenPayload),
+    refresh_token: signRefreshToken(tokenPayload),
+    user,
+  };
+};
+
+const changePassword = async (
+  userId: string,
+  payload: { old_password: string; new_password: string },
+) => {
+  const user = await User.findById(userId).select('+password_hash');
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, 'User not found');
+  }
+
+  const matches = await bcrypt.compare(payload.old_password, user.password_hash);
+  if (!matches) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Current password is incorrect');
+  }
+
+  user.password_hash = await bcrypt.hash(payload.new_password, BCRYPT_COST);
+  // Backdate 1s so tokens issued in this same second (e.g. the response's fresh pair) survive.
+  user.password_changed_at = new Date(Date.now() - 1000);
+  await user.save();
+
+  // Every previously issued token is now dead — hand back a fresh pair so the frontend
+  // can keep the session alive without forcing a re-login.
+  const tokenPayload = { id: user._id.toString(), email: user.email };
+  return {
+    token: signAccessToken(tokenPayload),
+    refresh_token: signRefreshToken(tokenPayload),
+  };
+};
+
+/**
+ * No SMTP is configured in this deployment, so instead of emailing the reset link the token
+ * is logged server-side (operator can relay it), and returned in the response body outside
+ * production for frontend development. The response message is identical whether or not the
+ * email has an account — no enumeration.
+ */
+const forgotPassword = async (email: string) => {
+  const user = await User.findOne({ email: email.toLowerCase() });
+  if (!user) {
+    return { reset_token: undefined };
+  }
+
+  const reset_token = jwt.sign(
+    { id: user._id.toString(), email: user.email, token_type: 'password_reset' },
+    config.jwt_secret,
+    { expiresIn: '15m' },
+  );
+
+  logger.info({ email: user.email }, 'Password reset token issued (no SMTP configured — relay manually)');
+
+  return { reset_token: config.node_env !== 'production' ? reset_token : undefined };
+};
+
+const resetPassword = async (payload: { token: string; new_password: string }) => {
+  let tokenPayload: IAuthPayload;
+  try {
+    tokenPayload = jwt.verify(payload.token, config.jwt_secret) as IAuthPayload;
+  } catch {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired reset token');
+  }
+
+  if (tokenPayload.token_type !== 'password_reset') {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired reset token');
+  }
+
+  const user = await User.findById(tokenPayload.id);
+  // The password_changed_at check makes reset tokens single-use: once the password changes,
+  // any reset token issued earlier (including this one) is rejected.
+  if (!user || issuedBeforePasswordChange(user, tokenPayload.iat)) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired reset token');
+  }
+
+  user.password_hash = await bcrypt.hash(payload.new_password, BCRYPT_COST);
+  user.password_changed_at = new Date(Date.now() - 1000);
+  await user.save();
 };
 
 const getMe = async (userId: string) => {
@@ -94,5 +221,9 @@ export const UserService = {
   createUser,
   listUsers,
   login,
+  refreshToken,
+  changePassword,
+  forgotPassword,
+  resetPassword,
   getMe,
 };

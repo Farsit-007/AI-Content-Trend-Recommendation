@@ -1,22 +1,70 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
-import { notFound } from './app/middleware/notFound';
+import helmet from 'helmet';
+import mongoose from 'mongoose';
 import cookieParser from 'cookie-parser';
+import { pinoHttp } from 'pino-http';
+import config from './app/config';
+import { logger } from './app/lib/logger';
+import { pingRedis } from './app/lib/redis';
+import { notFound } from './app/middleware/notFound';
 import { globalErrorHandler } from './app/middleware/globalErrorHandler';
 import router from './app/routes';
+
 const app: Application = express();
 
-app.use(express.json());
+// Trailing slashes in WEB_URL would silently break the CORS origin match — the
+// browser's Origin header never has one — so normalize before comparing.
+const normalizeOrigin = (url: string) => url.replace(/\/+$/, '');
+const allowedOrigins = [
+  ...new Set(
+    [config.web_url, 'http://localhost:5173', 'http://localhost:3000']
+      .filter((o): o is string => Boolean(o))
+      .map(normalizeOrigin),
+  ),
+];
+
+app.use(helmet());
+app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.use(
   cors({
-    origin: [process.env.WEB_URL || 'http://localhost:3000'],
+    origin: allowedOrigins,
     credentials: true,
   }),
 );
+app.use(
+  pinoHttp({
+    logger,
+    autoLogging: { ignore: (req) => req.url === '/health' },
+  }),
+);
+
 app.use('/api/v1', router);
-app.get('/', (req: Request, res: Response) => {
+
+app.get('/', (_req: Request, res: Response) => {
   res.send(`Server is running.`);
+});
+
+// Liveness/readiness probe: reports Mongo + Redis status so uptime checks and the
+// frontend can distinguish "API down" from "API up but a dependency is degraded".
+app.get('/health', async (_req: Request, res: Response) => {
+  const mongoUp = mongoose.connection.readyState === 1;
+  let redisUp = false;
+  try {
+    await pingRedis();
+    redisUp = true;
+  } catch {
+    redisUp = false;
+  }
+
+  const healthy = mongoUp && redisUp;
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'ok' : 'degraded',
+    mongo: mongoUp ? 'up' : 'down',
+    redis: redisUp ? 'up' : 'down',
+    uptime_seconds: Math.round(process.uptime()),
+  });
 });
 
 app.use(globalErrorHandler);

@@ -22,12 +22,25 @@ export const requireAuth = catchAsync(async (req: Request, _res: Response, next:
     throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired token');
   }
 
+  // Refresh and password-reset tokens must never work as access tokens (legacy access
+  // tokens carry no token_type claim, so absence is accepted).
+  if (payload.token_type && payload.token_type !== 'access') {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired token');
+  }
+
   // The token can outlive the account it names, so confirm the user still exists, and read
   // role/team membership fresh from the DB rather than trusting the token — so a role change or
   // team removal takes effect on the very next request instead of waiting for token expiry.
   const user = await User.findById(payload.id);
   if (!user) {
     throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired token');
+  }
+
+  // A password change kills every token issued before it. iat has whole-second granularity;
+  // the change time stays fractional so its 1s backdate isn't rounded away.
+  if (user.password_changed_at && typeof payload.iat === 'number'
+    && payload.iat < user.password_changed_at.getTime() / 1000) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Password was changed — please log in again');
   }
 
   const team_ids = await TeamService.getTeamIdsForUser(user._id.toString());
@@ -48,6 +61,9 @@ export const optionalAuth = catchAsync(async (req: Request, _res: Response, next
 
   try {
     const payload = jwt.verify(header.slice('Bearer '.length), config.jwt_secret) as IAuthPayload;
+    if (payload.token_type && payload.token_type !== 'access') {
+      return next();
+    }
     const user = await User.findById(payload.id);
     if (user) {
       const team_ids = await TeamService.getTeamIdsForUser(user._id.toString());

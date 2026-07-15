@@ -1,4 +1,5 @@
 import config from '../config';
+import { logger } from './logger';
 import { User } from '../modules/User/user.model';
 import { UserService } from '../modules/User/user.service';
 
@@ -16,13 +17,13 @@ export const seedSuperAdminIfMissing = async (): Promise<void> => {
   const { email, password, name } = config.super_admin;
 
   if (!email || !password) {
-    console.log('[seedSuperAdmin] SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD not set — skipping');
+    logger.info('[seedSuperAdmin] SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD not set — skipping');
     return;
   }
 
   const existing = await User.findOne({ email: email.toLowerCase() });
   if (existing) {
-    console.log(`[seedSuperAdmin] ${email} already exists — skipping`);
+    logger.info(`[seedSuperAdmin] ${email} already exists — skipping`);
     return;
   }
 
@@ -32,5 +33,5 @@ export const seedSuperAdminIfMissing = async (): Promise<void> => {
     name: name ?? 'Super Admin',
     role: 'super_admin',
   });
-  console.log(`[seedSuperAdmin] created super_admin ${superAdmin.email} (${superAdmin._id.toString()})`);
+  logger.info(`[seedSuperAdmin] created super_admin ${superAdmin.email} (${superAdmin._id.toString()})`);
 };

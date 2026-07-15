@@ -1,4 +1,5 @@
 import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { logger } from '../../lib/logger';
 
 interface ReportContext {
   overview: {
@@ -40,7 +41,7 @@ ${ctx.topOpportunity ? `- Top opportunity: "${ctx.topOpportunity.title}" (${ctx.
   try {
     return await chatCompletion({ model: LLM_MODELS.standard, messages, temperature: 0.6 });
   } catch (err) {
-    console.error('[Report] LLM insight generation failed:', err instanceof Error ? err.message : err);
+    logger.error({ err: err instanceof Error ? err.message : err }, '[Report] LLM insight generation failed');
     return null;
   }
 };

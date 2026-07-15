@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import config from '../../config';
 import { LLM_MODELS } from '../../lib/llmClient';
 import { IRequestUser } from '../User/user.interface';
@@ -31,7 +32,7 @@ export const runAutoGeneration = async (teamId?: string): Promise<IAutoGeneratio
     try {
       const hasExamples = await BrandVoiceExample.exists({ team_id: tid });
       if (!hasExamples) {
-        console.log(`[auto-gen] team "${team.name}" (${tid}): skipped — no brand voice examples`);
+        logger.info(`[auto-gen] team "${team.name}" (${tid}): skipped — no brand voice examples`);
         summary.skipped += 1;
         continue;
       }
@@ -85,14 +86,14 @@ export const runAutoGeneration = async (teamId?: string): Promise<IAutoGeneratio
         summary.teams_processed += 1;
       }
     } catch (err) {
-      console.error(
-        `[auto-gen] team "${team.name}" (${tid}) failed:`,
-        err instanceof Error ? err.message : err,
+      logger.error(
+        { err: err instanceof Error ? err.message : err },
+        `[auto-gen] team "${team.name}" (${tid}) failed`,
       );
     }
 
     if (callsUsed >= maxRun) {
-      console.log(`[auto-gen] quota cap reached (${maxRun} calls) — stopping early`);
+      logger.info(`[auto-gen] quota cap reached (${maxRun} calls) — stopping early`);
       break;
     }
   }

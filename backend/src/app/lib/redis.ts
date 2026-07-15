@@ -1,5 +1,6 @@
 import Redis from 'ioredis';
 import config from '../config';
+import { logger } from './logger';
 
 export const redis = new Redis(config.redis_url as string, {
   maxRetriesPerRequest: 3,
@@ -7,7 +8,7 @@ export const redis = new Redis(config.redis_url as string, {
 });
 
 redis.on('error', (err) => {
-  console.error('Redis client error:', err.message);
+  logger.error({ err: err.message }, 'Redis client error');
 });
 
 export const pingRedis = async (): Promise<void> => {

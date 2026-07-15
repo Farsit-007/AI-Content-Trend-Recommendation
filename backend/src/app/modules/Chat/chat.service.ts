@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import AppError from '../../errors/AppError';
 import { embed } from '../../lib/embeddings';
 import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { logger } from '../../lib/logger';
 import { resolveVoiceOptions } from '../../lib/voiceProfile';
 import { httpStatus } from '../../utils/httpStatus';
 import { IRequestUser } from '../User/user.interface';
@@ -51,7 +52,7 @@ const askChat = async (payload: ChatRequest, requestingUser: IRequestUser): Prom
   try {
     reply = await chatCompletion({ model: LLM_MODELS.standard, messages, temperature: 0.7 });
   } catch (err) {
-    console.error('[Chat] LLM call failed:', err instanceof Error ? err.message : err);
+    logger.error({ err: err instanceof Error ? err.message : err }, '[Chat] LLM call failed');
     throw new AppError(httpStatus.BAD_GATEWAY, 'Chat request failed — please try again');
   }
 

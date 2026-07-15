@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { embed } from '../../lib/embeddings';
 import { getPlatformToken } from '../../lib/platformCredentials';
 import { redis } from '../../lib/redis';
@@ -43,7 +44,7 @@ const embedNewPosts = async (
 
       await new Promise((r) => setTimeout(r, 100));
     } catch (err) {
-      console.error(`[Analytics] Failed to embed post ${post.post_id}:`, err instanceof Error ? err.message : err);
+      logger.error({ err: err instanceof Error ? err.message : err }, `[Analytics] Failed to embed post ${post.post_id}`);
     }
   }
 };
@@ -127,9 +128,9 @@ export const runAnalyticsRefresh = async (
 
         platformsProcessed++;
       } catch (err) {
-        console.error(
-          `[Analytics] Failed for team ${teamId} platform ${platform}:`,
-          err instanceof Error ? err.message : err,
+        logger.error(
+          { err: err instanceof Error ? err.message : err },
+          `[Analytics] Failed for team ${teamId} platform ${platform}`,
         );
         await upsertRollup({
           team_id: teamId,

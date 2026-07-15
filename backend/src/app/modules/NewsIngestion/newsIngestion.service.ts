@@ -1,5 +1,6 @@
 import config from '../../config';
 import { embed } from '../../lib/embeddings';
+import { logger } from '../../lib/logger';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { runAllAdapters } from './adapters';
 import { categorizeBatch } from './newsIngestion.categorize';
@@ -54,7 +55,7 @@ export const runIngestionPipeline = async (): Promise<IngestionSummary> => {
   const dedupCutoff = new Date(Date.now() - config.news_ingestion.max_age_hours * 60 * 60 * 1000);
   const recentPool = await fetchRecentEmbeddings(dedupCutoff);
   const deduped = dedupeSemantic(embedded, recentPool, config.news_ingestion.semantic_dedup_threshold);
-  console.log(
+  logger.info(
     `[NewsIngestion] semantic dedup: ${embedded.length} candidates -> ${deduped.length} survived ` +
       `(${embedded.length - deduped.length} dropped, recent pool size ${recentPool.length})`,
   );
@@ -117,7 +118,7 @@ export const runIngestionPipeline = async (): Promise<IngestionSummary> => {
       // gets attempted, and mongoose reports the ones that succeeded here.
       const bulkErr = err as { insertedDocs?: unknown[] };
       totalStored = bulkErr.insertedDocs?.length ?? 0;
-      console.error('[NewsIngestion] insertMany reported errors:', err instanceof Error ? err.message : err);
+      logger.error({ err: err instanceof Error ? err.message : err }, '[NewsIngestion] insertMany reported errors');
     }
   }
 

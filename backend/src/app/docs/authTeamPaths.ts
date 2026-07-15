@@ -40,6 +40,94 @@ export const authTeamPaths = {
       },
     },
   },
+  '/auth/refresh-token': {
+    post: {
+      tags: ['Auth'],
+      summary: 'Exchange a refresh token for a fresh access token (rotates the refresh token)',
+      description:
+        'The refresh token is read from the httpOnly `refresh_token` cookie set at login; non-browser clients can pass it in the body instead.',
+      requestBody: {
+        required: false,
+        content: {
+          'application/json': {
+            schema: { type: 'object', properties: { refresh_token: { type: 'string' } } },
+          },
+        },
+      },
+      responses: {
+        '200': {
+          description: 'New token pair',
+          content: { 'application/json': { schema: singleEnvelope('AuthTokens') } },
+        },
+        '401': errorResponse('Invalid or expired refresh token'),
+      },
+    },
+  },
+  '/auth/logout': {
+    post: {
+      tags: ['Auth'],
+      summary: 'Log out — clears the refresh cookie; drop the access token client-side',
+      responses: {
+        '200': { description: 'Logged out' },
+      },
+    },
+  },
+  '/auth/change-password': {
+    post: {
+      tags: ['Auth'],
+      summary: 'Change the current user\'s password (invalidates all previously issued tokens)',
+      security: bearerAuth,
+      requestBody: jsonBody('ChangePasswordRequest'),
+      responses: {
+        '200': {
+          description: 'Password changed; a fresh token pair is returned',
+          content: { 'application/json': { schema: singleEnvelope('AuthTokens') } },
+        },
+        '401': errorResponse('Current password is incorrect'),
+      },
+    },
+  },
+  '/auth/forgot-password': {
+    post: {
+      tags: ['Auth'],
+      summary: 'Request a password reset token',
+      description:
+        'Always responds 200 regardless of whether the email has an account (no enumeration). No SMTP is configured, so the token is logged server-side; outside production it is also returned in the response body for development.',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { type: 'object', required: ['email'], properties: { email: { type: 'string', format: 'email' } } },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Reset token issued if the account exists' },
+      },
+    },
+  },
+  '/auth/reset-password': {
+    post: {
+      tags: ['Auth'],
+      summary: 'Reset the password using a reset token (single-use, 15 min expiry)',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['token', 'new_password'],
+              properties: { token: { type: 'string' }, new_password: { type: 'string', minLength: 8 } },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Password reset' },
+        '401': errorResponse('Invalid or expired reset token'),
+      },
+    },
+  },
   '/auth/me': {
     get: {
       tags: ['Auth'],

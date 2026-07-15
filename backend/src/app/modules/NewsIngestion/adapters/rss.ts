@@ -1,5 +1,6 @@
 import Parser from 'rss-parser';
 import config from '../../../config';
+import { logger } from '../../../lib/logger';
 import { RawNewsItem } from '../newsIngestion.interface';
 
 const parser = new Parser();
@@ -26,7 +27,7 @@ export const fetchRss = async (): Promise<RawNewsItem[]> => {
   const results = await Promise.all(
     config.news_ingestion.rss_feeds.map((feedUrl) =>
       fetchFeed(feedUrl).catch((err) => {
-        console.error(`[NewsIngestion] RSS feed ${feedUrl} failed:`, err instanceof Error ? err.message : err);
+        logger.error({ err: err instanceof Error ? err.message : err }, `[NewsIngestion] RSS feed ${feedUrl} failed`);
         return [] as RawNewsItem[];
       }),
     ),

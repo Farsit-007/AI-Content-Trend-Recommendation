@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import AppError from '../../errors/AppError';
 import { embed } from '../../lib/embeddings';
 import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { logger } from '../../lib/logger';
 import { redis } from '../../lib/redis';
 import { resolveVoiceOptions } from '../../lib/voiceProfile';
 import { httpStatus } from '../../utils/httpStatus';
@@ -35,7 +36,7 @@ const resolveNewsItemContext = async (
 
   const newsItem = await NewsItem.findById(newsItemId).catch(() => null);
   if (!newsItem) {
-    console.warn(`[ContentGeneration] news_item_id "${newsItemId}" did not resolve — falling back to topic text`);
+    logger.warn(`[ContentGeneration] news_item_id "${newsItemId}" did not resolve — falling back to topic text`);
     return {};
   }
 
@@ -79,13 +80,13 @@ const generateContent = async (
   try {
     raw = await chatCompletion({ model: LLM_MODELS.content, messages, temperature: 0.7 });
   } catch (err) {
-    console.error('[ContentGeneration] LLM call failed:', err instanceof Error ? err.message : err);
+    logger.error({ err: err instanceof Error ? err.message : err }, '[ContentGeneration] LLM call failed');
     throw new AppError(httpStatus.BAD_GATEWAY, 'Content generation failed — please try again');
   }
 
   const parsed = parseGeneratedContent(raw);
   if (!parsed) {
-    console.error('[ContentGeneration] LLM response was not valid structured JSON');
+    logger.error('[ContentGeneration] LLM response was not valid structured JSON');
     throw new AppError(httpStatus.BAD_GATEWAY, 'Content generation failed — please try again');
   }
 

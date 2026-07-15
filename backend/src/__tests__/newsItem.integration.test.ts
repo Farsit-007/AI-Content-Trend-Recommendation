@@ -41,9 +41,13 @@ describe('GET /api/v1/news-items', () => {
 });
 
 describe('News item create/update/delete', () => {
-  it('creates, updates, and deletes a news item', async () => {
+  it('lets an admin create, update, and delete a news item', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-crud@example.test' });
+    const adminToken = createAuthToken(admin);
+
     const createRes = await request(app)
       .post('/api/v1/news-items')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({
         source: 'devto',
         source_id: 'devto-123',
@@ -55,15 +59,44 @@ describe('News item create/update/delete', () => {
     expect(createRes.status).toBe(201);
     const id = createRes.body.data._id;
 
-    const updateRes = await request(app).patch(`/api/v1/news-items/${id}`).send({ title: 'Updated title' });
+    const updateRes = await request(app)
+      .patch(`/api/v1/news-items/${id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ title: 'Updated title' });
     expect(updateRes.status).toBe(200);
     expect(updateRes.body.data.title).toBe('Updated title');
 
-    const deleteRes = await request(app).delete(`/api/v1/news-items/${id}`);
+    const deleteRes = await request(app)
+      .delete(`/api/v1/news-items/${id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(deleteRes.status).toBe(200);
 
     const getRes = await request(app).get(`/api/v1/news-items/${id}`);
     expect(getRes.status).toBe(404);
+  });
+
+  it('rejects unauthenticated writes', async () => {
+    const item = await createNewsItemDoc();
+
+    const createRes = await request(app).post('/api/v1/news-items').send({ title: 'x' });
+    expect(createRes.status).toBe(401);
+
+    const updateRes = await request(app).patch(`/api/v1/news-items/${item._id}`).send({ title: 'x' });
+    expect(updateRes.status).toBe(401);
+
+    const deleteRes = await request(app).delete(`/api/v1/news-items/${item._id}`);
+    expect(deleteRes.status).toBe(401);
+  });
+
+  it('rejects a non-admin write', async () => {
+    const user = await createTestUser({ email: 'non-admin-write@example.test' });
+    const token = createAuthToken(user);
+    const item = await createNewsItemDoc();
+
+    const res = await request(app)
+      .delete(`/api/v1/news-items/${item._id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(403);
   });
 });
 

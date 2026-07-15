@@ -4,9 +4,32 @@ import { validation } from '../../middleware/validation';
 import { UserController } from './user.controller';
 import { UserValidation } from './user.validation';
 
-// Authentication: /auth/login (public), /auth/me (any authenticated user).
+// Authentication. Public: login, refresh-token, logout, forgot/reset password.
+// Authenticated: me, change-password.
 const authRouter = Router();
 authRouter.post('/login', validation(UserValidation.loginValidation), UserController.login);
+authRouter.post(
+  '/refresh-token',
+  validation(UserValidation.refreshTokenValidation),
+  UserController.refreshToken,
+);
+authRouter.post('/logout', UserController.logout);
+authRouter.post(
+  '/change-password',
+  requireAuth,
+  validation(UserValidation.changePasswordValidation),
+  UserController.changePassword,
+);
+authRouter.post(
+  '/forgot-password',
+  validation(UserValidation.forgotPasswordValidation),
+  UserController.forgotPassword,
+);
+authRouter.post(
+  '/reset-password',
+  validation(UserValidation.resetPasswordValidation),
+  UserController.resetPassword,
+);
 authRouter.get('/me', requireAuth, UserController.getMe);
 export const AuthRoutes = authRouter;
 

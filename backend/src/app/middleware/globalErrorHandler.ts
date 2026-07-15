@@ -71,6 +71,7 @@ export const globalErrorHandler: ErrorRequestHandler = (
     success: false,
     message,
     errorSource,
-    stack: err?.stack,
+    // Stack traces reveal file paths and internals — dev/test only, never production.
+    ...(process.env.NODE_ENV !== 'production' ? { stack: err?.stack } : {}),
   });
 };

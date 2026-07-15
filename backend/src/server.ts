@@ -2,6 +2,8 @@ import dns from 'dns';
 import mongoose from 'mongoose';
 import config from './app/config';
 import app from './app';
+import { logger } from './app/lib/logger';
+import { redis } from './app/lib/redis';
 import { verifyConnections } from './app/lib/verifyConnections';
 import { seedSuperAdminIfMissing } from './app/lib/seedSuperAdmin';
 import { startAnalyticsScheduler, startAutoGenerationScheduler, startNewsIngestionScheduler } from './app/lib/scheduler';
@@ -20,23 +22,46 @@ async function main() {
     try {
       await verifyConnections();
     } catch (verifyError) {
-      console.warn('[WARNING] Connection verification failed, but continuing startup:', verifyError);
+      logger.warn({ err: verifyError }, 'Connection verification failed, but continuing startup');
     }
     startNewsIngestionScheduler();
     startAnalyticsScheduler();
     startAutoGenerationScheduler();
     server = app.listen(config.port, () => {
-      console.log(`Server is running on port ${config.port}`);
+      logger.info(`Server is running on port ${config.port}`);
     });
   } catch (error) {
-    console.error(error);
+    logger.fatal({ err: error }, 'Startup failed');
     process.exit(1);
   }
 }
 main();
 
-process.on('unhandledRejection', () => {
-  console.log('unhandledRejection is detected , shutting down...');
+// Stop accepting new requests, then close DB/Redis handles so in-flight work can finish.
+const gracefulShutdown = (signal: string) => {
+  logger.info(`${signal} received — shutting down gracefully...`);
+  const closeConnections = async () => {
+    try {
+      await mongoose.connection.close();
+      redis.disconnect();
+    } finally {
+      process.exit(0);
+    }
+  };
+  if (server) {
+    server.close(closeConnections);
+    // Fallback if a stuck connection keeps the server from closing.
+    setTimeout(() => process.exit(1), 10_000).unref();
+  } else {
+    void closeConnections();
+  }
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason) => {
+  logger.fatal({ err: reason }, 'unhandledRejection detected, shutting down...');
   if (server) {
     server.close(() => {
       process.exit(1);
@@ -45,7 +70,7 @@ process.on('unhandledRejection', () => {
   process.exit(1);
 });
 
-process.on('uncaughtException', () => {
-  console.log('uncaughtException is detected , shutting down...');
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'uncaughtException detected, shutting down...');
   process.exit(1);
 });

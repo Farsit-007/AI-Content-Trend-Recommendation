@@ -1,4 +1,5 @@
 import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { logger } from '../../lib/logger';
 import { CategorizedNewsItem, NEWS_CATEGORIES, NewsCategory, ScoredNewsItem } from './newsIngestion.interface';
 
 const BATCH_SIZE = 10;
@@ -65,13 +66,13 @@ const categorizeOneBatch = async (batch: ScoredNewsItem[]): Promise<CategorizedN
       ],
     });
   } catch (err) {
-    console.error('[NewsIngestion] Categorization LLM call failed:', err instanceof Error ? err.message : err);
+    logger.error({ err: err instanceof Error ? err.message : err }, '[NewsIngestion] Categorization LLM call failed');
     return batch.map(fallbackCategorize);
   }
 
   const parsed = parseLlmResponse(raw);
   if (!parsed) {
-    console.error('[NewsIngestion] Categorization response was not valid JSON, falling back for entire batch');
+    logger.error('[NewsIngestion] Categorization response was not valid JSON, falling back for entire batch');
     return batch.map(fallbackCategorize);
   }
 

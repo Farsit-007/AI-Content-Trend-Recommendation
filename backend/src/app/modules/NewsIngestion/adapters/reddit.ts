@@ -1,4 +1,5 @@
 import config from '../../../config';
+import { logger } from '../../../lib/logger';
 import { RawNewsItem } from '../newsIngestion.interface';
 
 interface RedditPost {
@@ -41,7 +42,7 @@ export const fetchReddit = async (): Promise<RawNewsItem[]> => {
   const results = await Promise.all(
     config.news_ingestion.reddit_subreddits.map((subreddit) =>
       fetchSubreddit(subreddit).catch((err) => {
-        console.error(`[NewsIngestion] Reddit r/${subreddit} failed:`, err instanceof Error ? err.message : err);
+        logger.error({ err: err instanceof Error ? err.message : err }, `[NewsIngestion] Reddit r/${subreddit} failed`);
         return [] as RawNewsItem[];
       }),
     ),

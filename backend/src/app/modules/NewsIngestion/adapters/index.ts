@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { AdapterResult } from '../newsIngestion.interface';
 import { fetchDevTo } from './devto';
 import { fetchGithubTrending } from './githubTrending';
@@ -21,7 +22,7 @@ export const runAllAdapters = async (): Promise<AdapterResult[]> => {
         return { source, items };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        console.error(`[NewsIngestion] Adapter "${source}" failed:`, message);
+        logger.error({ err: message }, `[NewsIngestion] Adapter "${source}" failed`);
         return { source, items: [], error: message };
       }
     }),

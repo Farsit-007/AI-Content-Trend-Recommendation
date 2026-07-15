@@ -19,7 +19,38 @@ const loginValidation = z.object({
   }),
 });
 
+// Token usually arrives via the httpOnly cookie; body is the fallback for non-browser clients.
+const refreshTokenValidation = z.object({
+  body: z.object({
+    refresh_token: z.string().min(1).optional(),
+  }).optional(),
+});
+
+const changePasswordValidation = z.object({
+  body: z.object({
+    old_password: z.string().min(1, 'Current password is required'),
+    new_password: z.string().min(8, 'New password must be at least 8 characters'),
+  }),
+});
+
+const forgotPasswordValidation = z.object({
+  body: z.object({
+    email: z.string().email('A valid email is required'),
+  }),
+});
+
+const resetPasswordValidation = z.object({
+  body: z.object({
+    token: z.string().min(1, 'Reset token is required'),
+    new_password: z.string().min(8, 'New password must be at least 8 characters'),
+  }),
+});
+
 export const UserValidation = {
   createUserValidation,
   loginValidation,
+  refreshTokenValidation,
+  changePasswordValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
 };

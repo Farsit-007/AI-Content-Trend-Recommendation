@@ -23,13 +23,20 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
 
   OPENROUTER_API_KEY: z.string().min(1, 'OPENROUTER_API_KEY is required'),
-  LLM_MODEL_STANDARD: z.string().optional(),
-  LLM_MODEL_CONTENT: z.string().optional(),
-  LLM_MODEL_FALLBACK: z.string().optional(),
-  EMBEDDING_MODEL: z.string().optional(),
+  LLM_MODEL_STANDARD: z.string().default('meta-llama/llama-3.1-8b-instruct'),
+  LLM_MODEL_CONTENT: z.string().default('meta-llama/llama-3.1-8b-instruct'),
+  LLM_MODEL_FALLBACK: z.string().default('google/gemma-2-9b-it:free'),
+  EMBEDDING_MODEL: z.string().default('openai/text-embedding-3-small'),
 
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
+  // Falls back to JWT_SECRET when unset/empty (token_type claim keeps the two token kinds
+  // non-interchangeable either way), so existing .env files keep booting.
+  JWT_REFRESH_SECRET: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(16, 'JWT_REFRESH_SECRET must be at least 16 characters').optional(),
+  ),
+  JWT_REFRESH_EXPIRES_IN: z.string().default('30d'),
   CREDENTIAL_ENCRYPTION_KEY: z
     .string()
     .refine((v) => decodeKey(v) !== null, 'CREDENTIAL_ENCRYPTION_KEY must decode to exactly 32 bytes (openssl rand -base64 32)'),
@@ -125,6 +132,8 @@ export default {
 
   jwt_secret: env.JWT_SECRET,
   jwt_expires_in: env.JWT_EXPIRES_IN,
+  jwt_refresh_secret: env.JWT_REFRESH_SECRET ?? env.JWT_SECRET,
+  jwt_refresh_expires_in: env.JWT_REFRESH_EXPIRES_IN,
 
   super_admin: {
     email: env.SUPER_ADMIN_EMAIL,

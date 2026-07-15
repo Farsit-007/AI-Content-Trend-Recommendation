@@ -26,6 +26,8 @@ router.delete(
 
 router.post(
   '/',
+  requireAuth,
+  requireAdmin,
   validation(NewsItemValidation.createNewsItemValidation),
   NewsItemController.createNewsItem,
 );
@@ -33,9 +35,11 @@ router.get('/', optionalAuth, NewsItemController.getAllNewsItems);
 router.get('/:id', optionalAuth, NewsItemController.getSingleNewsItem);
 router.patch(
   '/:id',
+  requireAuth,
+  requireAdmin,
   validation(NewsItemValidation.updateNewsItemValidation),
   NewsItemController.updateNewsItem,
 );
-router.delete('/:id', NewsItemController.deleteNewsItem);
+router.delete('/:id', requireAuth, requireAdmin, NewsItemController.deleteNewsItem);
 
 export const NewsItemRoutes = router;

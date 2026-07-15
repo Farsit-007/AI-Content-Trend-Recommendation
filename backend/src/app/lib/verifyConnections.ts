@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { logger } from './logger';
 import { pingRedis } from './redis';
 import { chatCompletion, LLM_MODELS } from './llmClient';
 import { embed } from './embeddings';
@@ -6,7 +7,7 @@ import { embed } from './embeddings';
 const withLabel = async (label: string, fn: () => Promise<void>): Promise<void> => {
   try {
     await fn();
-    console.log(`[verifyConnections] ${label}: OK`);
+    logger.info(`[verifyConnections] ${label}: OK`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(`[verifyConnections] ${label} FAILED: ${message}`);
