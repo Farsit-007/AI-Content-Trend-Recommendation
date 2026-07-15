@@ -20,7 +20,7 @@
   "variable": [
     {
       "key": "url",
-      "value": "http://localhost:3001/api/v1",
+      "value": "http://localhost:5000/api/v1",
       "type": "string"
     },
     {
@@ -71,6 +71,21 @@
     {
       "key": "category",
       "value": "product-announcement",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "resetToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "generatedContentId",
+      "value": "",
       "type": "string"
     }
   ],
@@ -123,6 +138,9 @@
                   "const result = pm.response.json();",
                   "if (result?.data?.token) {",
                   "    pm.collectionVariables.set('token', result.data.token);",
+                  "}",
+                  "if (result?.data?.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', result.data.refresh_token);",
                   "}"
                 ],
                 "type": "text/javascript",
@@ -175,6 +193,9 @@
                   "const result = pm.response.json();",
                   "if (result?.data?.token) {",
                   "    pm.collectionVariables.set('token', result.data.token);",
+                  "}",
+                  "if (result?.data?.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', result.data.refresh_token);",
                   "}"
                 ],
                 "type": "text/javascript",
@@ -227,6 +248,9 @@
                   "const result = pm.response.json();",
                   "if (result?.data?.token) {",
                   "    pm.collectionVariables.set('token', result.data.token);",
+                  "}",
+                  "if (result?.data?.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', result.data.refresh_token);",
                   "}"
                 ],
                 "type": "text/javascript",
@@ -251,6 +275,224 @@
               ]
             },
             "description": "Returns the authenticated user plus the list of team ids they belong to."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Access Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/auth/refresh-token",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh-token"
+              ]
+            },
+            "description": "Exchanges a refresh token for a fresh access + refresh token pair (rotates the refresh token). Browser clients send it automatically via the httpOnly `refresh_token` cookie; non-browser clients (Postman) pass it in the body. Uses the {{refresh_token}} captured at login and re-captures the rotated pair.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "if (result?.data?.token) {",
+                  "    pm.collectionVariables.set('token', result.data.token);",
+                  "}",
+                  "if (result?.data?.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', result.data.refresh_token);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/auth/change-password",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Changes the current user's password. Invalidates all previously issued tokens and returns a fresh token pair. Requires a valid {{token}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"old_password\": \"ChangeMe123!\",\n  \"new_password\": \"NewPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "if (result?.data?.token) {",
+                  "    pm.collectionVariables.set('token', result.data.token);",
+                  "}",
+                  "if (result?.data?.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', result.data.refresh_token);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/auth/forgot-password",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Requests a password reset token. Always responds 200 (no account enumeration). No SMTP is configured, so the token is logged server-side and — outside production — also returned in the response body; this request captures it into {{resetToken}} for the Reset Password call.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"member@growthstudio.test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "if (result?.data?.reset_token) {",
+                  "    pm.collectionVariables.set('resetToken', result.data.reset_token);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/auth/reset-password",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Resets the password using the single-use reset token (15 min expiry) captured by Forgot Password into {{resetToken}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"new_password\": \"ResetPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/auth/logout",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Clears the httpOnly refresh cookie server-side. Drop the access token client-side after calling this.",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "response": []
         }
@@ -1763,6 +2005,229 @@
                 }
               }
             }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Generated Content",
+      "description": "Persisted generated content drafts. A daily background job auto-generates one draft per team in their brand voice; admins can also trigger a run manually. Drafts can be approved or dismissed.",
+      "item": [
+        {
+          "name": "List Generated Content",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/generated-content?team_id={{teamId}}&status=draft&page=1&limit=10",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "generated-content"
+              ],
+              "query": [
+                {
+                  "key": "team_id",
+                  "value": "{{teamId}}"
+                },
+                {
+                  "key": "status",
+                  "value": "draft"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Lists a team's generated content drafts, newest first. `status` (draft|approved|dismissed) and `source` (auto|manual) are optional filters. Captures the first draft id into {{generatedContentId}}."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const result = pm.response.json();",
+                  "if (result?.data?.length) {",
+                  "    pm.collectionVariables.set('generatedContentId', result.data[0]._id);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "Trigger Auto-Generation (admin only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/generated-content/run",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "generated-content",
+                "run"
+              ]
+            },
+            "description": "Runs the auto-generation job immediately instead of waiting for the daily cron. Omit `team_id` to process every team, or pass it to limit the run to one team. Admin only.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": \"{{teamId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Approve / Dismiss Draft",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/generated-content/{{generatedContentId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "generated-content",
+                "{{generatedContentId}}"
+              ]
+            },
+            "description": "Sets a draft's status to `approved` or `dismissed`. Uses {{generatedContentId}} captured by List Generated Content.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "description": "Per-team, per-platform 30-day analytics rollups (reach, engagements, views, engagement rate, top posts, best times, content breakdown). Rollups are refreshed by a background job; admins can trigger a refresh manually.",
+      "item": [
+        {
+          "name": "Get Team Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/analytics?team_id={{teamId}}",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "analytics"
+              ],
+              "query": [
+                {
+                  "key": "team_id",
+                  "value": "{{teamId}}"
+                }
+              ]
+            },
+            "description": "Returns one rollup per platform the team has enabled. Each rollup carries a status (ok | not_connected | pending_approval | error)."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Analytics (admin only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{url}}/analytics/refresh",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "analytics",
+                "refresh"
+              ]
+            },
+            "description": "Recomputes analytics rollups. Omit `team_id` to refresh every team, or pass it to refresh a single team. Admin only.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": \"{{teamId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "description": "Cross-platform 30-day performance report: aggregated overview, per-platform summaries, an AI-generated narrative insight, and ranked content opportunities. Cached in Redis for 6h.",
+      "item": [
+        {
+          "name": "Get Team Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/reports?team_id={{teamId}}&refresh=false",
+              "host": [
+                "{{url}}"
+              ],
+              "path": [
+                "reports"
+              ],
+              "query": [
+                {
+                  "key": "team_id",
+                  "value": "{{teamId}}"
+                },
+                {
+                  "key": "refresh",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Returns the team's cross-platform report. Pass `refresh=true` to bypass the 6h Redis cache and regenerate (re-runs the AI insight)."
           },
           "response": []
         }
