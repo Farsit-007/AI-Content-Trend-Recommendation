@@ -38,25 +38,12 @@ services:
       # DATABASE_URL comes from backend/.env (Atlas M0 connection string).
       # REDIS_URL is overridden here to the in-network Redis service name.
       REDIS_URL: redis://redis:6379
-      WEB_URL: http://localhost:3000
+      WEB_URL: http://localhost:5173
     volumes:
       - ./backend:/app
     depends_on:
       redis:
         condition: service_healthy
-    networks:
-      - app-network
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: growth-studio-frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
     networks:
       - app-network
 
