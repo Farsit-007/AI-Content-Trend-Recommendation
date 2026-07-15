@@ -44,8 +44,8 @@ export function PublicNavbar() {
   );
 
   return (
-    <header className="glass-card sticky top-0 z-40 rounded-none border-x-0 border-t-0">
-      <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
+    <header className="glass-card fixed inset-x-0 top-0 z-40 rounded-none border-x-0 border-t-0">
+      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-6">
           <Link to="/" className="text-lg font-semibold tracking-tight">
             <span className="gradient-text">Growth Studio</span>

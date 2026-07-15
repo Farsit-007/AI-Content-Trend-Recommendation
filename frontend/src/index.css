@@ -85,6 +85,14 @@
     border-color: var(--border);
     outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
   }
+  html {
+    /*
+     * Always reserve the scrollbar gutter so the fixed navbar and the scrolling
+     * page content are centered against the same width (keeps their max-w-7xl
+     * containers aligned) and prevents layout shift when a scrollbar appears.
+     */
+    scrollbar-gutter: stable;
+  }
   body {
     margin: 0;
     min-height: 100svh;
@@ -102,8 +110,80 @@
   color: transparent;
 }
 
+/*
+ * Theme-aware translucent surface. Tints the `card` token (works in both light
+ * and dark) and uses the `border` token for a visible edge in either theme.
+ */
 @utility glass-card {
-  background-color: rgb(255 255 255 / 0.05);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgb(255 255 255 / 0.1);
+  background-color: color-mix(in oklch, var(--card) 75%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+}
+
+/* Violet glow for primary CTAs (CLAUDE.md: .btn-glow). */
+@utility btn-glow {
+  box-shadow:
+    0 0 0 1px oklch(0.65 0.24 295 / 0.4),
+    0 8px 30px -6px oklch(0.65 0.24 295 / 0.55);
+}
+
+/*
+ * Crafted grid/dot background. Radial mask fades the pattern toward the edges
+ * (Linear/Vercel look). Layer behind content with `pointer-events-none`.
+ */
+@utility grid-pattern {
+  --pattern-color: color-mix(in oklch, var(--foreground) 8%, transparent);
+  background-image:
+    linear-gradient(to right, var(--pattern-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--pattern-color) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 75%);
+}
+
+@utility dot-pattern {
+  --pattern-color: color-mix(in oklch, var(--foreground) 12%, transparent);
+  background-image: radial-gradient(var(--pattern-color) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 75%);
+}
+
+/* Aurora drift — slow, organic movement for the gradient blobs. */
+@keyframes aurora-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(4%, -6%, 0) scale(1.1);
+  }
+  66% {
+    transform: translate3d(-5%, 4%, 0) scale(0.95);
+  }
+}
+
+/* Marquee for the testimonials strip. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@utility animate-aurora-drift {
+  animation: aurora-drift 20s ease-in-out infinite;
+}
+
+@utility animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora-drift,
+  .animate-marquee {
+    animation: none !important;
+  }
 }

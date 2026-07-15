@@ -6,7 +6,8 @@ export function PublicLayout() {
   return (
     <div className="flex min-h-svh flex-col">
       <PublicNavbar />
-      <main className="flex-1">
+      {/* pt-16 offsets the fixed h-16 navbar so content isn't hidden underneath. */}
+      <main className="flex-1 pt-16">
         <Outlet />
       </main>
     </div>
