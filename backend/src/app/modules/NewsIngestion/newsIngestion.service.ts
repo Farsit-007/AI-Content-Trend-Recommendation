@@ -1,5 +1,4 @@
 import config from '../../config';
-import { embed } from '../../lib/embeddings';
 import { logger } from '../../lib/logger';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { ISourceRunCount } from '../IngestionRun/ingestionRun.interface';
@@ -15,11 +14,11 @@ import {
 } from './newsIngestion.interface';
 import { computeOpportunityScore, fetchBrandVoicePool, scoreRelevance, scoreTrend } from './newsIngestion.scoring';
 import {
-  EmbeddedNewsItem,
   HashedNewsItem,
   attachContentHash,
   dedupeAgainstStored,
   dedupeSemantic,
+  embedItems,
   fetchRecentEmbeddings,
   filterFresh,
 } from './newsIngestion.utils';
@@ -187,12 +186,7 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
     uniqueCounts = countBySource(unique);
 
     // Layer 2b: Semantic Dedup (cross-source, same story under different URLs)
-    const embedded: EmbeddedNewsItem[] = await Promise.all(
-      unique.map(async (item) => ({
-        ...item,
-        embedding: await embed(`${item.title} ${item.snippet ?? ''}`.trim()),
-      })),
-    );
+    const embedded = await embedItems(unique);
 
     const dedupCutoff = new Date(Date.now() - config.news_ingestion.max_age_hours * 60 * 60 * 1000);
     const recentPool = await fetchRecentEmbeddings(dedupCutoff);

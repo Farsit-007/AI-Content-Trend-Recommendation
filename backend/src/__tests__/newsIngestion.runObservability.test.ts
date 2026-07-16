@@ -8,12 +8,12 @@ jest.mock('../app/lib/embeddings');
 jest.mock('../app/modules/NewsIngestion/newsIngestion.categorize');
 
 import { runAllAdapters } from '../app/modules/NewsIngestion/adapters';
-import { embed } from '../app/lib/embeddings';
+import { embedBatch } from '../app/lib/embeddings';
 import { categorizeBatch } from '../app/modules/NewsIngestion/newsIngestion.categorize';
 import { runIngestionPipeline } from '../app/modules/NewsIngestion/newsIngestion.service';
 
 const mockedRunAllAdapters = runAllAdapters as jest.MockedFunction<typeof runAllAdapters>;
-const mockedEmbed = embed as jest.MockedFunction<typeof embed>;
+const mockedEmbedBatch = embedBatch as jest.MockedFunction<typeof embedBatch>;
 const mockedCategorizeBatch = categorizeBatch as jest.MockedFunction<typeof categorizeBatch>;
 
 const rawItem = (source: string, id: string, title = `Story ${id}`): AdapterResult['items'][number] => ({
@@ -26,16 +26,18 @@ const rawItem = (source: string, id: string, title = `Story ${id}`): AdapterResu
   raw_stars_delta: 0,
 });
 
-// One-hot vectors are pairwise orthogonal (cosine similarity 0), keeping every mocked embed()
+// One-hot vectors are pairwise orthogonal (cosine similarity 0), keeping every mocked embedBatch()
 // call comfortably below the semantic-dedup threshold regardless of call order or input text.
-const oneHotEmbed = () => {
+const oneHotEmbedBatch = () => {
   let i = 0;
-  return jest.fn().mockImplementation(async () => {
-    const v = Array(1536).fill(0);
-    v[i % 1536] = 1;
-    i += 1;
-    return v;
-  });
+  return jest.fn().mockImplementation(async (texts: string[]) =>
+    texts.map(() => {
+      const v = Array(1536).fill(0);
+      v[i % 1536] = 1;
+      i += 1;
+      return v;
+    }),
+  );
 };
 
 const passthroughCategorize = () =>
@@ -92,7 +94,7 @@ describe('runIngestionPipeline persistence', () => {
     mockedRunAllAdapters.mockResolvedValue([
       { source: 'hackernews', items: [rawItem('hackernews', '1'), rawItem('hackernews', '2')] },
     ]);
-    mockedEmbed.mockImplementation(oneHotEmbed());
+    mockedEmbedBatch.mockImplementation(oneHotEmbedBatch());
     mockedCategorizeBatch.mockImplementation(passthroughCategorize());
 
     const summary = await runIngestionPipeline('manual');
@@ -110,7 +112,7 @@ describe('runIngestionPipeline persistence', () => {
 
   it('persists a partial run and still throws when the pipeline crashes mid-layer', async () => {
     mockedRunAllAdapters.mockResolvedValue([{ source: 'hackernews', items: [rawItem('hackernews', '1')] }]);
-    mockedEmbed.mockRejectedValue(new Error('embedding blew up'));
+    mockedEmbedBatch.mockRejectedValue(new Error('embedding blew up'));
 
     await expect(runIngestionPipeline('manual')).rejects.toThrow('embedding blew up');
 
@@ -124,7 +126,7 @@ describe('runIngestionPipeline persistence', () => {
 
   it('does not let a failed IngestionRun write change the pipeline outcome on success', async () => {
     mockedRunAllAdapters.mockResolvedValue([{ source: 'hackernews', items: [rawItem('hackernews', '1')] }]);
-    mockedEmbed.mockImplementation(oneHotEmbed());
+    mockedEmbedBatch.mockImplementation(oneHotEmbedBatch());
     mockedCategorizeBatch.mockImplementation(passthroughCategorize());
     const createSpy = jest.spyOn(IngestionRun, 'create').mockRejectedValueOnce(new Error('mongo unavailable'));
 
@@ -136,7 +138,7 @@ describe('runIngestionPipeline persistence', () => {
 
   it('does not let a failed IngestionRun write mask the original error on a crash', async () => {
     mockedRunAllAdapters.mockResolvedValue([{ source: 'hackernews', items: [rawItem('hackernews', '1')] }]);
-    mockedEmbed.mockRejectedValue(new Error('embedding blew up'));
+    mockedEmbedBatch.mockRejectedValue(new Error('embedding blew up'));
     const createSpy = jest.spyOn(IngestionRun, 'create').mockRejectedValueOnce(new Error('mongo unavailable'));
 
     await expect(runIngestionPipeline('manual')).rejects.toThrow('embedding blew up');

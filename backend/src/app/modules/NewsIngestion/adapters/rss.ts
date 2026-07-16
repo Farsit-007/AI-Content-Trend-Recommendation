@@ -3,7 +3,11 @@ import config from '../../../config';
 import { logger } from '../../../lib/logger';
 import { RawNewsItem } from '../newsIngestion.interface';
 
-const parser = new Parser();
+// Conditional GET (HTTP 304) is deliberately not implemented: a feed correctly answering 304
+// would legitimately show fetched: 0 for that run, which the zero-streak alert can't currently
+// tell apart from a dead feed without plumbing a per-feed HTTP-status signal through
+// AdapterResult/IngestionRun — not worth it at ~200 requests/day. Revisit past ~50 feeds.
+const parser = new Parser({ timeout: 10_000 });
 
 /** `rss:<hostname>` (lowercased, `www.` stripped) so per-feed health is visible; falls back to `rss` for an unparseable feed URL. */
 export const feedLabel = (feedUrl: string): string => {

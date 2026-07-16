@@ -13,6 +13,21 @@ jest.mock('../app/config', () => ({
 
 import { feedLabel, fetchRss } from '../app/modules/NewsIngestion/adapters/rss';
 
+describe('rss-parser construction', () => {
+  it('is constructed with a fetch timeout so a hung feed cannot stall the whole run', () => {
+    // `new Parser(...)` runs at module-load time, and the global `clearMocks` config wipes call
+    // history before this test body runs — isolateModules re-requires both modules fresh inside
+    // this test so the constructor call is attributable here.
+    let ParserMock: jest.Mock;
+    jest.isolateModules(() => {
+      ParserMock = require('rss-parser');
+      require('../app/modules/NewsIngestion/adapters/rss');
+    });
+
+    expect(ParserMock!).toHaveBeenCalledWith({ timeout: 10_000 });
+  });
+});
+
 describe('feedLabel', () => {
   it('derives rss:<hostname> from a feed URL, lowercased with www. stripped', () => {
     expect(feedLabel('https://www.techcrunch.com/feed/')).toBe('rss:techcrunch.com');

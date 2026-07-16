@@ -81,6 +81,21 @@ const envSchema = z.object({
   // Raises the GitHub Search API's unauthenticated rate limit (10/min, 60/hr) — optional, the
   // adapter works fine without it at this pipeline's call volume.
   GITHUB_TOKEN: z.string().optional(),
+  // Comma-separated Mastodon instance hostnames polled for trending links (no auth needed).
+  // Default-enabled, unlike credential-gated sources — set to an empty value to disable.
+  NEWS_INGESTION_MASTODON_INSTANCES: z.string().default('mastodon.social,fosstodon.org'),
+  // Product Hunt API v2 OAuth2 client-credentials app. Optional: unset, the adapter
+  // logs a warning and reports itself unconfigured instead of hitting the network.
+  PRODUCTHUNT_CLIENT_ID: z.string().optional(),
+  PRODUCTHUNT_CLIENT_SECRET: z.string().optional(),
+  // Raises the Stack Exchange API's unauthenticated rate limit (300/day -> 10k/day) —
+  // optional, the adapter works fine without it at this pipeline's call volume.
+  STACKEXCHANGE_KEY: z.string().optional(),
+  // GNews.io (https://gnews.io) — third-party news-search API, real publisher URLs, no
+  // redirect resolution needed. Both optional: unset, the adapter reports itself unconfigured.
+  GNEWS_API_KEY: z.string().optional(),
+  // Comma-separated search topics (at most 3 used per run).
+  NEWS_INGESTION_GNEWS_QUERIES: z.string().optional(),
 
   // Analytics & Report
   ANALYTICS_USE_MOCK_ADAPTERS: z.string().default('true'),
@@ -203,6 +218,21 @@ export default {
       user_agent: env.REDDIT_USER_AGENT,
     },
     github_token: env.GITHUB_TOKEN,
+    mastodon_instances: env.NEWS_INGESTION_MASTODON_INSTANCES.split(',')
+      .map((instance) => instance.trim())
+      .filter(Boolean),
+    producthunt: {
+      client_id: env.PRODUCTHUNT_CLIENT_ID,
+      client_secret: env.PRODUCTHUNT_CLIENT_SECRET,
+    },
+    stackexchange_key: env.STACKEXCHANGE_KEY,
+    gnews: {
+      api_key: env.GNEWS_API_KEY,
+      queries: (env.NEWS_INGESTION_GNEWS_QUERIES ?? '')
+        .split(',')
+        .map((topic) => topic.trim())
+        .filter(Boolean),
+    },
     category_confidence_threshold: Number(env.NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD),
     opportunity_weight_relevance: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE),
     opportunity_weight_trend: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_TREND),

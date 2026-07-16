@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { embedBatch } from '../../lib/embeddings';
 import { cosineSimilarity } from '../../lib/similarity';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { RawNewsItem } from './newsIngestion.interface';
@@ -10,6 +11,8 @@ export interface HashedNewsItem extends RawNewsItem {
 export interface EmbeddedNewsItem extends HashedNewsItem {
   embedding: number[];
 }
+
+const EMBED_BATCH_SIZE = 20;
 
 export const computeContentHash = (source: string, url: string): string =>
   crypto.createHash('sha256').update(`${source}:${url}`).digest('hex');
@@ -40,6 +43,20 @@ export const dedupeAgainstStored = async (items: HashedNewsItem[]): Promise<Hash
     unique.push(item);
   }
   return unique;
+};
+
+/** Chunks items into `EMBED_BATCH_SIZE`-sized groups, one embeddings call per group (mirrors
+ * `categorizeBatch`'s batching). Batches run one at a time rather than via `Promise.all` — a run
+ * can produce hundreds of unique items, and firing every batch concurrently still floods
+ * OpenRouter enough to trigger intermittent malformed responses under free-tier rate limits. */
+export const embedItems = async (items: HashedNewsItem[]): Promise<EmbeddedNewsItem[]> => {
+  const embedded: EmbeddedNewsItem[] = [];
+  for (let i = 0; i < items.length; i += EMBED_BATCH_SIZE) {
+    const batch = items.slice(i, i + EMBED_BATCH_SIZE);
+    const vectors = await embedBatch(batch.map((item) => `${item.title} ${item.snippet ?? ''}`.trim()));
+    batch.forEach((item, j) => embedded.push({ ...item, embedding: vectors[j] }));
+  }
+  return embedded;
 };
 
 /** Single batch query per run, mirroring `fetchBrandVoicePool`'s pooling pattern. */

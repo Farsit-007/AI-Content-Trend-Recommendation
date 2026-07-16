@@ -1,43 +1,60 @@
+import { logger } from '../../../lib/logger';
 import { RawNewsItem } from '../newsIngestion.interface';
+import { stripHtml } from './htmlText';
 
-const HN_BASE = 'https://hacker-news.firebaseio.com/v0';
-const TOP_STORY_COUNT = 30;
+const FRONT_PAGE_URL = 'https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30';
+const RISERS_URL = 'https://hn.algolia.com/api/v1/search_by_date?tags=story&numericFilters=points%3E50&hitsPerPage=50';
 
-interface HNItem {
-  id: number;
-  type: string;
+interface AlgoliaHit {
+  objectID: string;
   title?: string;
   url?: string;
-  text?: string;
-  score?: number;
-  descendants?: number;
-  time?: number;
+  story_text?: string;
+  points?: number;
+  num_comments?: number;
+  created_at_i?: number;
 }
 
+interface AlgoliaResponse {
+  hits: AlgoliaHit[];
+}
+
+const fetchAlgolia = async (url: string): Promise<AlgoliaHit[] | null> => {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HackerNews (Algolia) request failed for ${url}: ${res.status}`);
+    const body = (await res.json()) as AlgoliaResponse;
+    return body.hits;
+  } catch (err) {
+    logger.error({ err: err instanceof Error ? err.message : err }, `[NewsIngestion] HackerNews (Algolia) request failed: ${url}`);
+    return null;
+  }
+};
+
+/** Front page + risers (points>50, by date) replace the old 31-request Firebase flow with 2 requests. */
 export const fetchHackerNews = async (): Promise<RawNewsItem[]> => {
-  const idsRes = await fetch(`${HN_BASE}/topstories.json`);
-  if (!idsRes.ok) throw new Error(`HackerNews topstories request failed: ${idsRes.status}`);
-  const ids = ((await idsRes.json()) as number[]).slice(0, TOP_STORY_COUNT);
+  const [frontPage, risers] = await Promise.all([fetchAlgolia(FRONT_PAGE_URL), fetchAlgolia(RISERS_URL)]);
 
-  const items = await Promise.all(
-    ids.map(async (id) => {
-      const res = await fetch(`${HN_BASE}/item/${id}.json`);
-      if (!res.ok) return null;
-      return (await res.json()) as HNItem;
-    }),
-  );
+  if (frontPage === null && risers === null) {
+    throw new Error('HackerNews (Algolia) request failed: both front-page and risers requests failed');
+  }
 
-  return items
-    .filter((item): item is HNItem => item !== null && item.type === 'story' && !!item.title)
-    .map((item) => ({
+  const merged = new Map<string, AlgoliaHit>();
+  for (const hit of [...(frontPage ?? []), ...(risers ?? [])]) {
+    if (!merged.has(hit.objectID)) merged.set(hit.objectID, hit);
+  }
+
+  return Array.from(merged.values())
+    .filter((hit): hit is AlgoliaHit & { title: string } => !!hit.title)
+    .map((hit) => ({
       source: 'hackernews',
-      source_id: String(item.id),
-      title: item.title as string,
-      url: item.url ?? `https://news.ycombinator.com/item?id=${item.id}`,
-      snippet: item.text,
-      published_at: item.time ? new Date(item.time * 1000) : undefined,
-      raw_points: item.score ?? 0,
-      raw_comments: item.descendants ?? 0,
+      source_id: String(hit.objectID),
+      title: hit.title,
+      url: hit.url ?? `https://news.ycombinator.com/item?id=${hit.objectID}`,
+      snippet: hit.story_text ? stripHtml(hit.story_text) : undefined,
+      published_at: hit.created_at_i ? new Date(hit.created_at_i * 1000) : undefined,
+      raw_points: hit.points ?? 0,
+      raw_comments: hit.num_comments ?? 0,
       raw_stars_delta: 0,
     }));
 };

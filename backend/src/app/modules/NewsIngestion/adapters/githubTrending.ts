@@ -1,6 +1,7 @@
 import config from '../../../config';
 import { logger } from '../../../lib/logger';
 import { RawNewsItem } from '../newsIngestion.interface';
+import { decodeEntities, stripHtml } from './htmlText';
 
 /**
  * GitHub has no official trending API, so one fetch path scrapes the public trending page's
@@ -14,15 +15,6 @@ import { RawNewsItem } from '../newsIngestion.interface';
 
 const SEARCH_API_URL = 'https://api.github.com/search/repositories';
 const TITLE_TRUNCATE_LENGTH = 200;
-
-const decodeEntities = (text: string): string =>
-  text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
 
 /** Strengthens a bare `owner/repo` title's relevance-scoring signal with real semantic content. */
 export const enrichTitle = (fullName: string, description?: string | null): string => {
@@ -42,7 +34,7 @@ const parseRepoBlock = (block: string): RawNewsItem | null => {
   const repoPath = hrefMatch[1] as string;
 
   const descriptionMatch = block.match(/<p class="col-9[^"]*">([\s\S]*?)<\/p>/);
-  const snippet = descriptionMatch ? decodeEntities(descriptionMatch[1].replace(/<[^>]+>/g, '')) : undefined;
+  const snippet = descriptionMatch ? decodeEntities(stripHtml(descriptionMatch[1])) : undefined;
 
   const starsMatch = block.match(/([\d,]+)\s+stars?\s+today/);
   const starsToday = starsMatch ? Number(starsMatch[1].replace(/,/g, '')) : 0;
