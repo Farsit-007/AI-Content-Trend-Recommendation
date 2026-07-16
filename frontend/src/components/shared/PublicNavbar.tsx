@@ -4,14 +4,14 @@ import { Menu } from "lucide-react";
 
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
-import { Button } from "@/types/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/types/components/ui/sheet";
+} from "@/components/ui/sheet";
 import { ThemeToggle } from "./ThemeToggle";
 
 /** Public marketing links (no auth required). */

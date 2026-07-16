@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 
 import { useAuth } from "@/context/auth-context";
-import { Button } from "@/types/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { AuroraBackground } from "./AuroraBackground";
 import { GridPattern } from "./GridPattern";
 import { Reveal } from "./Reveal";

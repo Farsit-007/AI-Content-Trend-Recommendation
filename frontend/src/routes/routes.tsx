@@ -1,8 +1,8 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
-import { PublicLayout } from "@/types/components/shared/PublicLayout";
-import { MainLayout } from "@/types/components/layout/MainLayout";
-import { ProtectedRoute } from "@/types/components/layout/ProtectedRoute";
+import { PublicLayout } from "@/components/shared/PublicLayout";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { routeGenerator } from "@/utils/routesGenerator";
 import { supperAdminPaths } from "./supperAdmin.routes";
 import Landing from "@/pages/Landing";

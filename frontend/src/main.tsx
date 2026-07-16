@@ -7,7 +7,7 @@ import "./index.css";
 import { router } from "./routes/routes.tsx";
 import { queryClient } from "./lib/queryClient.ts";
 import { ThemeProvider } from "./context/ThemeProvider.tsx";
-import { Toaster } from "./types/components/ui/sonner.tsx";
+import { Toaster } from "./components/ui/sonner.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

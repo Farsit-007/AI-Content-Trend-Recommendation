@@ -8,15 +8,15 @@ import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/context/auth-context";
 import { ApiError } from "@/lib/api/types";
-import { Button } from "@/types/components/ui/button";
-import { Input } from "@/types/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/types/components/ui/card";
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -24,7 +24,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/types/components/ui/form";
+} from "@/components/ui/form";
 
 const loginSchema = z.object({
   email: z.email("Enter a valid email"),

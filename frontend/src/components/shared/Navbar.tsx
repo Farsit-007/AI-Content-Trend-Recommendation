@@ -1,8 +1,8 @@
-import { Link } from "react-router-dom";
-import { Menu, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import { useAuth } from "@/context/auth-context";
-import { Button } from "@/types/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "./ThemeToggle";
 
 /** Roles rendered in a friendlier form in the account area. */
@@ -12,30 +12,16 @@ const roleLabel: Record<string, string> = {
   user: "Member",
 };
 
-/** Dashboard topbar. Section navigation lives in the sidebar; `onMenuClick`
- *  opens the sidebar on mobile. */
-export function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
+/** Dashboard topbar. Section navigation lives in the sidebar; the
+ *  `SidebarTrigger` collapses it on desktop and opens it on mobile. */
+export function Navbar() {
   const { user, logout } = useAuth();
 
   return (
     <header className="glass-card sticky top-0 z-40 rounded-none border-x-0 border-t-0">
       <nav className="flex h-16 items-center justify-between gap-4 px-4">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="md:hidden"
-            aria-label="Open menu"
-            onClick={onMenuClick}
-          >
-            <Menu className="size-4" />
-          </Button>
-          <Link
-            to="/dashboard"
-            className="text-lg font-semibold tracking-tight"
-          >
-            <span className="gradient-text">Growth Studio</span>
-          </Link>
+          <SidebarTrigger className="-ml-1" />
         </div>
 
         <div className="flex items-center gap-3">

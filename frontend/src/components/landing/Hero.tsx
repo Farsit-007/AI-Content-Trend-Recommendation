@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { ArrowRight, Play, Sparkles, TrendingUp, Flame } from "lucide-react";
 
 import { useAuth } from "@/context/auth-context";
-import { Button } from "@/types/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { AuroraBackground } from "./AuroraBackground";
 import { GridPattern } from "./GridPattern";
 
