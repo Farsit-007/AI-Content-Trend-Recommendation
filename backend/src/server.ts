@@ -14,13 +14,34 @@ import { Server } from 'http';
 // fine. Forcing a public resolver avoids that failure mode.
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
+const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+      timer.unref();
+    }),
+  ]);
+
+// logger uses an async (worker-thread) pretty-print transport in development, so a
+// bare process.exit() right after logger.fatal()/logger.info() can terminate the
+// process before that last line is actually written — flush first so fatal errors
+// and shutdown reasons are never silently lost from `docker logs`.
+const exitAfterFlush = (code: number) => {
+  logger.flush(() => process.exit(code));
+  setTimeout(() => process.exit(code), 2_000).unref();
+};
+
 let server: Server;
 async function main() {
   try {
     await mongoose.connect(config.database_url as string);
     await seedSuperAdminIfMissing();
     try {
-      await verifyConnections();
+      // Bounded independently of any per-call SDK timeout — verifyConnections is a
+      // diagnostic check (failure here is already non-fatal), so it must never be able
+      // to delay app.listen() below, no matter how long an external API call hangs.
+      await withTimeout(verifyConnections(), 25_000, 'verifyConnections');
     } catch (verifyError) {
       logger.warn({ err: verifyError }, 'Connection verification failed, but continuing startup');
     }
@@ -32,7 +53,7 @@ async function main() {
     });
   } catch (error) {
     logger.fatal({ err: error }, 'Startup failed');
-    process.exit(1);
+    exitAfterFlush(1);
   }
 }
 main();
@@ -45,13 +66,13 @@ const gracefulShutdown = (signal: string) => {
       await mongoose.connection.close();
       redis.disconnect();
     } finally {
-      process.exit(0);
+      exitAfterFlush(0);
     }
   };
   if (server) {
     server.close(closeConnections);
     // Fallback if a stuck connection keeps the server from closing.
-    setTimeout(() => process.exit(1), 10_000).unref();
+    setTimeout(() => exitAfterFlush(1), 10_000).unref();
   } else {
     void closeConnections();
   }
@@ -62,15 +83,10 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 process.on('unhandledRejection', (reason) => {
   logger.fatal({ err: reason }, 'unhandledRejection detected, shutting down...');
-  if (server) {
-    server.close(() => {
-      process.exit(1);
-    });
-  }
-  process.exit(1);
+  exitAfterFlush(1);
 });
 
 process.on('uncaughtException', (err) => {
   logger.fatal({ err }, 'uncaughtException detected, shutting down...');
-  process.exit(1);
+  exitAfterFlush(1);
 });
