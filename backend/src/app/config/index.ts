@@ -99,6 +99,11 @@ const envSchema = z.object({
 
   // Analytics & Report
   ANALYTICS_USE_MOCK_ADAPTERS: z.string().default('true'),
+  // Comma-separated platform allowlist that goes to REAL adapters when ANALYTICS_USE_MOCK_ADAPTERS
+  // is false. Empty (default) => every platform stays mock even with the global switch off.
+  ANALYTICS_REAL_PLATFORMS: z.string().default(''),
+  // Single upgrade point for the Meta Graph API version — never call unversioned endpoints.
+  GRAPH_API_VERSION: z.string().default('v23.0'),
   ANALYTICS_REFRESH_CRON: z.string().default('0 */6 * * *'),
   REPORT_CACHE_TTL_SECONDS: z.string().default('21600'),
   CONTENT_CACHE_TTL_SECONDS: z.string().default('86400'),
@@ -189,6 +194,10 @@ export default {
 
   analytics: {
     use_mock_adapters: env.ANALYTICS_USE_MOCK_ADAPTERS === 'true',
+    real_platforms: env.ANALYTICS_REAL_PLATFORMS.split(',')
+      .map((p) => p.trim().toLowerCase())
+      .filter(Boolean),
+    graph_api_version: env.GRAPH_API_VERSION,
     refresh_cron: env.ANALYTICS_REFRESH_CRON,
     report_cache_ttl: Number(env.REPORT_CACHE_TTL_SECONDS),
     content_cache_ttl: Number(env.CONTENT_CACHE_TTL_SECONDS),

@@ -5,6 +5,8 @@ import { GeneratedContentRoutes } from '../modules/GeneratedContent/generatedCon
 import { BrandVoiceExampleRoutes } from '../modules/BrandVoiceExample/brandVoiceExample.route';
 import { ChatRoutes } from '../modules/Chat/chat.route';
 import { ContentGenerationRoutes } from '../modules/ContentGeneration/contentGeneration.route';
+import { MetaOAuthRoutes } from '../modules/MetaOAuth/metaOAuth.route';
+import { LinkedInOAuthRoutes } from '../modules/LinkedInOAuth/linkedinOAuth.route';
 import { NewsItemRoutes } from '../modules/NewsItem/newsItem.route';
 import { PlatformPostRoutes } from '../modules/PlatformPost/platformPost.route';
 import { PlatformCatalogRoutes } from '../modules/PlatformCatalog/platformCatalog.route';
@@ -32,6 +34,8 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: '/content', route: ContentGenerationRoutes },
   { path: '/chat', route: ChatRoutes },
   { path: '/analytics', route: AnalyticsRoutes },
+  { path: '/oauth/facebook', route: MetaOAuthRoutes },
+  { path: '/oauth/linkedin', route: LinkedInOAuthRoutes },
   { path: '/reports', route: ReportRoutes },
   { path: '/generated-content', route: GeneratedContentRoutes },
 ];

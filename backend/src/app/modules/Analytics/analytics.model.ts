@@ -56,6 +56,7 @@ const analyticsRollupSchema = new Schema<IAnalyticsRollup>({
   top_posts: { type: [topPostSchema], default: [] },
   best_times: { type: [bestTimeSchema], default: [] },
   content_breakdown: { type: [contentBreakdownSchema], default: [] },
+  is_mock: { type: Boolean, default: false },
   fetched_at: { type: Date, default: Date.now },
 });
 
