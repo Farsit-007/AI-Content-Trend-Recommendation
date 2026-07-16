@@ -73,6 +73,14 @@ const envSchema = z.object({
   NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD: z.string().default('0.88'),
   NEWS_INGESTION_CRON: z.string().default('0 */3 * * *'),
   REDDIT_SUBREDDITS: z.string().default('programming,technology,artificial'),
+  // Reddit blocks unauthenticated scripted access with HTTP 403 — these are optional so the
+  // server boots without them; when unset, the Reddit adapter no-ops instead of throwing.
+  REDDIT_CLIENT_ID: z.string().optional(),
+  REDDIT_CLIENT_SECRET: z.string().optional(),
+  REDDIT_USER_AGENT: z.string().default('web:growth-studio-news:v1.0'),
+  // Raises the GitHub Search API's unauthenticated rate limit (10/min, 60/hr) — optional, the
+  // adapter works fine without it at this pipeline's call volume.
+  GITHUB_TOKEN: z.string().optional(),
 
   // Analytics & Report
   ANALYTICS_USE_MOCK_ADAPTERS: z.string().default('true'),
@@ -189,6 +197,12 @@ export default {
     reddit_subreddits: env.REDDIT_SUBREDDITS.split(',')
       .map((sub) => sub.trim())
       .filter(Boolean),
+    reddit: {
+      client_id: env.REDDIT_CLIENT_ID,
+      client_secret: env.REDDIT_CLIENT_SECRET,
+      user_agent: env.REDDIT_USER_AGENT,
+    },
+    github_token: env.GITHUB_TOKEN,
     category_confidence_threshold: Number(env.NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD),
     opportunity_weight_relevance: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE),
     opportunity_weight_trend: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_TREND),

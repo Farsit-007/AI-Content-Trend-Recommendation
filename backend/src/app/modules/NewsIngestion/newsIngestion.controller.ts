@@ -5,7 +5,7 @@ import sendResponse from '../../utils/sendResponse';
 import { runIngestionPipeline } from './newsIngestion.service';
 
 const ingestNews = catchAsync(async (_req: Request, res: Response) => {
-  const result = await runIngestionPipeline();
+  const result = await runIngestionPipeline('manual');
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,

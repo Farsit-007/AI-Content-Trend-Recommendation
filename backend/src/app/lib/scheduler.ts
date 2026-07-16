@@ -14,7 +14,7 @@ export const startNewsIngestionScheduler = (): void => {
   cron.schedule(config.news_ingestion.cron, async () => {
     logger.info('[scheduler] Running scheduled news ingestion...');
     try {
-      const summary = await runIngestionPipeline();
+      const summary = await runIngestionPipeline('cron');
       logger.info({ summary }, '[scheduler] News ingestion complete');
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : err }, '[scheduler] News ingestion failed');

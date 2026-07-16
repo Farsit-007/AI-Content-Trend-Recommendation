@@ -56,3 +56,40 @@ export interface AuthTokens {
   refresh_token?: string;
   user: AuthUser;
 }
+
+/** Per-source, per-layer item counts for one ingestion run — see GET /news-items/ingestion-runs. */
+export interface IngestionRunSourceCount {
+  source: string;
+  fetched: number;
+  fresh_dropped: number;
+  hash_deduped: number;
+  semantic_deduped: number;
+  relevance_dropped: number;
+  stored: number;
+  error?: string;
+}
+
+/** One persisted news-ingestion pipeline run, cron-triggered or manually triggered. */
+export interface IngestionRun {
+  _id: string;
+  started_at: string;
+  finished_at: string;
+  duration_ms: number;
+  trigger: 'cron' | 'manual';
+  total_stored: number;
+  sources: IngestionRunSourceCount[];
+  error?: string;
+}
+
+/** Per-source health computed from recent run history: consecutive zero-fetch runs. */
+export interface SourceHealth {
+  source: string;
+  zero_streak: number;
+  alert: boolean;
+}
+
+/** Payload returned by GET /news-items/ingestion-runs. */
+export interface IngestionRunHistory {
+  runs: IngestionRun[];
+  sourceHealth: SourceHealth[];
+}

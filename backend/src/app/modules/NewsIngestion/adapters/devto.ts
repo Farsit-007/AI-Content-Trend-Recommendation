@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { RawNewsItem } from '../newsIngestion.interface';
 
 interface DevToArticle {
@@ -10,12 +11,34 @@ interface DevToArticle {
   comments_count?: number;
 }
 
-export const fetchDevTo = async (): Promise<RawNewsItem[]> => {
-  const res = await fetch('https://dev.to/api/articles?top=7');
-  if (!res.ok) throw new Error(`Dev.to request failed: ${res.status}`);
-  const articles = (await res.json()) as DevToArticle[];
+const TOP_URL = 'https://dev.to/api/articles?top=1&per_page=50';
+const RISING_URL = 'https://dev.to/api/articles?state=rising&per_page=50';
 
-  return articles.map((article) => ({
+const fetchArticles = async (url: string): Promise<DevToArticle[] | null> => {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Dev.to request failed for ${url}: ${res.status}`);
+    return (await res.json()) as DevToArticle[];
+  } catch (err) {
+    logger.error({ err: err instanceof Error ? err.message : err }, `[NewsIngestion] Dev.to request failed: ${url}`);
+    return null;
+  }
+};
+
+/** `top=1` (daily top) and `state=rising` are fetched together so results fit the 72h freshness window that `?top=7` (weekly) missed. */
+export const fetchDevTo = async (): Promise<RawNewsItem[]> => {
+  const [top, rising] = await Promise.all([fetchArticles(TOP_URL), fetchArticles(RISING_URL)]);
+
+  if (top === null && rising === null) {
+    throw new Error('Dev.to request failed: both top and rising requests failed');
+  }
+
+  const merged = new Map<number, DevToArticle>();
+  for (const article of [...(top ?? []), ...(rising ?? [])]) {
+    merged.set(article.id, article);
+  }
+
+  return Array.from(merged.values()).map((article) => ({
     source: 'devto',
     source_id: String(article.id),
     title: article.title,
