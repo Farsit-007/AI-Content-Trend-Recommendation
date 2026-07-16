@@ -1,15 +1,15 @@
-import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 
-import { useAuth } from '@/context/auth-context';
-import { Button } from '@/components/ui/button';
-import { AuroraBackground } from './AuroraBackground';
-import { GridPattern } from './GridPattern';
-import { Reveal } from './Reveal';
+import { useAuth } from "@/context/auth-context";
+import { Button } from "@/types/components/ui/button";
+import { AuroraBackground } from "./AuroraBackground";
+import { GridPattern } from "./GridPattern";
+import { Reveal } from "./Reveal";
 
 export function CtaSection() {
   const { isAuthenticated } = useAuth();
-  const to = isAuthenticated ? '/dashboard' : '/login';
+  const to = isAuthenticated ? "/dashboard" : "/login";
 
   return (
     <section className="py-20 sm:py-24">
@@ -19,7 +19,7 @@ export function CtaSection() {
           <GridPattern />
 
           <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
-            Start turning trends into growth{' '}
+            Start turning trends into growth{" "}
             <span className="gradient-text">today</span>
           </h2>
           <p className="text-muted-foreground mx-auto mt-4 max-w-xl text-lg">
@@ -29,7 +29,7 @@ export function CtaSection() {
           <div className="mt-8 flex justify-center">
             <Button asChild size="lg" className="btn-glow">
               <Link to={to}>
-                {isAuthenticated ? 'Go to dashboard' : 'Get started free'}
+                {isAuthenticated ? "Go to dashboard" : "Get started free"}
                 <ArrowRight className="size-4" />
               </Link>
             </Button>

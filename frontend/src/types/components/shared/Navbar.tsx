@@ -1,15 +1,15 @@
-import { Link } from 'react-router-dom';
-import { Menu, LogOut } from 'lucide-react';
+import { Link } from "react-router-dom";
+import { Menu, LogOut } from "lucide-react";
 
-import { useAuth } from '@/context/auth-context';
-import { Button } from '@/components/ui/button';
-import { ThemeToggle } from './ThemeToggle';
+import { useAuth } from "@/context/auth-context";
+import { Button } from "@/types/components/ui/button";
+import { ThemeToggle } from "./ThemeToggle";
 
 /** Roles rendered in a friendlier form in the account area. */
 const roleLabel: Record<string, string> = {
-  super_admin: 'Super Admin',
-  admin: 'Admin',
-  user: 'Member',
+  super_admin: "Super Admin",
+  admin: "Admin",
+  user: "Member",
 };
 
 /** Dashboard topbar. Section navigation lives in the sidebar; `onMenuClick`
@@ -30,7 +30,10 @@ export function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
           >
             <Menu className="size-4" />
           </Button>
-          <Link to="/dashboard" className="text-lg font-semibold tracking-tight">
+          <Link
+            to="/dashboard"
+            className="text-lg font-semibold tracking-tight"
+          >
             <span className="gradient-text">Growth Studio</span>
           </Link>
         </div>

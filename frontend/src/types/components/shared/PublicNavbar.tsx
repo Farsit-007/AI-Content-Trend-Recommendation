@@ -1,23 +1,23 @@
-import { useState } from 'react';
-import { NavLink, Link } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { useState } from "react";
+import { NavLink, Link } from "react-router-dom";
+import { Menu } from "lucide-react";
 
-import { useAuth } from '@/context/auth-context';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { useAuth } from "@/context/auth-context";
+import { cn } from "@/lib/utils";
+import { Button } from "@/types/components/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@/components/ui/sheet';
-import { ThemeToggle } from './ThemeToggle';
+} from "@/types/components/ui/sheet";
+import { ThemeToggle } from "./ThemeToggle";
 
 /** Public marketing links (no auth required). */
 const publicLinks = [
-  { label: 'Home', to: '/' },
-  { label: 'About', to: '/about' },
+  { label: "Home", to: "/" },
+  { label: "About", to: "/about" },
 ];
 
 export function PublicNavbar() {
@@ -26,10 +26,10 @@ export function PublicNavbar() {
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'rounded-md px-3 py-2 text-sm font-medium transition-colors',
+      "rounded-md px-3 py-2 text-sm font-medium transition-colors",
       isActive
-        ? 'text-foreground'
-        : 'text-muted-foreground hover:text-foreground hover:bg-white/5',
+        ? "text-foreground"
+        : "text-muted-foreground hover:text-foreground hover:bg-white/5",
     );
 
   // Logged-in users get a shortcut to the app; everyone else sees "Log in".

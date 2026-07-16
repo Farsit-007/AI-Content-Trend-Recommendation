@@ -1,24 +1,24 @@
-import { Link } from 'react-router-dom';
-import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, Play, Sparkles, TrendingUp, Flame } from 'lucide-react';
+import { Link } from "react-router-dom";
+import { motion, useReducedMotion } from "motion/react";
+import { ArrowRight, Play, Sparkles, TrendingUp, Flame } from "lucide-react";
 
-import { useAuth } from '@/context/auth-context';
-import { Button } from '@/components/ui/button';
-import { AuroraBackground } from './AuroraBackground';
-import { GridPattern } from './GridPattern';
+import { useAuth } from "@/context/auth-context";
+import { Button } from "@/types/components/ui/button";
+import { AuroraBackground } from "./AuroraBackground";
+import { GridPattern } from "./GridPattern";
 
 const trendingItems = [
-  { tag: 'AI Agents', delta: '+184%', hot: true },
-  { tag: 'RAG pipelines', delta: '+96%', hot: true },
-  { tag: 'Edge inference', delta: '+42%', hot: false },
+  { tag: "AI Agents", delta: "+184%", hot: true },
+  { tag: "RAG pipelines", delta: "+96%", hot: true },
+  { tag: "Edge inference", delta: "+42%", hot: false },
 ];
 
 export function Hero() {
   const { isAuthenticated } = useAuth();
   const reduceMotion = useReducedMotion();
 
-  const primaryTo = isAuthenticated ? '/dashboard' : '/login';
-  const primaryLabel = isAuthenticated ? 'Go to dashboard' : 'Get started free';
+  const primaryTo = isAuthenticated ? "/dashboard" : "/login";
+  const primaryLabel = isAuthenticated ? "Go to dashboard" : "Get started free";
 
   return (
     <section className="relative overflow-hidden pt-24 pb-20 sm:pt-32">
@@ -35,7 +35,7 @@ export function Hero() {
             </div>
 
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-              Turn trends into content that{' '}
+              Turn trends into content that{" "}
               <span className="gradient-text">actually grows</span>
             </h1>
 

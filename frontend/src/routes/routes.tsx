@@ -1,13 +1,13 @@
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
-import { AuthProvider } from '@/context/AuthContext';
-import { PublicLayout } from '@/components/shared/PublicLayout';
-import { MainLayout } from '@/components/layout/MainLayout';
-import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
-import { routeGenerator } from '@/utils/routesGenerator';
-import { supperAdminPaths } from './supperAdmin.routes';
-import Landing from '@/pages/Landing';
-import About from '@/pages/About';
-import Login from '@/pages/Login';
+import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
+import { AuthProvider } from "@/context/AuthContext";
+import { PublicLayout } from "@/types/components/shared/PublicLayout";
+import { MainLayout } from "@/types/components/layout/MainLayout";
+import { ProtectedRoute } from "@/types/components/layout/ProtectedRoute";
+import { routeGenerator } from "@/utils/routesGenerator";
+import { supperAdminPaths } from "./supperAdmin.routes";
+import Landing from "@/pages/Landing";
+import About from "@/pages/About";
+import Login from "@/pages/Login";
 
 // The dashboard registers the full (super-admin) route set; role-restricted
 // entries are guarded individually, and the sidebar shows only what the
@@ -24,22 +24,22 @@ export const router = createBrowserRouter([
       {
         element: <PublicLayout />,
         children: [
-          { path: '/', element: <Landing /> },
-          { path: '/about', element: <About /> },
+          { path: "/", element: <Landing /> },
+          { path: "/about", element: <About /> },
         ],
       },
-      { path: '/login', element: <Login /> },
+      { path: "/login", element: <Login /> },
       {
         element: <ProtectedRoute />,
         children: [
           {
-            path: '/dashboard',
+            path: "/dashboard",
             element: <MainLayout />,
             children: routeGenerator(supperAdminPaths),
           },
         ],
       },
-      { path: '*', element: <Navigate to="/" replace /> },
+      { path: "*", element: <Navigate to="/" replace /> },
     ],
   },
 ]);

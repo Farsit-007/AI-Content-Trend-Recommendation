@@ -1,8 +1,13 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
-import { Navbar } from '@/components/shared/Navbar';
-import { Sidebar } from './Sidebar';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useState } from "react";
+import { Outlet } from "react-router-dom";
+import { Navbar } from "@/types/components/shared/Navbar";
+import { Sidebar } from "./Sidebar";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/types/components/ui/sheet";
 
 /** Authenticated dashboard shell: topbar + role-driven sidebar + routed content. */
 export function MainLayout() {

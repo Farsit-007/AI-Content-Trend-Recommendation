@@ -1,7 +1,7 @@
-import { createElement } from 'react';
-import type { RouteObject } from 'react-router-dom';
-import type { TUserPath } from '@/types';
-import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
+import { createElement } from "react";
+import type { RouteObject } from "react-router-dom";
+import type { TUserPath } from "@/types";
+import { ProtectedRoute } from "@/types/components/layout/ProtectedRoute";
 
 /** Turn a role's path config into router route objects, wrapping any
  *  role-restricted entry in a <ProtectedRoute roles={...}> guard. */

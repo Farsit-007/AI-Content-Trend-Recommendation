@@ -1,22 +1,22 @@
-import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
-import { useAuth } from '@/context/auth-context';
-import { ApiError } from '@/lib/api/types';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useAuth } from "@/context/auth-context";
+import { ApiError } from "@/lib/api/types";
+import { Button } from "@/types/components/ui/button";
+import { Input } from "@/types/components/ui/input";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "@/types/components/ui/card";
 import {
   Form,
   FormControl,
@@ -24,11 +24,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
+} from "@/types/components/ui/form";
 
 const loginSchema = z.object({
-  email: z.email('Enter a valid email'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.email("Enter a valid email"),
+  password: z.string().min(1, "Password is required"),
 });
 
 type LoginValues = z.infer<typeof loginSchema>;
@@ -40,7 +40,7 @@ export default function Login() {
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: "", password: "" },
   });
 
   // Already signed in → don't show the login form.
@@ -52,10 +52,12 @@ export default function Login() {
     setSubmitting(true);
     try {
       await login(values.email, values.password);
-      navigate('/dashboard', { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       const message =
-        err instanceof ApiError ? err.message : 'Something went wrong. Try again.';
+        err instanceof ApiError
+          ? err.message
+          : "Something went wrong. Try again.";
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -110,7 +112,11 @@ export default function Login() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="mt-2 w-full" disabled={submitting}>
+              <Button
+                type="submit"
+                className="mt-2 w-full"
+                disabled={submitting}
+              >
                 {submitting && <Loader2 className="size-4 animate-spin" />}
                 Sign in
               </Button>
