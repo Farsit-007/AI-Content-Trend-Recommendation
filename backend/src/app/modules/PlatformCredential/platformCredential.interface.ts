@@ -9,6 +9,13 @@ export interface IPlatformCredential {
   token_last4: string;
   account_id?: string;
   added_by: string;
+  // OAuth metadata — all optional so existing rows and the manual credential flow are unaffected.
+  token_type?: 'page' | 'user' | 'api_key';
+  token_expires_at?: Date;
+  scopes?: string[];
+  page_id?: string;
+  external_name?: string;
+  connected_by?: string;
   created_at: Date;
   updated_at: Date;
 }

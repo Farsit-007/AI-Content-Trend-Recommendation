@@ -36,6 +36,8 @@ export interface IAnalyticsRollup {
   top_posts: ITopPost[];
   best_times: IBestTime[];
   content_breakdown: IContentBreakdown[];
+  // True when this rollup was produced by a mock adapter (demo data) rather than real Graph data.
+  is_mock?: boolean;
   fetched_at: Date;
 }
 
