@@ -27,6 +27,12 @@ const node = (overrides: Partial<Record<string, unknown>> = {}) => ({
 const graphqlResponse = (nodes: ReturnType<typeof node>[]): Response =>
   ({ ok: true, status: 200, json: async () => ({ data: { posts: { edges: nodes.map((n) => ({ node: n })) } } }) }) as Response;
 
+const graphqlEcho = (bodyCapture: { query?: string }, nodes: ReturnType<typeof node>[]) =>
+  async (_url: string, init?: RequestInit) => {
+    if (init?.body) bodyCapture.query = (JSON.parse(init.body as string) as { query: string }).query;
+    return graphqlResponse(nodes);
+  };
+
 const graphqlErrorResponse = (message = 'Something went wrong'): Response =>
   ({ ok: true, status: 200, json: async () => ({ errors: [{ message }] }) }) as Response;
 
@@ -64,6 +70,30 @@ describe('fetchProductHunt', () => {
       raw_stars_delta: 0,
       published_at: new Date('2026-07-16T12:00:00.000Z'),
     });
+  });
+
+  it('requests the description field and maps it into content', async () => {
+    const bodyCapture: { query?: string } = {};
+    const fetchMock = jest.fn(async (url: string, init?: RequestInit) =>
+      url.includes('oauth/token')
+        ? tokenResponse()
+        : graphqlEcho(bodyCapture, [node({ description: 'A longer description of Acme.' })])(url, init),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchProductHunt();
+
+    expect(bodyCapture.query).toContain('description');
+    expect(items[0].content).toBe('A longer description of Acme.');
+  });
+
+  it('leaves content undefined when a node has no description', async () => {
+    const fetchMock = jest.fn(async (url: string) => (url.includes('oauth/token') ? tokenResponse() : graphqlResponse([node()])));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchProductHunt();
+
+    expect(items[0].content).toBeUndefined();
   });
 
   it('caches the app token across two fetchProductHunt() calls', async () => {

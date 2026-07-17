@@ -42,6 +42,7 @@ export const fetchLobsters = async (): Promise<RawNewsItem[]> => {
     title: story.title,
     url: story.url || story.comments_url,
     snippet: buildSnippet(story),
+    content: story.description ? decodeEntities(stripHtml(story.description)) : undefined,
     published_at: new Date(story.created_at),
     raw_points: story.score,
     raw_comments: story.comment_count,

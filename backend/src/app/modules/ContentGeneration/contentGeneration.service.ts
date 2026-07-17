@@ -42,7 +42,12 @@ const resolveNewsItemContext = async (
 
   return {
     embedding: newsItem.embedding,
-    context: { category: newsItem.category, impact_note: newsItem.impact_note },
+    context: {
+      category: newsItem.category,
+      impact_note: newsItem.impact_note,
+      snippet: newsItem.snippet,
+      url: newsItem.url,
+    },
   };
 };
 

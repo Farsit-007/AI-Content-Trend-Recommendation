@@ -6,6 +6,8 @@ const engagementValidation = z.object({
   stars_delta: z.number().optional(),
 });
 
+const contentStatusValidation = z.enum(['none', 'partial', 'full', 'failed']);
+
 const createNewsItemValidation = z.object({
   body: z.object({
     source: z.string({ required_error: 'source is required' }),
@@ -14,6 +16,9 @@ const createNewsItemValidation = z.object({
     title: z.string({ required_error: 'title is required' }),
     url: z.string({ required_error: 'url is required' }).url(),
     snippet: z.string().optional(),
+    content: z.string().optional(),
+    content_status: contentStatusValidation.optional(),
+    word_count: z.number().int().nonnegative().optional(),
     published_at: z.coerce.date().optional(),
     engagement: engagementValidation.optional(),
     category: z.string().optional(),
@@ -37,6 +42,9 @@ const updateNewsItemValidation = z.object({
     title: z.string().optional(),
     url: z.string().url().optional(),
     snippet: z.string().optional(),
+    content: z.string().optional(),
+    content_status: contentStatusValidation.optional(),
+    word_count: z.number().int().nonnegative().optional(),
     published_at: z.coerce.date().optional(),
     engagement: engagementValidation.optional(),
     trend_score: z.number().optional(),

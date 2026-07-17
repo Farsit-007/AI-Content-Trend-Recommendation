@@ -45,6 +45,18 @@ const withOverride = (item: InstanceType<typeof NewsItem>, override?: { category
   };
 };
 
+/** The raw embedding vector is never useful to a client and is dropped from every response. */
+const omitEmbedding = <T extends Record<string, unknown>>(plain: T): Omit<T, 'embedding'> => {
+  const { embedding, ...rest } = plain;
+  return rest;
+};
+
+/** List responses additionally drop `content` (only the detail endpoint needs the full text) to keep list payloads light. */
+const omitListOnlyFields = <T extends Record<string, unknown>>(plain: T): Omit<T, 'embedding' | 'content'> => {
+  const { embedding, content, ...rest } = plain;
+  return rest;
+};
+
 const createNewsItem = async (payload: Partial<INewsItem>) => {
   const embedding = payload.embedding ?? (await embed(`${payload.title ?? ''} ${payload.snippet ?? ''}`.trim()));
   const result = await NewsItem.create({ ...payload, embedding });
@@ -85,7 +97,7 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
   };
 
   if (!requestingUser || requestingUser.team_ids.length === 0) {
-    return { meta, result: result.map((item) => annotate(withOverride(item))) };
+    return { meta, result: result.map((item) => omitListOnlyFields(annotate(withOverride(item)))) };
   }
 
   const overridesByItem = await NewsItemCategoryOverrideService.fetchOverridesForItems(
@@ -94,7 +106,9 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
   );
   return {
     meta,
-    result: result.map((item) => annotate(withOverride(item, overridesByItem.get(item._id.toString())))),
+    result: result.map((item) =>
+      omitListOnlyFields(annotate(withOverride(item, overridesByItem.get(item._id.toString())))),
+    ),
   };
 };
 
@@ -103,14 +117,14 @@ const getSingleNewsItem = async (id: string, requestingUser?: IRequestUser) => {
   if (!result) return null;
 
   if (!requestingUser || requestingUser.team_ids.length === 0) {
-    return withOverride(result);
+    return omitEmbedding(withOverride(result));
   }
 
   const overridesByItem = await NewsItemCategoryOverrideService.fetchOverridesForItems(
     [result._id.toString()],
     requestingUser.team_ids,
   );
-  return withOverride(result, overridesByItem.get(result._id.toString()));
+  return omitEmbedding(withOverride(result, overridesByItem.get(result._id.toString())));
 };
 
 const updateNewsItem = async (id: string, payload: Partial<INewsItem>) => {

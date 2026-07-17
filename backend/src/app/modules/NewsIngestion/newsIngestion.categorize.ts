@@ -39,10 +39,10 @@ const parseLlmResponse = (raw: string): LlmCategorization[] | null => {
 
 const categorizeOneBatch = async (batch: ScoredNewsItem[]): Promise<CategorizedNewsItem[]> => {
   const prompt = batch
-    .map(
-      (item, id) =>
-        `${id}. "${item.title}" — ${item.snippet ?? 'no snippet'} (relevance_score=${item.relevance_score ?? 'n/a'}, trend_score=${item.trend_score})`,
-    )
+    .map((item, id) => {
+      const contentLead = item.content ? ` — content: ${item.content.slice(0, 500)}` : '';
+      return `${id}. "${item.title}" — ${item.snippet ?? 'no snippet'}${contentLead} (relevance_score=${item.relevance_score ?? 'n/a'}, trend_score=${item.trend_score})`;
+    })
     .join('\n');
 
   let raw: string;

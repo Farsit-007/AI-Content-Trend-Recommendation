@@ -33,4 +33,6 @@ export interface FewShotExample {
 export interface NewsItemContext {
   category?: string;
   impact_note?: string;
+  snippet?: string;
+  url?: string;
 }

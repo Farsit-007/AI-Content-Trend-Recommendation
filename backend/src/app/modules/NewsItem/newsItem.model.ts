@@ -8,6 +8,10 @@ const newsItemSchema = new Schema<INewsItem>({
   title: { type: String, required: true },
   url: { type: String, required: true },
   snippet: { type: String },
+  content: { type: String },
+  content_status: { type: String, enum: ['none', 'partial', 'full', 'failed'], default: 'none' },
+  content_fetched_at: { type: Date },
+  word_count: { type: Number },
   published_at: { type: Date },
   engagement: {
     points: { type: Number, default: 0 },

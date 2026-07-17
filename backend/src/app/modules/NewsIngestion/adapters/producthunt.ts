@@ -15,7 +15,7 @@ const QUERY = `
   query TopLaunches($postedAfter: DateTime!) {
     posts(order: VOTES, postedAfter: $postedAfter, first: 25) {
       edges {
-        node { id name tagline url votesCount commentsCount createdAt }
+        node { id name tagline description url votesCount commentsCount createdAt }
       }
     }
   }
@@ -25,6 +25,7 @@ interface ProductHuntNode {
   id: string;
   name: string;
   tagline: string;
+  description?: string;
   url: string;
   votesCount: number;
   commentsCount: number;
@@ -94,6 +95,7 @@ const fetchTopLaunches = async (token: string): Promise<RawNewsItem[]> => {
     title: `${node.name} — ${node.tagline}`,
     url: node.url,
     snippet: node.tagline,
+    content: node.description || undefined,
     published_at: new Date(node.createdAt),
     raw_points: node.votesCount,
     raw_comments: node.commentsCount,

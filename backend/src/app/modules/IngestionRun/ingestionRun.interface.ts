@@ -7,6 +7,8 @@ export interface ISourceRunCount {
   relevance_dropped: number;
   stored: number;
   error?: string;
+  content_fetched?: number;
+  content_failed?: number;
 }
 
 export interface IIngestionRun {

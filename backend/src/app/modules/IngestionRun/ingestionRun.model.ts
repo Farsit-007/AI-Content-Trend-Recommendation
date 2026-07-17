@@ -11,6 +11,8 @@ const sourceRunCountSchema = new Schema<ISourceRunCount>(
     relevance_dropped: { type: Number, required: true, default: 0 },
     stored: { type: Number, required: true, default: 0 },
     error: { type: String },
+    content_fetched: { type: Number },
+    content_failed: { type: Number },
   },
   { _id: false },
 );

@@ -69,6 +69,12 @@ const envSchema = z.object({
   // has configured RSS feeds or tuned the scoring thresholds.
   NEWS_INGESTION_RSS_FEEDS: z.string().optional(),
   NEWS_INGESTION_MAX_AGE_HOURS: z.string().default('72'),
+  NEWS_CONTENT_MAX_CHARS: z.string().default('20000'),
+  // Kill switch + tuning for the link-page content-enrichment layer (dev.to/GitHub APIs +
+  // generic article extraction). Enabled by default — every failure mode there is soft.
+  NEWS_CONTENT_FETCH_ENABLED: z.string().default('true'),
+  NEWS_CONTENT_FETCH_TIMEOUT_MS: z.string().default('10000'),
+  NEWS_CONTENT_FETCH_CONCURRENCY: z.string().default('3'),
   NEWS_INGESTION_MIN_RELEVANCE: z.string().default('4.0'),
   NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD: z.string().default('0.88'),
   NEWS_INGESTION_CRON: z.string().default('0 */3 * * *'),
@@ -215,6 +221,12 @@ export default {
       .map((url) => url.trim())
       .filter(Boolean),
     max_age_hours: Number(env.NEWS_INGESTION_MAX_AGE_HOURS),
+    content_max_chars: Number(env.NEWS_CONTENT_MAX_CHARS),
+    content_fetch: {
+      enabled: env.NEWS_CONTENT_FETCH_ENABLED === 'true',
+      timeout_ms: Number(env.NEWS_CONTENT_FETCH_TIMEOUT_MS),
+      concurrency: Number(env.NEWS_CONTENT_FETCH_CONCURRENCY),
+    },
     min_relevance: Number(env.NEWS_INGESTION_MIN_RELEVANCE),
     semantic_dedup_threshold: Number(env.NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD),
     cron: env.NEWS_INGESTION_CRON,

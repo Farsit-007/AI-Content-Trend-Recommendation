@@ -6,15 +6,19 @@ import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
 jest.mock('../app/modules/NewsIngestion/adapters');
 jest.mock('../app/lib/embeddings');
 jest.mock('../app/modules/NewsIngestion/newsIngestion.categorize');
+jest.mock('../app/modules/NewsIngestion/newsIngestion.contentFetch');
 
 import { runAllAdapters } from '../app/modules/NewsIngestion/adapters';
 import { embedBatch } from '../app/lib/embeddings';
 import { categorizeBatch } from '../app/modules/NewsIngestion/newsIngestion.categorize';
+import { enrichContent } from '../app/modules/NewsIngestion/newsIngestion.contentFetch';
 import { runIngestionPipeline } from '../app/modules/NewsIngestion/newsIngestion.service';
+import config from '../app/config';
 
 const mockedRunAllAdapters = runAllAdapters as jest.MockedFunction<typeof runAllAdapters>;
 const mockedEmbedBatch = embedBatch as jest.MockedFunction<typeof embedBatch>;
 const mockedCategorizeBatch = categorizeBatch as jest.MockedFunction<typeof categorizeBatch>;
+const mockedEnrichContent = enrichContent as jest.MockedFunction<typeof enrichContent>;
 
 const rawItem = (source: string, id: string, title = `Story ${id}`): AdapterResult['items'][number] => ({
   source,
@@ -54,6 +58,12 @@ const passthroughCategorize = () =>
 beforeAll(connectTestDb);
 afterEach(clearTestDb);
 afterAll(disconnectTestDb);
+
+// Default: enrichment is a no-op pass-through, so tests unrelated to content enrichment are
+// unaffected by it now sitting in the pipeline. Individual tests below override this.
+beforeEach(() => {
+  mockedEnrichContent.mockImplementation(async (items) => ({ items, countsBySource: {} }));
+});
 
 describe('buildSourceRunCounts', () => {
   it('reports six-layer counts that sum to fetched when every layer completed', () => {
@@ -144,5 +154,33 @@ describe('runIngestionPipeline persistence', () => {
     await expect(runIngestionPipeline('manual')).rejects.toThrow('embedding blew up');
 
     createSpy.mockRestore();
+  });
+
+  it('completes and stores items unenriched when content enrichment throws, rather than aborting', async () => {
+    mockedRunAllAdapters.mockResolvedValue([{ source: 'hackernews', items: [rawItem('hackernews', '1')] }]);
+    mockedEmbedBatch.mockImplementation(oneHotEmbedBatch());
+    mockedCategorizeBatch.mockImplementation(passthroughCategorize());
+    mockedEnrichContent.mockRejectedValueOnce(new Error('enrichment blew up'));
+
+    const summary = await runIngestionPipeline('manual');
+
+    expect(summary.totalStored).toBe(1);
+    const runs = await IngestionRun.find();
+    expect(runs[0].error).toBeUndefined();
+  });
+
+  it('never invokes content enrichment when NEWS_CONTENT_FETCH_ENABLED is false', async () => {
+    const originalEnabled = config.news_ingestion.content_fetch.enabled;
+    config.news_ingestion.content_fetch.enabled = false;
+    mockedRunAllAdapters.mockResolvedValue([{ source: 'hackernews', items: [rawItem('hackernews', '1')] }]);
+    mockedEmbedBatch.mockImplementation(oneHotEmbedBatch());
+    mockedCategorizeBatch.mockImplementation(passthroughCategorize());
+
+    const summary = await runIngestionPipeline('manual');
+
+    expect(summary.totalStored).toBe(1);
+    expect(mockedEnrichContent).not.toHaveBeenCalled();
+
+    config.news_ingestion.content_fetch.enabled = originalEnabled;
   });
 });

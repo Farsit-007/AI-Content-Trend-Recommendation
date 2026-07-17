@@ -15,12 +15,16 @@ import { fetchReddit } from '../app/modules/NewsIngestion/adapters/reddit';
 const tokenResponse = (token = `tok-${Math.random()}`, expires_in = 3600): Response =>
   ({ ok: true, json: async () => ({ access_token: token, expires_in }) }) as Response;
 
-const listingResponse = (subreddit: string, postIds: string[] = ['p1']): Response =>
+const listingResponse = (subreddit: string, postIds: string[] = ['p1'], overrides: Partial<Record<string, unknown>> = {}): Response =>
   ({
     ok: true,
     status: 200,
     json: async () => ({
-      data: { children: postIds.map((id) => ({ data: { id, title: `${subreddit} post ${id}`, permalink: `/r/${subreddit}/${id}` } })) },
+      data: {
+        children: postIds.map((id) => ({
+          data: { id, title: `${subreddit} post ${id}`, permalink: `/r/${subreddit}/${id}`, ...overrides },
+        })),
+      },
     }),
   }) as Response;
 
@@ -81,6 +85,23 @@ describe('fetchReddit', () => {
 
     await expect(fetchReddit()).rejects.toThrow('not configured');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('stores the full selftext as content while snippet stays sliced to 500 characters', async () => {
+    config.news_ingestion.reddit_subreddits = ['programming'];
+    const longText = 'x'.repeat(600);
+    const fetchMock = jest.fn(async (url: string) => {
+      if (url.includes('access_token')) return tokenResponse();
+      return listingResponse('programming', ['p1'], { selftext: longText });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchReddit();
+
+    expect(items).toHaveLength(1);
+    expect(items[0].snippet).toHaveLength(500);
+    expect(items[0].content).toBe(longText);
+    expect(items[0].content).toHaveLength(600);
   });
 
   it('returns items from the other subreddits when one fails', async () => {

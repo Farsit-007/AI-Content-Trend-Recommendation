@@ -76,6 +76,7 @@ const fetchSubredditListing = async (subreddit: string, token: string): Promise<
     title: post.title,
     url: `https://www.reddit.com${post.permalink}`,
     snippet: post.selftext?.slice(0, 500),
+    content: post.selftext || undefined,
     published_at: post.created_utc ? new Date(post.created_utc * 1000) : undefined,
     raw_points: post.ups ?? 0,
     raw_comments: post.num_comments ?? 0,
