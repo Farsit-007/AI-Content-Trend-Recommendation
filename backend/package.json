@@ -23,6 +23,8 @@
     "verify:chat-retrieval": "ts-node src/scripts/verifyChatRetrieval.ts",
     "verify:chat-live": "ts-node src/scripts/verifyChatLive.ts",
     "verify:semantic-dedup-live": "ts-node src/scripts/verifySemanticDedupLive.ts",
+    "verify:dedup-calibrate": "ts-node src/scripts/verifySemanticDedupLive.ts --calibrate",
+    "verify:dedup-judge": "ts-node src/scripts/verifySemanticDedupLive.ts --judge",
     "seed:admin": "ts-node src/scripts/seedAdmin.ts",
     "seed:brand-voice": "ts-node src/scripts/seedBrandVoice.ts",
     "seed:demo-analytics": "ts-node src/scripts/seedDemoAnalytics.ts"

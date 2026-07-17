@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ChatRoutes = void 0;
+const express_1 = require("express");
+const auth_1 = require("../../middleware/auth");
+const validation_1 = require("../../middleware/validation");
+const chat_controller_1 = require("./chat.controller");
+const chat_validation_1 = require("./chat.validation");
+const router = (0, express_1.Router)();
+router.use(auth_1.requireAuth);
+router.post('/', (0, validation_1.validation)(chat_validation_1.ChatValidation.askChatValidation), chat_controller_1.ChatController.askChat);
+exports.ChatRoutes = router;

@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ContentGenerationRoutes = void 0;
+const express_1 = require("express");
+const auth_1 = require("../../middleware/auth");
+const validation_1 = require("../../middleware/validation");
+const contentGeneration_controller_1 = require("./contentGeneration.controller");
+const contentGeneration_validation_1 = require("./contentGeneration.validation");
+const router = (0, express_1.Router)();
+router.use(auth_1.requireAuth);
+router.post('/generate', (0, validation_1.validation)(contentGeneration_validation_1.ContentGenerationValidation.generateContentValidation), contentGeneration_controller_1.ContentGenerationController.generateContent);
+exports.ContentGenerationRoutes = router;

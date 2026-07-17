@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BrandVoiceExampleRoutes = void 0;
+const express_1 = require("express");
+const auth_1 = require("../../middleware/auth");
+const validation_1 = require("../../middleware/validation");
+const brandVoiceExample_controller_1 = require("./brandVoiceExample.controller");
+const brandVoiceExample_validation_1 = require("./brandVoiceExample.validation");
+const router = (0, express_1.Router)();
+router.use(auth_1.requireAuth);
+router.post('/', (0, validation_1.validation)(brandVoiceExample_validation_1.BrandVoiceExampleValidation.createBrandVoiceExampleValidation), brandVoiceExample_controller_1.BrandVoiceExampleController.createBrandVoiceExample);
+router.get('/', brandVoiceExample_controller_1.BrandVoiceExampleController.getAllBrandVoiceExamples);
+router.get('/:id', brandVoiceExample_controller_1.BrandVoiceExampleController.getSingleBrandVoiceExample);
+router.patch('/:id', (0, validation_1.validation)(brandVoiceExample_validation_1.BrandVoiceExampleValidation.updateBrandVoiceExampleValidation), brandVoiceExample_controller_1.BrandVoiceExampleController.updateBrandVoiceExample);
+router.delete('/:id', brandVoiceExample_controller_1.BrandVoiceExampleController.deleteBrandVoiceExample);
+exports.BrandVoiceExampleRoutes = router;

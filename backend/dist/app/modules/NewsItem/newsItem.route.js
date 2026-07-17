@@ -1,0 +1,24 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.NewsItemRoutes = void 0;
+const express_1 = require("express");
+const auth_1 = require("../../middleware/auth");
+const validation_1 = require("../../middleware/validation");
+const ingestionRun_controller_1 = require("../IngestionRun/ingestionRun.controller");
+const newsIngestion_controller_1 = require("../NewsIngestion/newsIngestion.controller");
+const newsItemCategoryOverride_controller_1 = require("../NewsItemCategoryOverride/newsItemCategoryOverride.controller");
+const newsItemCategoryOverride_validation_1 = require("../NewsItemCategoryOverride/newsItemCategoryOverride.validation");
+const newsItem_controller_1 = require("./newsItem.controller");
+const newsItem_validation_1 = require("./newsItem.validation");
+const router = (0, express_1.Router)();
+router.post('/ingest', auth_1.requireAuth, auth_1.requireAdmin, newsIngestion_controller_1.NewsIngestionController.ingestNews);
+// Must stay above the `/:id` routes below — otherwise Express matches "ingestion-runs" as an :id.
+router.get('/ingestion-runs', auth_1.requireAuth, auth_1.requireAdmin, ingestionRun_controller_1.IngestionRunController.listRuns);
+router.patch('/:id/override', auth_1.requireAuth, (0, validation_1.validation)(newsItemCategoryOverride_validation_1.NewsItemCategoryOverrideValidation.setOverrideValidation), newsItemCategoryOverride_controller_1.NewsItemCategoryOverrideController.setOverride);
+router.delete('/:id/override', auth_1.requireAuth, (0, validation_1.validation)(newsItemCategoryOverride_validation_1.NewsItemCategoryOverrideValidation.clearOverrideValidation), newsItemCategoryOverride_controller_1.NewsItemCategoryOverrideController.clearOverride);
+router.post('/', auth_1.requireAuth, auth_1.requireAdmin, (0, validation_1.validation)(newsItem_validation_1.NewsItemValidation.createNewsItemValidation), newsItem_controller_1.NewsItemController.createNewsItem);
+router.get('/', auth_1.optionalAuth, newsItem_controller_1.NewsItemController.getAllNewsItems);
+router.get('/:id', auth_1.optionalAuth, newsItem_controller_1.NewsItemController.getSingleNewsItem);
+router.patch('/:id', auth_1.requireAuth, auth_1.requireAdmin, (0, validation_1.validation)(newsItem_validation_1.NewsItemValidation.updateNewsItemValidation), newsItem_controller_1.NewsItemController.updateNewsItem);
+router.delete('/:id', auth_1.requireAuth, auth_1.requireAdmin, newsItem_controller_1.NewsItemController.deleteNewsItem);
+exports.NewsItemRoutes = router;
