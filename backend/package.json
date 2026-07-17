@@ -23,6 +23,9 @@
     "verify:chat-retrieval": "ts-node src/scripts/verifyChatRetrieval.ts",
     "verify:chat-live": "ts-node src/scripts/verifyChatLive.ts",
     "verify:semantic-dedup-live": "ts-node src/scripts/verifySemanticDedupLive.ts",
+    "verify:engagement-refresh-live": "ts-node src/scripts/verifyEngagementRefreshLive.ts",
+    "verify:trend-decay-live": "ts-node src/scripts/verifyTrendDecayLive.ts",
+    "verify:dedup-tombstone-live": "ts-node src/scripts/verifyDedupTombstoneLive.ts",
     "seed:admin": "ts-node src/scripts/seedAdmin.ts",
     "seed:brand-voice": "ts-node src/scripts/seedBrandVoice.ts",
     "seed:demo-analytics": "ts-node src/scripts/seedDemoAnalytics.ts"

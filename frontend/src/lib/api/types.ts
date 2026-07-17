@@ -93,3 +93,42 @@ export interface IngestionRunHistory {
   runs: IngestionRun[];
   sourceHealth: SourceHealth[];
 }
+
+/** Counts persisted for an `engagement_refresh` maintenance run. */
+export interface EngagementRefreshCounts {
+  candidates: number;
+  refreshed: number;
+  source_removed: number;
+  request_count: number;
+  errors: Record<string, string>;
+}
+
+/** Counts persisted for a `retention` maintenance run. */
+export interface RetentionCounts {
+  candidates: number;
+  backfilled: number;
+  archived: {
+    max_age: number;
+    trend_floor: number;
+    source_removed: number;
+  };
+  deleted: number;
+  overrides_removed: number;
+  tombstones_written: number;
+}
+
+/** One persisted `maintenance_runs` document — see GET /news-items/maintenance-runs. */
+export interface MaintenanceRun {
+  _id: string;
+  job: 'engagement_refresh' | 'retention';
+  started_at: string;
+  finished_at: string;
+  duration_ms: number;
+  counts: EngagementRefreshCounts | RetentionCounts;
+  error?: string;
+}
+
+/** Payload returned by GET /news-items/maintenance-runs. */
+export interface MaintenanceRunHistory {
+  runs: MaintenanceRun[];
+}

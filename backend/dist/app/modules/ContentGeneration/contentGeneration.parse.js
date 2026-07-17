@@ -1,0 +1,43 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.parseGeneratedContent = void 0;
+const isNonEmptyString = (v) => typeof v === 'string' && v.length > 0;
+const isValidYoutubeIdea = (v) => {
+    if (typeof v !== 'object' || v === null)
+        return false;
+    const idea = v;
+    return (isNonEmptyString(idea.title) &&
+        isNonEmptyString(idea.hook) &&
+        Array.isArray(idea.chapters) &&
+        idea.chapters.every((chapter) => typeof chapter === 'string') &&
+        isNonEmptyString(idea.thumbnail_concept));
+};
+/** Strict validation, no partial-object fallback — a malformed or incomplete response is a hard failure. */
+const parseGeneratedContent = (raw) => {
+    const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*$/g, '').trim();
+    let parsed;
+    try {
+        const result = JSON.parse(cleaned);
+        if (typeof result !== 'object' || result === null || Array.isArray(result))
+            return null;
+        parsed = result;
+    }
+    catch (_a) {
+        return null;
+    }
+    if (!isNonEmptyString(parsed.facebook_post) ||
+        !isNonEmptyString(parsed.facebook_reel_script) ||
+        !isNonEmptyString(parsed.linkedin_post) ||
+        !isNonEmptyString(parsed.caption) ||
+        !isValidYoutubeIdea(parsed.youtube_idea)) {
+        return null;
+    }
+    return {
+        facebook_post: parsed.facebook_post,
+        facebook_reel_script: parsed.facebook_reel_script,
+        linkedin_post: parsed.linkedin_post,
+        caption: parsed.caption,
+        youtube_idea: parsed.youtube_idea,
+    };
+};
+exports.parseGeneratedContent = parseGeneratedContent;

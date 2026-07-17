@@ -2,7 +2,11 @@ jest.mock('../app/lib/openrouterClient');
 
 jest.mock('../app/config', () => ({
   __esModule: true,
-  default: { embedding_model: 'test-embedding-model' },
+  default: {
+    embedding_model: 'test-embedding-model',
+    // newsDedupLedger.model.ts reads this at import time (schema-definition-time TTL index).
+    news_ingestion: { dedup_ledger_ttl_days: 30 },
+  },
 }));
 
 import { openrouter } from '../app/lib/openrouterClient';

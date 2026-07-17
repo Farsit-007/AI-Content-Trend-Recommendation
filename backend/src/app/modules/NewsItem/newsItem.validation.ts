@@ -29,6 +29,7 @@ const getAllNewsItemsValidation = z.object({
     sort: z.string().optional(),
     page: z.string().optional(),
     limit: z.string().optional(),
+    lifecycle: z.enum(['active', 'archived']).optional(),
   }),
 });
 
@@ -45,6 +46,7 @@ const updateNewsItemValidation = z.object({
     impact_note: z.string().optional(),
     opportunity_score: z.number().optional(),
     processed: z.boolean().optional(),
+    lifecycle: z.enum(['active', 'archived']).optional(),
   }),
 });
 

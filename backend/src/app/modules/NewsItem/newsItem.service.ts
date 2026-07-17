@@ -3,6 +3,7 @@ import QueryBuilder from '../../builder/QueryBuilder';
 import { embed } from '../../lib/embeddings';
 import { redis } from '../../lib/redis';
 import { IRequestUser } from '../User/user.interface';
+import { recordTombstones } from '../NewsDedupLedger/newsDedupLedger.service';
 import { NewsItemCategoryOverrideService } from '../NewsItemCategoryOverride/newsItemCategoryOverride.service';
 import { PlatformPost } from '../PlatformPost/platformPost.model';
 import { computeAudienceMatch } from '../Report/report.opportunities';
@@ -54,7 +55,19 @@ const createNewsItem = async (payload: Partial<INewsItem>) => {
 const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: IRequestUser) => {
   const { team_id: queryTeamId, ...remainingQuery } = query as { team_id?: string } & Record<string, unknown>;
 
-  const newsItemQuery = new QueryBuilder(NewsItem.find(), remainingQuery)
+  // QueryBuilder.sort()'s own default (`-createdAt`) references a field that doesn't exist on
+  // this schema, so it never does anything — inject the real default here, before QueryBuilder
+  // sees the query, so an explicit `?sort=` still wins unchanged.
+  if (!remainingQuery.sort) {
+    remainingQuery.sort = '-current_trend_score -created_at';
+  }
+
+  // Base filter, not folded into `remainingQuery`: an explicit `?lifecycle=` still needs to flow
+  // through QueryBuilder.filter() untouched (e.g. the `?lifecycle=archived` admin escape hatch),
+  // so the exclusion is only added here when the caller didn't ask for a specific lifecycle.
+  const baseFilter = remainingQuery.lifecycle ? {} : { lifecycle: { $ne: 'archived' } };
+
+  const newsItemQuery = new QueryBuilder(NewsItem.find(baseFilter), remainingQuery)
     .search(newsItemSearchableFields)
     .filter()
     .sort()
@@ -99,6 +112,8 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
 };
 
 const getSingleNewsItem = async (id: string, requestingUser?: IRequestUser) => {
+  // Intentionally unfiltered by lifecycle: archived is not the same as hidden-by-id — old
+  // generated content links to archived items and must keep resolving until hard delete.
   const result = await NewsItem.findById(id);
   if (!result) return null;
 
@@ -114,7 +129,15 @@ const getSingleNewsItem = async (id: string, requestingUser?: IRequestUser) => {
 };
 
 const updateNewsItem = async (id: string, payload: Partial<INewsItem>) => {
-  const result = await NewsItem.findByIdAndUpdate(id, payload, {
+  // `current_trend_score` is system-maintained (ingest + refresh job only); the validation
+  // middleware doesn't strip unvalidated fields from req.body, so guard it here explicitly.
+  const { current_trend_score: _currentTrendScore, ...safePayload } = payload;
+
+  // Restoring an item must not leave stale archive metadata behind.
+  const update: Partial<INewsItem> & { $unset?: Record<string, 1> } =
+    safePayload.lifecycle === 'active' ? { ...safePayload, $unset: { archived_at: 1, archive_reason: 1 } } : safePayload;
+
+  const result = await NewsItem.findByIdAndUpdate(id, update, {
     new: true,
     runValidators: true,
   });
@@ -122,6 +145,13 @@ const updateNewsItem = async (id: string, payload: Partial<INewsItem>) => {
 };
 
 const deleteNewsItem = async (id: string) => {
+  const item = await NewsItem.findById(id, { content_hash: 1, title: 1, source: 1 });
+  if (!item) return null;
+
+  // Tombstone-before-delete is the invariant (design.md decision 1 of dedup-tombstone-ledger):
+  // a crash between these two steps leaves a harmless extra tombstone, never a resurrection window.
+  await recordTombstones([{ content_hash: item.content_hash, title: item.title, source: item.source }]);
+
   const result = await NewsItem.findByIdAndDelete(id);
   return result;
 };

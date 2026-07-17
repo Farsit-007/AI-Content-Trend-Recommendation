@@ -15,9 +15,13 @@ export interface NewsCandidate {
   category?: string;
   impact_note?: string;
   trend_score: number;
+  current_trend_score?: number;
   opportunity_score?: number;
   embedding: number[];
 }
+
+const liveTrendScore = (item: { trend_score: number; current_trend_score?: number }): number =>
+  item.current_trend_score ?? item.trend_score;
 
 /** Pure ranking step, kept separate from the DB fetch so it's testable without Mongo. */
 export const rankNewsItems = (
@@ -28,7 +32,7 @@ export const rankNewsItems = (
 ): ChatContextItem[] => {
   const topByTrend = candidates
     .slice()
-    .sort((a, b) => b.trend_score - a.trend_score)
+    .sort((a, b) => liveTrendScore(b) - liveTrendScore(a))
     .slice(0, poolSize);
 
   return topByTrend
@@ -56,10 +60,19 @@ export const fetchNewsContext = async (
   questionEmbedding: number[],
 ): Promise<ChatContextItem[]> => {
   const items = await NewsItem.find(
-    {},
-    { title: 1, snippet: 1, category: 1, impact_note: 1, trend_score: 1, opportunity_score: 1, embedding: 1 },
+    { lifecycle: { $ne: 'archived' } },
+    {
+      title: 1,
+      snippet: 1,
+      category: 1,
+      impact_note: 1,
+      trend_score: 1,
+      current_trend_score: 1,
+      opportunity_score: 1,
+      embedding: 1,
+    },
   )
-    .sort({ trend_score: -1 })
+    .sort({ current_trend_score: -1 })
     .limit(NEWS_TREND_POOL_SIZE);
 
   return rankNewsItems(items, questionEmbedding);
