@@ -1,9 +1,8 @@
-import { Zap, ShieldCheck, Share2, Sparkles, Plug, Quote } from 'lucide-react';
+import { Zap, ShieldCheck, Share2, Sparkles, Quote } from 'lucide-react';
 
 import {
   bentoOutcome,
   bentoCapabilities,
-  integrations,
   testimonials,
 } from '@/lib/mock/landing';
 import { Section } from './Section';
@@ -51,24 +50,6 @@ export function BentoGrid() {
               </div>
             );
           })}
-
-          {/* Integrations row */}
-          <div className="glass-card rounded-2xl p-6 sm:col-span-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Plug className="size-4 text-cyan-500" />
-              Connects to the channels you already use
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {integrations.map((name) => (
-                <span
-                  key={name}
-                  className="bg-secondary text-secondary-foreground rounded-full px-3 py-1 text-xs font-medium"
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
 
           {/* Attributed testimonial */}
           <div className="glass-card flex flex-col justify-between rounded-2xl p-6">
