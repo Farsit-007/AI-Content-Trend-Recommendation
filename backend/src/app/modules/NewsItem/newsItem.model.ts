@@ -11,6 +11,17 @@ const engagementSnapshotSchema = new Schema(
   { _id: false },
 );
 
+const corroborationSchema = new Schema(
+  {
+    source: { type: String, required: true },
+    points: { type: Number, required: true, default: 0 },
+    comments: { type: Number, required: true, default: 0 },
+    url: { type: String, required: true },
+    at: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
 const newsItemSchema = new Schema<INewsItem>({
   source: { type: String, required: true },
   source_id: { type: String, required: true },
@@ -48,6 +59,7 @@ const newsItemSchema = new Schema<INewsItem>({
   created_at: { type: Date, default: Date.now },
   engagement_history: { type: [engagementSnapshotSchema] },
   engagement_refreshed_at: { type: Date },
+  corroborations: { type: [corroborationSchema] },
   source_removed: { type: Boolean, default: false },
   lifecycle: { type: String, enum: ['active', 'archived'], default: 'active', index: true },
   archived_at: { type: Date },

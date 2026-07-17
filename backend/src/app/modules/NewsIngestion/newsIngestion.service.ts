@@ -1,9 +1,10 @@
 import config from '../../config';
 import { logger } from '../../lib/logger';
 import { NewsItem } from '../NewsItem/newsItem.model';
-import { ISourceRunCount } from '../IngestionRun/ingestionRun.interface';
+import { IAdjudicationCounts, ISourceRunCount } from '../IngestionRun/ingestionRun.interface';
 import { IngestionRun } from '../IngestionRun/ingestionRun.model';
 import { runAllAdapters } from './adapters';
+import { AdjudicationInput, adjudicatePairs, batchesUsed } from './newsIngestion.adjudicate';
 import { categorizeBatch } from './newsIngestion.categorize';
 import { enrichContent } from './newsIngestion.contentFetch';
 import {
@@ -21,14 +22,20 @@ import {
   scoreTrend,
 } from './newsIngestion.scoring';
 import {
+  CorroborationEvidence,
+  DedupSurvivor,
+  EmbeddedNewsItem,
   HashedNewsItem,
+  SemanticRouting,
   attachContentHash,
   dedupeAgainstStored,
   dedupeSemantic,
   embedItems,
+  evidenceFrom,
   fetchRecentEmbeddings,
   filterFresh,
 } from './newsIngestion.utils';
+import { Types } from 'mongoose';
 
 interface ContentMeta {
   content?: string;
@@ -156,6 +163,7 @@ interface RunCountState {
   contentFetchedCounts: Record<string, number> | undefined;
   contentFailedCounts: Record<string, number> | undefined;
   errorsBySource: Record<string, string>;
+  adjudication?: IAdjudicationCounts;
   totalStored: number;
   topLevelError?: string;
 }
@@ -186,11 +194,146 @@ const persistRun = async (state: RunCountState): Promise<void> => {
       trigger: state.trigger,
       total_stored: state.totalStored,
       sources,
+      adjudication: state.adjudication,
       error: state.topLevelError,
     });
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : err }, '[NewsIngestion] failed to persist IngestionRun');
   }
+};
+
+const publishedTime = (d?: Date): number => (d ? d.getTime() : Number.POSITIVE_INFINITY);
+
+interface AdjudicationOutcome {
+  /** Final semantic-dedup survivors (accepted + gray candidates judged update/distinct). */
+  survivors: DedupSurvivor[];
+  /** Stored items to corroborate: match _id (string) -> evidence from every dropped duplicate. */
+  storedCorroborations: Map<string, CorroborationEvidence[]>;
+  counts: IAdjudicationCounts;
+}
+
+/**
+ * Turns the router's gray pairs into verdicts and applies them (design decision 1: effects live
+ * here, not in the pure router). `duplicate` drops the candidate and corroborates its match;
+ * `update`/`distinct` keep it; an `update` on an older-than-match candidate is demoted to
+ * `distinct` (design decision 3 — never chain backwards). Any fallback/low-confidence verdict
+ * keeps the item with `needs_review`. Hard-duplicate drops against stored items corroborate too.
+ */
+const applyAdjudication = async (routing: SemanticRouting, maxBatches: number): Promise<AdjudicationOutcome> => {
+  const survivors: DedupSurvivor[] = [...routing.accepted];
+  const storedCorroborations = new Map<string, CorroborationEvidence[]>();
+  const addStored = (id: Types.ObjectId, ev: CorroborationEvidence): void => {
+    const key = id.toString();
+    const list = storedCorroborations.get(key) ?? [];
+    list.push(ev);
+    storedCorroborations.set(key, list);
+  };
+
+  // Hard-duplicate drops against stored items: corroborate, no LLM.
+  for (const drop of routing.hardStoredDrops) addStored(drop.matchId, evidenceFrom(drop.candidate));
+
+  const matchPublished = (m: SemanticRouting['grayPairs'][number]['match']): Date | undefined =>
+    m.kind === 'stored' ? m.published_at : m.survivor.published_at;
+
+  // Build adjudication inputs with A = older, B = newer by publication time.
+  const inputs: AdjudicationInput[] = routing.grayPairs.map((gp, id) => {
+    const matchTitle = gp.match.kind === 'stored' ? gp.match.title : gp.match.survivor.title;
+    const matchSnippet = gp.match.kind === 'stored' ? gp.match.snippet : gp.match.survivor.snippet;
+    const candidateOlder = publishedTime(gp.candidate.published_at) <= publishedTime(matchPublished(gp.match));
+    return candidateOlder
+      ? { id, olderTitle: gp.candidate.title, olderSnippet: gp.candidate.snippet, newerTitle: matchTitle, newerSnippet: matchSnippet }
+      : { id, olderTitle: matchTitle, olderSnippet: matchSnippet, newerTitle: gp.candidate.title, newerSnippet: gp.candidate.snippet };
+  });
+
+  const verdicts = await adjudicatePairs(inputs, maxBatches);
+
+  const counts: IAdjudicationCounts = {
+    gray_pairs: routing.grayPairs.length,
+    batches: batchesUsed(inputs.length, maxBatches),
+    verdict_duplicate: 0,
+    verdict_update: 0,
+    verdict_distinct: 0,
+    fallbacks: 0,
+  };
+
+  routing.grayPairs.forEach((gp, id) => {
+    const result = verdicts.get(id) ?? { verdict: 'update' as const, confidence: 0, fallback: true };
+    if (result.fallback) counts.fallbacks += 1;
+
+    // Design decision 3: an update whose candidate is older than the match is stored, not chained.
+    let verdict = result.verdict;
+    if (verdict === 'update' && publishedTime(gp.candidate.published_at) < publishedTime(matchPublished(gp.match))) {
+      verdict = 'distinct';
+    }
+
+    if (verdict === 'duplicate') {
+      counts.verdict_duplicate += 1;
+      const evidence = evidenceFrom(gp.candidate);
+      if (gp.match.kind === 'stored') addStored(gp.match.id, evidence);
+      else gp.match.survivor.corroborations = [...(gp.match.survivor.corroborations ?? []), evidence];
+      return;
+    }
+
+    if (verdict === 'update') counts.verdict_update += 1;
+    else counts.verdict_distinct += 1;
+    const needsReview = result.fallback || result.confidence < 0.5;
+    survivors.push(needsReview ? { ...gp.candidate, needs_review_adjudication: true } : { ...gp.candidate });
+  });
+
+  return { survivors, storedCorroborations, counts };
+};
+
+/**
+ * Applies absorbed corroborations to already-stored items: appends evidence (capped 10), pushes an
+ * engagement-history snapshot reflecting the corroboration-augmented totals, and recomputes
+ * `current_trend_score` via the shared scoring function. Never throws — a corroboration-write
+ * failure must not affect the ingestion run's outcome.
+ */
+const applyStoredCorroborations = async (storedCorroborations: Map<string, CorroborationEvidence[]>): Promise<void> => {
+  if (storedCorroborations.size === 0) return;
+  try {
+    const ids = [...storedCorroborations.keys()];
+    const docs = await NewsItem.find(
+      { _id: { $in: ids } },
+      { engagement: 1, corroborations: 1, engagement_history: 1, published_at: 1, created_at: 1 },
+    );
+    const now = new Date();
+    const ops = docs.map((doc) => {
+      const fresh = storedCorroborations.get(doc._id.toString()) ?? [];
+      const allCorroborations = [...(doc.corroborations ?? []), ...fresh].slice(-10);
+      const sum = (key: 'points' | 'comments') => allCorroborations.reduce((acc, c) => acc + c[key], 0);
+      const augmentedEngagement = {
+        points: doc.engagement.points + sum('points'),
+        comments: doc.engagement.comments + sum('comments'),
+        stars_delta: doc.engagement.stars_delta,
+      };
+      const snapshot = { at: now, ...augmentedEngagement };
+      const history = [...(doc.engagement_history ?? []), snapshot].slice(-32);
+      const current_trend_score = computeCurrentTrendScore(
+        { engagement: augmentedEngagement, published_at: doc.published_at, created_at: doc.created_at, engagement_history: history },
+        now,
+      );
+      return {
+        updateOne: {
+          filter: { _id: doc._id },
+          update: { $set: { corroborations: allCorroborations, engagement_history: history, current_trend_score } },
+        },
+      };
+    });
+    if (ops.length > 0) await NewsItem.bulkWrite(ops, { ordered: false });
+  } catch (err) {
+    logger.error({ err: err instanceof Error ? err.message : err }, '[NewsIngestion] failed to apply corroborations');
+  }
+};
+
+/** Effective engagement = the item's own engagement plus every absorbed corroboration's counts. */
+const augmentedEngagement = (item: { raw_points: number; raw_comments: number; raw_stars_delta: number; corroborations?: CorroborationEvidence[] }) => {
+  const corro = item.corroborations ?? [];
+  return {
+    points: item.raw_points + corro.reduce((acc, c) => acc + c.points, 0),
+    comments: item.raw_comments + corro.reduce((acc, c) => acc + c.comments, 0),
+    stars_delta: item.raw_stars_delta,
+  };
 };
 
 export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<IngestionSummary> => {
@@ -204,6 +347,7 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
   let relevantCounts: Record<string, number> | undefined;
   let contentFetchedCounts: Record<string, number> | undefined;
   let contentFailedCounts: Record<string, number> | undefined;
+  let adjudicationCounts: IAdjudicationCounts | undefined;
   let totalStored = 0;
 
   try {
@@ -223,16 +367,31 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
     const unique = await dedupeAgainstStored(fresh);
     uniqueCounts = countBySource(unique);
 
-    // Layer 2b: Semantic Dedup (cross-source, same story under different URLs)
+    // Layer 2b: Two-band Semantic Dedup + gray-band LLM adjudication (D2). Hard duplicates and
+    // judged duplicates are dropped (their engagement absorbed as corroboration); material updates
+    // and distinct stories survive. `deduped` is the final survivor set — `dedupedCounts` counts it
+    // so the per-source `semantic_deduped = afterUnique - afterDeduped` invariant still holds.
     const embedded = await embedItems(unique);
 
     const dedupCutoff = new Date(Date.now() - config.news_ingestion.max_age_hours * 60 * 60 * 1000);
     const recentPool = await fetchRecentEmbeddings(dedupCutoff);
-    const deduped = dedupeSemantic(embedded, recentPool, config.news_ingestion.semantic_dedup_threshold);
+    const routing = dedupeSemantic(
+      embedded,
+      recentPool,
+      config.news_ingestion.semantic_dedup_threshold,
+      config.news_ingestion.hard_dup_threshold,
+    );
+    const adjudication = await applyAdjudication(routing, config.news_ingestion.adjudication_max_batches);
+    adjudicationCounts = adjudication.counts;
+    const deduped = adjudication.survivors;
     dedupedCounts = countBySource(deduped);
+    await applyStoredCorroborations(adjudication.storedCorroborations);
     logger.info(
-      `[NewsIngestion] semantic dedup: ${embedded.length} candidates -> ${deduped.length} survived ` +
-        `(${embedded.length - deduped.length} dropped, recent pool size ${recentPool.length})`,
+      `[NewsIngestion] two-band dedup: ${embedded.length} candidates -> ${deduped.length} survived ` +
+        `(${routing.hardStoredDrops.length} hard-dup, ${adjudication.counts.gray_pairs} gray pairs: ` +
+        `${adjudication.counts.verdict_duplicate} dup / ${adjudication.counts.verdict_update} update / ` +
+        `${adjudication.counts.verdict_distinct} distinct, ${adjudication.counts.fallbacks} fallback, ` +
+        `recent pool size ${recentPool.length})`,
     );
 
     // Layer 3: Relevance & Trend Scoring
@@ -276,7 +435,10 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
     const finalized: ScoredCategorizedNewsItem[] = categorized.map((item) => ({
       ...item,
       opportunity_score: computeOpportunityScore(item.relevance_score, item.trend_score, item.audience_fit, config.news_ingestion),
-      needs_review: item.category_confidence < config.news_ingestion.category_confidence_threshold,
+      // Low category confidence OR an adjudication fallback/low-confidence keep both flag review.
+      needs_review:
+        item.category_confidence < config.news_ingestion.category_confidence_threshold ||
+        item.needs_review_adjudication === true,
     }));
 
     const ingestedAt = new Date();
@@ -298,10 +460,13 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
         comments: item.raw_comments,
         stars_delta: item.raw_stars_delta,
       },
+      // Absorbed duplicate evidence (D2) — provenance plus a score boost via augmented engagement.
+      ...(item.corroborations && item.corroborations.length > 0 ? { corroborations: item.corroborations } : {}),
       trend_score: item.trend_score,
+      // Corroboration-augmented so a multi-community story ingests already stronger, not duplicated.
       current_trend_score: computeCurrentTrendScore(
         {
-          engagement: { points: item.raw_points, comments: item.raw_comments, stars_delta: item.raw_stars_delta },
+          engagement: augmentedEngagement(item),
           published_at: item.published_at,
           created_at: ingestedAt,
         },
@@ -345,6 +510,7 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       contentFetchedCounts,
       contentFailedCounts,
       errorsBySource,
+      adjudication: adjudicationCounts,
       totalStored,
     });
 
@@ -363,6 +529,7 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       contentFetchedCounts,
       contentFailedCounts,
       errorsBySource,
+      adjudication: adjudicationCounts,
       totalStored,
       topLevelError: message,
     });

@@ -28,6 +28,8 @@ export interface INewsItem {
   created_at: Date;
   engagement_history?: { at: Date; points: number; comments: number; stars_delta: number }[];
   engagement_refreshed_at?: Date;
+  /** Engagement evidence from duplicates dropped in favor of this item (D2), capped at 10. */
+  corroborations?: { source: string; points: number; comments: number; url: string; at: Date }[];
   source_removed: boolean;
   lifecycle: 'active' | 'archived';
   archived_at?: Date;

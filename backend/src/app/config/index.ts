@@ -77,6 +77,11 @@ const envSchema = z.object({
   NEWS_CONTENT_FETCH_CONCURRENCY: z.string().default('3'),
   NEWS_INGESTION_MIN_RELEVANCE: z.string().default('4.0'),
   NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD: z.string().default('0.88'),
+  // Two-band dedup (D2): at/above this ceiling a candidate is a hard duplicate dropped without an
+  // LLM call; between the semantic threshold and this ceiling it is adjudicated by the LLM judge.
+  // Calibrated — re-run the D1 harness (`npm run verify:dedup-calibrate`) before changing.
+  NEWS_INGESTION_HARD_DUP_THRESHOLD: z.string().default('0.9443'),
+  NEWS_INGESTION_ADJUDICATION_MAX_BATCHES: z.string().default('5'),
   NEWS_INGESTION_CRON: z.string().default('0 */3 * * *'),
   REDDIT_SUBREDDITS: z.string().default('programming,technology,artificial'),
   // Reddit blocks unauthenticated scripted access with HTTP 403 — these are optional so the
@@ -187,6 +192,30 @@ const envSchema = z.object({
       message: `NEWS_ARCHIVE_TREND_FLOOR must be in [0, 10] (got ${trendFloor})`,
     });
   }
+
+  const semanticThreshold = Number(data.NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD);
+  const hardDupThreshold = Number(data.NEWS_INGESTION_HARD_DUP_THRESHOLD);
+  if (!(semanticThreshold > 0 && semanticThreshold <= 1)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD'],
+      message: `NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD must be in (0, 1] (got ${semanticThreshold})`,
+    });
+  }
+  if (!(hardDupThreshold > 0 && hardDupThreshold <= 1)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEWS_INGESTION_HARD_DUP_THRESHOLD'],
+      message: `NEWS_INGESTION_HARD_DUP_THRESHOLD must be in (0, 1] (got ${hardDupThreshold})`,
+    });
+  }
+  if (hardDupThreshold <= semanticThreshold) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEWS_INGESTION_HARD_DUP_THRESHOLD'],
+      message: `NEWS_INGESTION_HARD_DUP_THRESHOLD (${hardDupThreshold}) must be greater than NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD (${semanticThreshold})`,
+    });
+  }
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -280,6 +309,8 @@ export default {
     },
     min_relevance: Number(env.NEWS_INGESTION_MIN_RELEVANCE),
     semantic_dedup_threshold: Number(env.NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD),
+    hard_dup_threshold: Number(env.NEWS_INGESTION_HARD_DUP_THRESHOLD),
+    adjudication_max_batches: Number(env.NEWS_INGESTION_ADJUDICATION_MAX_BATCHES),
     cron: env.NEWS_INGESTION_CRON,
     reddit_subreddits: env.REDDIT_SUBREDDITS.split(',')
       .map((sub) => sub.trim())

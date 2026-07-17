@@ -1,5 +1,17 @@
 import { Schema, model } from 'mongoose';
-import { IIngestionRun, ISourceRunCount } from './ingestionRun.interface';
+import { IAdjudicationCounts, IIngestionRun, ISourceRunCount } from './ingestionRun.interface';
+
+const adjudicationCountsSchema = new Schema<IAdjudicationCounts>(
+  {
+    gray_pairs: { type: Number, required: true, default: 0 },
+    batches: { type: Number, required: true, default: 0 },
+    verdict_duplicate: { type: Number, required: true, default: 0 },
+    verdict_update: { type: Number, required: true, default: 0 },
+    verdict_distinct: { type: Number, required: true, default: 0 },
+    fallbacks: { type: Number, required: true, default: 0 },
+  },
+  { _id: false },
+);
 
 const sourceRunCountSchema = new Schema<ISourceRunCount>(
   {
@@ -24,6 +36,7 @@ const ingestionRunSchema = new Schema<IIngestionRun>({
   trigger: { type: String, enum: ['cron', 'manual'], required: true },
   total_stored: { type: Number, required: true, default: 0 },
   sources: { type: [sourceRunCountSchema], required: true, default: [] },
+  adjudication: { type: adjudicationCountsSchema },
   error: { type: String },
 });
 

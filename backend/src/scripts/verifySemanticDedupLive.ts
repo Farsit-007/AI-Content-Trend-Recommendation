@@ -1,11 +1,10 @@
 import dns from 'dns';
-import mongoose from 'mongoose';
 import config from '../app/config';
 
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 import { embed, embedBatch } from '../app/lib/embeddings';
 import { LLM_MODELS, chatCompletion } from '../app/lib/llmClient';
-import { EmbeddedNewsItem, dedupeSemantic, fetchRecentEmbeddings } from '../app/modules/NewsIngestion/newsIngestion.utils';
+import { EmbeddedNewsItem, dedupeSemantic } from '../app/modules/NewsIngestion/newsIngestion.utils';
 import { ADJUDICATION_SYSTEM_PROMPT, CALIBRATION_PAIRS, CalibrationPair, PairLabel } from './dedupCalibrationPairs';
 
 const CEILING_MARGIN = 0.005;
@@ -233,54 +232,57 @@ async function runDefault(): Promise<number> {
     candidates.map(async (item) => ({ ...item, embedding: await embed(`${item.title} ${item.snippet}`.trim()) })),
   );
 
-  console.log(
-    `Cosine similarity — GPT-5.5 (HN) vs GPT-5.5 (Dev.to): ${cosine(embedded[0].embedding, embedded[1].embedding).toFixed(4)}`,
-  );
+  const gptSim = cosine(embedded[0].embedding, embedded[1].embedding);
+  console.log(`Cosine similarity — GPT-5.5 (HN) vs GPT-5.5 (Dev.to): ${gptSim.toFixed(4)}`);
   console.log(
     `Cosine similarity — GPT-5.5 (HN) vs dotfiles CLI (unrelated): ${cosine(embedded[0].embedding, embedded[2].embedding).toFixed(4)}`,
   );
 
-  const cutoff = new Date(Date.now() - config.news_ingestion.max_age_hours * 60 * 60 * 1000);
-  const recentPool = await fetchRecentEmbeddings(cutoff);
-  console.log(`Recently-stored pool size (real NewsItem docs, last ${config.news_ingestion.max_age_hours}h): ${recentPool.length}`);
+  const floor = config.news_ingestion.semantic_dedup_threshold;
+  const ceiling = config.news_ingestion.hard_dup_threshold;
+  console.log(`Bands: floor ${floor}, ceiling ${ceiling}`);
 
-  const threshold = config.news_ingestion.semantic_dedup_threshold;
-  console.log(`Threshold: ${threshold}`);
+  // Route against an EMPTY pool so the regression is deterministic and needs neither DB nor LLM —
+  // the cross-source near-duplicate is an in-run property. Under two-band dedup the ~0.899 GPT pair
+  // lands in the GRAY band (adjudication territory) rather than auto-collapsing; the live full-run
+  // (verify §5.3) covers the LLM-judged collapse + corroboration.
+  const routing = dedupeSemantic(embedded, [], floor, ceiling);
+  const acceptedIds = new Set(routing.accepted.map((s) => s.source_id));
+  console.log(
+    `\n3 candidates in -> accepted ${routing.accepted.length}, gray pairs ${routing.grayPairs.length}, ` +
+      `hard-dup drops ${routing.hardStoredDrops.length}`,
+  );
+  routing.accepted.forEach((s) => console.log(`  accepted: ${s.source_id} "${s.title}"`));
+  routing.grayPairs.forEach((g) => console.log(`  gray: ${g.candidate.source_id} (sim ${g.similarity.toFixed(4)})`));
 
-  const survivors = dedupeSemantic(embedded, recentPool, threshold);
-  console.log(`\n3 candidates in -> ${survivors.length} survived semantic dedup:`);
-  survivors.forEach((s) => console.log(`  - ${s.source_id}: "${s.title}"`));
-
-  const survivedIds = new Set(survivors.map((s) => s.source_id));
-  const gptDuplicateCollapsed = survivedIds.has('a-hn') !== survivedIds.has('b-devto');
-  const higherEngagementKept = survivedIds.has('b-devto') && !survivedIds.has('a-hn');
-  const distinctSurvived = survivedIds.has('c-reddit');
+  // The ~0.899 GPT pair is expected to sit in [floor, ceiling): b-devto becomes the one gray pair
+  // against the a-hn anchor. If calibration ever drifts it out of the band, this fails loudly.
+  const gptRoutedGray =
+    gptSim >= floor &&
+    gptSim < ceiling &&
+    routing.grayPairs.length === 1 &&
+    routing.grayPairs[0].candidate.source_id === 'b-devto';
+  const distinctAccepted = acceptedIds.has('c-reddit');
+  const firstGptAccepted = acceptedIds.has('a-hn');
 
   console.log('\n--- Results ---');
-  console.log(`[5.1] Near-duplicate pair (HN "a", Dev.to "b") collapsed to one: ${gptDuplicateCollapsed ? 'PASS' : 'FAIL'}`);
-  console.log(`      Higher-engagement one (Dev.to, 300 points) kept over HN (50 points): ${higherEngagementKept ? 'PASS' : 'FAIL'}`);
-  console.log(`[5.2] Distinct unrelated item (dotfiles CLI) survived untouched: ${distinctSurvived ? 'PASS' : 'FAIL'}`);
+  console.log(`[route] Near-duplicate GPT pair routed to the gray band (not auto-dropped): ${gptRoutedGray ? 'PASS' : 'FAIL'}`);
+  console.log(`[route] First GPT item accepted as the in-run anchor: ${firstGptAccepted ? 'PASS' : 'FAIL'}`);
+  console.log(`[route] Distinct unrelated item (dotfiles CLI) accepted untouched: ${distinctAccepted ? 'PASS' : 'FAIL'}`);
 
-  return gptDuplicateCollapsed && higherEngagementKept && distinctSurvived ? 0 : 1;
+  return gptRoutedGray && firstGptAccepted && distinctAccepted ? 0 : 1;
 }
 
 async function main() {
   const args = process.argv.slice(2);
   const mode = args.includes('--calibrate') ? 'calibrate' : args.includes('--judge') ? 'judge' : 'default';
 
-  // calibrate/judge work in memory against the embedding/LLM APIs only; default needs the DB pool.
-  if (mode === 'default') {
-    await mongoose.connect(config.database_url as string);
-  }
-
+  // All three modes work in memory against the embedding/LLM APIs only — no DB connection needed
+  // (default mode now routes against an empty in-memory pool for determinism).
   let exitCode: number;
-  try {
-    if (mode === 'calibrate') exitCode = await runCalibrate();
-    else if (mode === 'judge') exitCode = await runJudge();
-    else exitCode = await runDefault();
-  } finally {
-    if (mode === 'default') await mongoose.disconnect();
-  }
+  if (mode === 'calibrate') exitCode = await runCalibrate();
+  else if (mode === 'judge') exitCode = await runJudge();
+  else exitCode = await runDefault();
 
   process.exit(exitCode);
 }
