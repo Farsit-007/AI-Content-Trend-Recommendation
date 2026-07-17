@@ -90,6 +90,22 @@ describe('fetchHackerNews', () => {
     expect(items[0].snippet).toBe('Ask HN: why?');
   });
 
+  it('also maps the stripped story_text into content for text posts', async () => {
+    mockFetchSequence(jsonResponse([hit({ story_text: '<p>Ask HN: <b>why?</b></p>' })]), jsonResponse([]));
+
+    const items = await fetchHackerNews();
+
+    expect(items[0].content).toBe('Ask HN: why?');
+  });
+
+  it('leaves content undefined for link posts with no story_text', async () => {
+    mockFetchSequence(jsonResponse([hit({ story_text: undefined })]), jsonResponse([]));
+
+    const items = await fetchHackerNews();
+
+    expect(items[0].content).toBeUndefined();
+  });
+
   describe('content_hash compatibility with the previous Firebase adapter', () => {
     /** Reproduces the old Firebase adapter's URL-derivation rule exactly, for comparison. */
     const oldAdapterUrl = (item: { url?: string; id: number }) =>

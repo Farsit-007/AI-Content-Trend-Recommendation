@@ -45,16 +45,6 @@ export const logos = [
   'Initech',
 ];
 
-/** Channels/sources Growth Studio pulls trends from and publishes to. */
-export const integrations = [
-  'LinkedIn',
-  'X',
-  'Instagram',
-  'YouTube',
-  'TikTok',
-  'Reddit',
-];
-
 export interface Testimonial {
   name: string;
   role: string;

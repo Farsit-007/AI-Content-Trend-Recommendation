@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/context/auth-context";
+import { useLogin } from "@/hooks/useAuthMutations";
 import { ApiError } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,9 +34,9 @@ const loginSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>;
 
 export default function Login() {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
-  const [submitting, setSubmitting] = useState(false);
+  const loginMutation = useLogin();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -49,9 +49,8 @@ export default function Login() {
   }
 
   async function onSubmit(values: LoginValues) {
-    setSubmitting(true);
     try {
-      await login(values.email, values.password);
+      await loginMutation.mutateAsync(values);
       navigate("/dashboard", { replace: true });
     } catch (err) {
       const message =
@@ -59,8 +58,6 @@ export default function Login() {
           ? err.message
           : "Something went wrong. Try again.";
       toast.error(message);
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -115,11 +112,19 @@ export default function Login() {
               <Button
                 type="submit"
                 className="mt-2 w-full"
-                disabled={submitting}
+                disabled={loginMutation.isPending}
               >
-                {submitting && <Loader2 className="size-4 animate-spin" />}
+                {loginMutation.isPending && (
+                  <Loader2 className="size-4 animate-spin" />
+                )}
                 Sign in
               </Button>
+              <Link
+                to="/forgot-password"
+                className="text-muted-foreground hover:text-foreground text-center text-sm"
+              >
+                Forgot password?
+              </Link>
             </form>
           </Form>
         </CardContent>

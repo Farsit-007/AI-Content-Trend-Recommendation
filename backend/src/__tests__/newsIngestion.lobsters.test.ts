@@ -69,6 +69,26 @@ describe('fetchLobsters', () => {
     expect(items[0].snippet).toBe('ai web');
   });
 
+  it('stores the full uncapped description as content while snippet stays capped at 500 characters', async () => {
+    const longDescription = `<p>${'y'.repeat(600)}</p>`;
+    const fetchMock = jest.fn(async () => jsonResponse([story({ description: longDescription })]));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchLobsters();
+
+    expect(items[0].snippet).toHaveLength(500);
+    expect(items[0].content).toHaveLength(600);
+  });
+
+  it('leaves content undefined when there is no description', async () => {
+    const fetchMock = jest.fn(async () => jsonResponse([story({ description: undefined, tags: ['ai'] })]));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchLobsters();
+
+    expect(items[0].content).toBeUndefined();
+  });
+
   it('throws when the hottest endpoint returns a non-OK status', async () => {
     const fetchMock = jest.fn(async () => failedResponse(500));
     global.fetch = fetchMock as unknown as typeof fetch;

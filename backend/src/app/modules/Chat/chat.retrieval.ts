@@ -12,6 +12,7 @@ const HISTORY_LIMIT = 10;
 export interface NewsCandidate {
   title: string;
   snippet?: string;
+  content?: string;
   category?: string;
   impact_note?: string;
   trend_score: number;
@@ -48,6 +49,7 @@ export const rankNewsItems = (
         `Title: ${item.title}`,
         item.category ? `Category: ${item.category}` : undefined,
         item.snippet ? `Snippet: ${item.snippet}` : undefined,
+        item.content ? `Content: ${item.content.slice(0, 300)}` : undefined,
         item.impact_note ? `Impact: ${item.impact_note}` : undefined,
         `Trend score: ${item.trend_score}${item.opportunity_score !== undefined ? `, Opportunity score: ${item.opportunity_score}` : ''}`,
       ]
@@ -60,17 +62,8 @@ export const fetchNewsContext = async (
   questionEmbedding: number[],
 ): Promise<ChatContextItem[]> => {
   const items = await NewsItem.find(
-    { lifecycle: { $ne: 'archived' } },
-    {
-      title: 1,
-      snippet: 1,
-      category: 1,
-      impact_note: 1,
-      trend_score: 1,
-      current_trend_score: 1,
-      opportunity_score: 1,
-      embedding: 1,
-    },
+    {},
+    { title: 1, snippet: 1, content: 1, category: 1, impact_note: 1, trend_score: 1, opportunity_score: 1, embedding: 1 },
   )
     .sort({ current_trend_score: -1 })
     .limit(NEWS_TREND_POOL_SIZE);

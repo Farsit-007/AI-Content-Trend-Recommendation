@@ -66,6 +66,28 @@ describe('fetchStackOverflow', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('requests the question body via filter=withbody and maps it into content, leaving snippet as the tag list', async () => {
+    const fetchMock = jest.fn(async (url: string) => {
+      expect(url).toContain('filter=withbody');
+      return questionsResponse([question({ body: '<p>Because <code>useEffect</code> needs a dependency array.</p>' })]);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchStackOverflow();
+
+    expect(items[0].content).toBe('Because useEffect needs a dependency array.');
+    expect(items[0].snippet).toBe('javascript, react, hooks');
+  });
+
+  it('leaves content undefined when the response has no body field', async () => {
+    const fetchMock = jest.fn(async () => questionsResponse([question()]));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchStackOverflow();
+
+    expect(items[0].content).toBeUndefined();
+  });
+
   it('appends the key parameter when STACKEXCHANGE_KEY is configured', async () => {
     config.news_ingestion.stackexchange_key = 'test-key';
     const fetchMock = jest.fn(async (url: string) => {

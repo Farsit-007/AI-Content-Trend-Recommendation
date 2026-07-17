@@ -5,6 +5,7 @@ import { ISourceRunCount } from '../IngestionRun/ingestionRun.interface';
 import { IngestionRun } from '../IngestionRun/ingestionRun.model';
 import { runAllAdapters } from './adapters';
 import { categorizeBatch } from './newsIngestion.categorize';
+import { enrichContent } from './newsIngestion.contentFetch';
 import {
   CategorizedNewsItem,
   IngestionSummary,
@@ -28,6 +29,27 @@ import {
   fetchRecentEmbeddings,
   filterFresh,
 } from './newsIngestion.utils';
+
+interface ContentMeta {
+  content?: string;
+  content_status: 'none' | 'partial' | 'full';
+  word_count?: number;
+  content_fetched_at?: Date;
+}
+
+/** Caps raw adapter-provided content once, centrally, so every source's truncation/status logic is identical. */
+export const withContentMeta = (content: string | undefined, maxChars: number): ContentMeta => {
+  if (!content) return { content_status: 'none' };
+
+  const capped = content.length > maxChars;
+  const text = capped ? content.slice(0, maxChars) : content;
+  return {
+    content: text,
+    content_status: capped ? 'partial' : 'full',
+    word_count: text.split(/\s+/).filter(Boolean).length,
+    content_fetched_at: new Date(),
+  };
+};
 
 const countBySource = (items: { source: string }[]): Record<string, number> => {
   const counts: Record<string, number> = {};
@@ -93,6 +115,8 @@ export const buildSourceRunCounts = (
   dedupedCounts: Record<string, number> | undefined,
   relevantCounts: Record<string, number> | undefined,
   errorsBySource: Record<string, string>,
+  contentFetchedCounts?: Record<string, number>,
+  contentFailedCounts?: Record<string, number>,
 ): ISourceRunCount[] => {
   const sources = unionSourceKeys(adapterSources, Object.keys(fetchedCounts));
   return sources.map((source) => {
@@ -114,6 +138,8 @@ export const buildSourceRunCounts = (
       // that the pipeline never got to.
       stored: relevantCounts ? afterRelevant : 0,
       error: errorsBySource[source],
+      content_fetched: contentFetchedCounts?.[source],
+      content_failed: contentFailedCounts?.[source],
     };
   });
 };
@@ -127,6 +153,8 @@ interface RunCountState {
   uniqueCounts: Record<string, number> | undefined;
   dedupedCounts: Record<string, number> | undefined;
   relevantCounts: Record<string, number> | undefined;
+  contentFetchedCounts: Record<string, number> | undefined;
+  contentFailedCounts: Record<string, number> | undefined;
   errorsBySource: Record<string, string>;
   totalStored: number;
   topLevelError?: string;
@@ -148,6 +176,8 @@ const persistRun = async (state: RunCountState): Promise<void> => {
       state.dedupedCounts,
       state.relevantCounts,
       state.errorsBySource,
+      state.contentFetchedCounts,
+      state.contentFailedCounts,
     );
     await IngestionRun.create({
       started_at: state.started_at,
@@ -172,6 +202,8 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
   let uniqueCounts: Record<string, number> | undefined;
   let dedupedCounts: Record<string, number> | undefined;
   let relevantCounts: Record<string, number> | undefined;
+  let contentFetchedCounts: Record<string, number> | undefined;
+  let contentFailedCounts: Record<string, number> | undefined;
   let totalStored = 0;
 
   try {
@@ -218,8 +250,29 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
         : scored.filter((item) => (item.relevance_score ?? 0) >= config.news_ingestion.min_relevance);
     relevantCounts = countBySource(relevant);
 
+    // Layer 3b: Content Enrichment (link-only items still missing `content` after adapter-level
+    // capture — see news-full-content-sources). Only survivors of relevance filtering are fetched.
+    let enrichedRelevant: ScoredNewsItem[] = relevant;
+    if (config.news_ingestion.content_fetch.enabled) {
+      try {
+        const enrichment = await enrichContent(relevant);
+        enrichedRelevant = enrichment.items;
+        contentFetchedCounts = {};
+        contentFailedCounts = {};
+        for (const [source, counts] of Object.entries(enrichment.countsBySource)) {
+          contentFetchedCounts[source] = counts.fetched;
+          contentFailedCounts[source] = counts.failed;
+        }
+      } catch (err) {
+        logger.error(
+          { err: err instanceof Error ? err.message : err },
+          '[NewsIngestion] content enrichment failed — proceeding with unenriched items',
+        );
+      }
+    }
+
     // Layer 4: Categorize & Score Opportunity
-    const categorized: CategorizedNewsItem[] = await categorizeBatch(relevant);
+    const categorized: CategorizedNewsItem[] = await categorizeBatch(enrichedRelevant);
     const finalized: ScoredCategorizedNewsItem[] = categorized.map((item) => ({
       ...item,
       opportunity_score: computeOpportunityScore(item.relevance_score, item.trend_score, item.audience_fit, config.news_ingestion),
@@ -234,6 +287,11 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       title: item.title,
       url: item.url,
       snippet: item.snippet,
+      // A 'failed' marker means enrichment tried and found nothing — withContentMeta would
+      // otherwise read the still-empty `content` as 'none' (never attempted), losing that signal.
+      ...(item.content_status === 'failed'
+        ? { content_status: 'failed' as const }
+        : withContentMeta(item.content, config.news_ingestion.content_max_chars)),
       published_at: item.published_at,
       engagement: {
         points: item.raw_points,
@@ -284,6 +342,8 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       uniqueCounts,
       dedupedCounts,
       relevantCounts,
+      contentFetchedCounts,
+      contentFailedCounts,
       errorsBySource,
       totalStored,
     });
@@ -300,6 +360,8 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       uniqueCounts,
       dedupedCounts,
       relevantCounts,
+      contentFetchedCounts,
+      contentFailedCounts,
       errorsBySource,
       totalStored,
       topLevelError: message,

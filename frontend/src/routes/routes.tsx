@@ -8,6 +8,8 @@ import { supperAdminPaths } from "./supperAdmin.routes";
 import Landing from "@/pages/Landing";
 import About from "@/pages/About";
 import Login from "@/pages/Login";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 
 // The dashboard registers the full (super-admin) route set; role-restricted
 // entries are guarded individually, and the sidebar shows only what the
@@ -29,6 +31,8 @@ export const router = createBrowserRouter([
         ],
       },
       { path: "/login", element: <Login /> },
+      { path: "/forgot-password", element: <ForgotPassword /> },
+      { path: "/reset-password", element: <ResetPassword /> },
       {
         element: <ProtectedRoute />,
         children: [

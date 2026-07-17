@@ -1,4 +1,4 @@
-import { buildSourceSummaries, unionSourceKeys } from '../app/modules/NewsIngestion/newsIngestion.service';
+import { buildSourceSummaries, unionSourceKeys, withContentMeta } from '../app/modules/NewsIngestion/newsIngestion.service';
 
 describe('unionSourceKeys', () => {
   it('keeps adapter names first, then appends item-only labels in order', () => {
@@ -37,5 +37,29 @@ describe('buildSourceSummaries', () => {
       discarded: 0,
       stored: 0,
     });
+  });
+});
+
+describe('withContentMeta', () => {
+  it('reports content_status: none and no content when nothing was provided', () => {
+    expect(withContentMeta(undefined, 20000)).toEqual({ content_status: 'none' });
+  });
+
+  it('reports content_status: full and a positive word_count for content under the cap', () => {
+    const meta = withContentMeta('a short piece of content', 20000);
+
+    expect(meta.content_status).toBe('full');
+    expect(meta.content).toBe('a short piece of content');
+    expect(meta.word_count).toBe(5);
+    expect(meta.content_fetched_at).toBeInstanceOf(Date);
+  });
+
+  it('caps oversized content and reports content_status: partial', () => {
+    const longContent = 'word '.repeat(10);
+    const meta = withContentMeta(longContent, 10);
+
+    expect(meta.content_status).toBe('partial');
+    expect(meta.content).toHaveLength(10);
+    expect(meta.content).toBe(longContent.slice(0, 10));
   });
 });

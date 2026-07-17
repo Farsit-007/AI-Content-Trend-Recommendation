@@ -62,7 +62,7 @@ function GenerateMockup() {
     <div className="glass-card rounded-2xl p-4">
       <div className="border-border flex items-center gap-2 border-b pb-3 text-sm font-medium">
         <Sparkles className="size-4 text-violet-500" />
-        Draft — LinkedIn post
+        Draft — Social post
       </div>
       <div className="mt-3 space-y-2 text-sm">
         <p className="text-foreground/90">

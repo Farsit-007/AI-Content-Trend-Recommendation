@@ -5,6 +5,10 @@ export interface INewsItem {
   title: string;
   url: string;
   snippet?: string;
+  content?: string;
+  content_status: 'none' | 'partial' | 'full' | 'failed';
+  content_fetched_at?: Date;
+  word_count?: number;
   published_at?: Date;
   engagement: {
     points: number;

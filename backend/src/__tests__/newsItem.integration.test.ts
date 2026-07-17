@@ -38,6 +38,38 @@ describe('GET /api/v1/news-items', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.title).toBe(item.title);
   });
+
+  it('omits embedding and content from list responses', async () => {
+    await createNewsItemDoc({ content: 'A full article body.', content_status: 'full', word_count: 5 });
+
+    const res = await request(app).get('/api/v1/news-items');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0]).not.toHaveProperty('embedding');
+    expect(res.body.data[0]).not.toHaveProperty('content');
+    expect(res.body.data[0]).toHaveProperty('content_status', 'full');
+    expect(res.body.data[0]).toHaveProperty('word_count', 5);
+  });
+
+  it('includes content but omits embedding from the detail response', async () => {
+    const item = await createNewsItemDoc({ content: 'A full article body.', content_status: 'full' });
+
+    const res = await request(app).get(`/api/v1/news-items/${item._id}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).not.toHaveProperty('embedding');
+    expect(res.body.data.content).toBe('A full article body.');
+  });
+
+  it('omits embedding from the detail response even when content_status is none', async () => {
+    const item = await createNewsItemDoc();
+
+    const res = await request(app).get(`/api/v1/news-items/${item._id}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).not.toHaveProperty('embedding');
+    expect(res.body.data.content_status).toBe('none');
+  });
 });
 
 describe('News item create/update/delete', () => {

@@ -4,6 +4,9 @@ export interface RawNewsItem {
   title: string;
   url: string;
   snippet?: string;
+  content?: string;
+  /** Set to 'failed' by content enrichment when a fetch/extraction attempt found nothing usable — distinct from simply never having been attempted. */
+  content_status?: 'failed';
   published_at?: Date;
   raw_points: number;
   raw_comments: number;

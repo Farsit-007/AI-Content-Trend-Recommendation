@@ -24,7 +24,10 @@ describe('rss-parser construction', () => {
       require('../app/modules/NewsIngestion/adapters/rss');
     });
 
-    expect(ParserMock!).toHaveBeenCalledWith({ timeout: 10_000 });
+    expect(ParserMock!).toHaveBeenCalledWith({
+      timeout: 10_000,
+      customFields: { item: [['content:encoded', 'contentEncoded']] },
+    });
   });
 });
 
@@ -59,5 +62,34 @@ describe('fetchRss', () => {
 
     expect(items).toHaveLength(1);
     expect(items[0].source).toBe('rss:medium.com');
+  });
+
+  it('maps a stripped content:encoded body into content when present', async () => {
+    mockParseURL.mockResolvedValue({
+      items: [
+        {
+          title: 'Full article',
+          link: 'https://medium.com/@author/full-article',
+          guid: 'guid-2',
+          contentSnippet: 'A short summary.',
+          contentEncoded: '<p>The <b>full</b> article body.</p>',
+        },
+      ],
+    });
+
+    const items = await fetchRss();
+
+    expect(items[0].snippet).toBe('A short summary.');
+    expect(items[0].content).toBe('The full article body.');
+  });
+
+  it('leaves content undefined when the feed item has no content:encoded field', async () => {
+    mockParseURL.mockResolvedValue({
+      items: [{ title: 'Summary only', link: 'https://medium.com/@author/summary-only', guid: 'guid-3', contentSnippet: 'A summary.' }],
+    });
+
+    const items = await fetchRss();
+
+    expect(items[0].content).toBeUndefined();
   });
 });

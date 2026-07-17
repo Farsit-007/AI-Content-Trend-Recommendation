@@ -1,9 +1,10 @@
 import config from '../../../config';
 import { logger } from '../../../lib/logger';
 import { RawNewsItem } from '../newsIngestion.interface';
-import { decodeEntities } from './htmlText';
+import { decodeEntities, stripHtml } from './htmlText';
 
-const BASE_URL = 'https://api.stackexchange.com/2.3/questions?order=desc&sort=hot&site=stackoverflow&pagesize=25';
+const BASE_URL =
+  'https://api.stackexchange.com/2.3/questions?order=desc&sort=hot&site=stackoverflow&pagesize=25&filter=withbody';
 
 interface StackExchangeQuestion {
   question_id: number;
@@ -13,6 +14,7 @@ interface StackExchangeQuestion {
   creation_date: number;
   score: number;
   answer_count: number;
+  body?: string;
 }
 
 interface StackExchangeResponse {
@@ -45,6 +47,7 @@ export const fetchStackOverflow = async (): Promise<RawNewsItem[]> => {
     title: decodeEntities(question.title),
     url: question.link,
     snippet: question.tags.join(', '),
+    content: question.body ? decodeEntities(stripHtml(question.body)) : undefined,
     published_at: new Date(question.creation_date * 1000),
     raw_points: question.score,
     raw_comments: question.answer_count,
