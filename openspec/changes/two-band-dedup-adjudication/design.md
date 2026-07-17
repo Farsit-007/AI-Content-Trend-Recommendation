@@ -39,7 +39,7 @@ The batch-LLM discipline to copy is `categorizeBatch` (`newsIngestion.categorize
 
 **6. Missing `published_at` (GH scrape items):** sort last (treated as newest); they're absent from the recent pool (existing behavior), so they can only gray-match in-run — acceptable.
 
-**7. Corroboration-augmented score recompute reuses R2.** Effective engagement = stored `engagement` + Σ`corroborations` (points/comments/stars respectively), fed to `computeCurrentTrendScore(item, now)` as the latest snapshot. Never re-derive decay/velocity here — one formula, owned by R2.
+**7. Corroboration-augmented score recompute reuses R2.** Effective engagement = stored `engagement` + Σ`corroborations` (points/comments respectively; stars stay the item's own), fed to `computeCurrentTrendScore(item, now)` as the latest snapshot. Never re-derive decay/velocity here — one formula, owned by R2. **Corroborations are deduped by URL** (keeping the freshest evidence): a cross-post that is a perpetual hard-duplicate is never *stored* (its hash never enters `news_items`), so it re-corroborates its match on every run — appending would stack the same source's engagement and inflate the score unboundedly. Keying by URL makes corroboration idempotent across runs (verified live: a repeat run refreshes the entry rather than adding a second). Cap 10 entries after dedup.
 
 **8. Counters are run-level, not per-source.** A gray pair spans two sources; per-source attribution is arbitrary. `semantic_deduped` per source keeps its existing derivation and now includes both hard-dup drops and `duplicate`-verdict drops — the layer-count invariant (`fetched = drops + stored`) holds because survivors are exactly `deduped`.
 

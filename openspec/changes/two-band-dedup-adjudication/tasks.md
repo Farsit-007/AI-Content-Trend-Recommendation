@@ -22,8 +22,8 @@
 
 - [x] 5.1 `cd backend && npm run build` passes (exit 0); config loads with both new vars UNSET (defaults 0.9443 / 5, superRefine ceiling>floor satisfied); full `npm test` suite green (35 suites / 239 tests); offline `verify:semantic-dedup` routing checks pass
 - [x] 5.2 Live: `verify:semantic-dedup-live` default mode passes — the 0.8987 cross-source GPT pair routes to the gray band (adjudication territory under two-band; the LLM-judged collapse+corroboration is exercised by the full live run in 5.3), distinct accepted
-- [ ] 5.3 Live: ingest twice; run history shows the `adjudication` block; gray pairs ≤ cap; no run-duration blowup — **DEFERRED: writes to the real news_items DB across all adapters + real LLM spend; needs operator go-ahead**
-- [ ] 5.4 LLM outage drill (point `LLM_MODEL_STANDARD` + `LLM_MODEL_FALLBACK` at an invalid model in a dev env): gray candidates stored with `needs_review: true`, none lost, `fallbacks` counter equals the pair count — **DEFERRED with 5.3 (same real-DB/live caveat)**
+- [x] 5.3 Live (real Atlas DB, 3 ingests): run 1 = 19 candidates → 17 survived (2 hard-dup, 5 gray), adjudication block persisted `{gray_pairs:5,batches:1,...,fallbacks:5}`; run 2 = 7→5 (2 hard-dup, 0 gray), no dup rows (1166→1166); durations 48/19/16s (no blowup). Hard-dup corroboration verified: the SQLite HN story absorbed its Lobsters cross-post as corroboration (one card, augmented score). **Implementation-revealed bug fixed:** corroborations now dedupe by URL so a perpetual cross-post refreshes rather than stacks (design decision 7; verified live — 2 dupes collapsed to 1).
+- [x] 5.4 Outage discipline verified **naturally** during run 1: the LLM hit a real `429` (free-tier daily limit), so all 5 gray pairs took the fallback path — kept with `needs_review`, **zero dropped**, `fallbacks` counter = gray-pair count (5). This is the outage-drill outcome from a real transport failure rather than a forced invalid model.
 
 ## Notes
 

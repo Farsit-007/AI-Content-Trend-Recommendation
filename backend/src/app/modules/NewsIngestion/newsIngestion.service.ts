@@ -300,7 +300,12 @@ const applyStoredCorroborations = async (storedCorroborations: Map<string, Corro
     const now = new Date();
     const ops = docs.map((doc) => {
       const fresh = storedCorroborations.get(doc._id.toString()) ?? [];
-      const allCorroborations = [...(doc.corroborations ?? []), ...fresh].slice(-10);
+      // Dedupe by URL so a recurring cross-post (a perpetual hard-duplicate that is never stored,
+      // and thus re-corroborates its match every run) refreshes its evidence instead of stacking
+      // duplicates and inflating the augmented score unboundedly.
+      const byUrl = new Map<string, CorroborationEvidence>();
+      for (const ev of [...(doc.corroborations ?? []), ...fresh]) byUrl.set(ev.url, ev);
+      const allCorroborations = [...byUrl.values()].slice(-10);
       const sum = (key: 'points' | 'comments') => allCorroborations.reduce((acc, c) => acc + c[key], 0);
       const augmentedEngagement = {
         points: doc.engagement.points + sum('points'),
