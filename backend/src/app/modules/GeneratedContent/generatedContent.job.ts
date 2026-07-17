@@ -37,8 +37,8 @@ export const runAutoGeneration = async (teamId?: string): Promise<IAutoGeneratio
         continue;
       }
 
-      const topNews = await NewsItem.find()
-        .sort({ opportunity_score: -1, trend_score: -1 })
+      const topNews = await NewsItem.find({ lifecycle: { $ne: 'archived' } })
+        .sort({ opportunity_score: -1, current_trend_score: -1, trend_score: -1 })
         .limit(TOP_NEWS_PER_TEAM)
         .select('_id title category impact_note')
         .lean();

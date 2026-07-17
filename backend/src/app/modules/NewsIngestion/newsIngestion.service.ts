@@ -13,7 +13,13 @@ import {
   ScoredNewsItem,
   SourceSummary,
 } from './newsIngestion.interface';
-import { computeOpportunityScore, fetchBrandVoicePool, scoreRelevance, scoreTrend } from './newsIngestion.scoring';
+import {
+  computeCurrentTrendScore,
+  computeOpportunityScore,
+  fetchBrandVoicePool,
+  scoreRelevance,
+  scoreTrend,
+} from './newsIngestion.scoring';
 import {
   HashedNewsItem,
   attachContentHash,
@@ -273,6 +279,7 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       needs_review: item.category_confidence < config.news_ingestion.category_confidence_threshold,
     }));
 
+    const ingestedAt = new Date();
     const payloads = finalized.map((item) => ({
       source: item.source,
       source_id: item.source_id,
@@ -292,6 +299,14 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
         stars_delta: item.raw_stars_delta,
       },
       trend_score: item.trend_score,
+      current_trend_score: computeCurrentTrendScore(
+        {
+          engagement: { points: item.raw_points, comments: item.raw_comments, stars_delta: item.raw_stars_delta },
+          published_at: item.published_at,
+          created_at: ingestedAt,
+        },
+        ingestedAt,
+      ),
       category: item.category,
       relevance_score: item.relevance_score,
       impact_note: item.impact_note,

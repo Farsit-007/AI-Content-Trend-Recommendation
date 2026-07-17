@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { embedBatch } from '../../lib/embeddings';
+import { logger } from '../../lib/logger';
 import { cosineSimilarity } from '../../lib/similarity';
+import { NewsDedupLedger } from '../NewsDedupLedger/newsDedupLedger.model';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { RawNewsItem } from './newsIngestion.interface';
 
@@ -26,14 +28,33 @@ export const filterFresh = (items: HashedNewsItem[], maxAgeHours: number): Hashe
   return items.filter((item) => !item.published_at || item.published_at.getTime() >= cutoff);
 };
 
+/** Own try/catch so a ledger read failure never fails the ingestion run — dedup falls back to
+ * stored-item-only in that case (design.md decision 4: fail open on dedup, never on storage). */
+const fetchTombstonedHashes = async (hashes: string[]): Promise<Set<string>> => {
+  try {
+    const tombstoned = await NewsDedupLedger.find({ content_hash: { $in: hashes } }, { content_hash: 1 });
+    return new Set(tombstoned.map((doc) => doc.content_hash));
+  } catch (err) {
+    logger.error(
+      { err: err instanceof Error ? err.message : err },
+      '[NewsIngestion] dedup ledger lookup failed — proceeding with stored-item dedup only',
+    );
+    return new Set();
+  }
+};
+
 /**
- * Single batch query against already-stored hashes, plus an in-run Set so the
- * same URL surfacing from two different sources in one run only survives once.
+ * Batch queries against already-stored hashes and deleted-item tombstones, plus an in-run Set
+ * so the same URL surfacing from two different sources in one run only survives once.
  */
 export const dedupeAgainstStored = async (items: HashedNewsItem[]): Promise<HashedNewsItem[]> => {
   const hashes = items.map((item) => item.content_hash);
-  const existing = await NewsItem.find({ content_hash: { $in: hashes } }, { content_hash: 1 });
+  const [existing, tombstonedHashes] = await Promise.all([
+    NewsItem.find({ content_hash: { $in: hashes } }, { content_hash: 1 }),
+    fetchTombstonedHashes(hashes),
+  ]);
   const existingHashes = new Set(existing.map((doc) => doc.content_hash));
+  for (const hash of tombstonedHashes) existingHashes.add(hash);
 
   const seenInRun = new Set<string>();
   const unique: HashedNewsItem[] = [];
@@ -61,7 +82,7 @@ export const embedItems = async (items: HashedNewsItem[]): Promise<EmbeddedNewsI
 
 /** Single batch query per run, mirroring `fetchBrandVoicePool`'s pooling pattern. */
 export const fetchRecentEmbeddings = async (cutoff: Date): Promise<number[][]> => {
-  const recent = await NewsItem.find({ published_at: { $gte: cutoff } }, { embedding: 1 });
+  const recent = await NewsItem.find({ published_at: { $gte: cutoff }, lifecycle: { $ne: 'archived' } }, { embedding: 1 });
   return recent.map((doc) => doc.embedding);
 };
 

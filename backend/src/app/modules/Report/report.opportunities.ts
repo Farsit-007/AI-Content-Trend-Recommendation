@@ -38,10 +38,10 @@ export const computeAudienceMatch = (
 
 export const getTopOpportunities = async (teamId: string, limit = 5) => {
   const [recentNews, teamPosts] = await Promise.all([
-    NewsItem.find({ processed: true })
+    NewsItem.find({ processed: true, lifecycle: { $ne: 'archived' } })
       .sort({ created_at: -1 })
       .limit(50)
-      .select('title embedding trend_score opportunity_score category')
+      .select('title embedding trend_score current_trend_score opportunity_score category')
       .lean(),
     PlatformPost.find({ team_id: teamId })
       .select('embedding metrics')
@@ -61,7 +61,7 @@ export const getTopOpportunities = async (teamId: string, limit = 5) => {
       : null;
 
     const score = audienceMatchScore !== null
-      ? (item.trend_score ?? 0) * audienceMatchScore
+      ? (item.current_trend_score ?? item.trend_score ?? 0) * audienceMatchScore
       : item.opportunity_score ?? 0;
 
     const suggestion = PLATFORM_FORMAT_MAP[item.category ?? 'Other'] ?? PLATFORM_FORMAT_MAP['Other'];
