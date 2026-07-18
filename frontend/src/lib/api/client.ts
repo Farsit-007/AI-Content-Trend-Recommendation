@@ -7,7 +7,7 @@ import { clearToken, getToken, setToken } from './tokenStore';
 import { ApiError, type ApiEnvelope, type AuthTokens, type Meta } from './types';
 
 const baseURL =
-  import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api/v1';
+  import.meta.env.VITE_API_URL;
 
 /** Shared axios instance. `withCredentials` sends the httpOnly refresh cookie. */
 export const api = axios.create({
