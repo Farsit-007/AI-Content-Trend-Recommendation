@@ -4,7 +4,6 @@ import { AtSign, MessageCircle, Globe } from 'lucide-react';
 const productLinks = [
   { label: 'Trend Feed', to: '/dashboard/feed' },
   { label: 'Generate', to: '/dashboard/generate' },
-  { label: 'Reports', to: '/dashboard/report' },
   { label: 'Ask', to: '/dashboard/chat' },
 ];
 

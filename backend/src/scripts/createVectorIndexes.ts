@@ -15,7 +15,6 @@ interface VectorIndexSpec {
 const VECTOR_INDEXES: VectorIndexSpec[] = [
   { collection: 'news_items', indexName: 'news_items_vector_index' },
   { collection: 'brand_voice_examples', indexName: 'brand_voice_vector_index' },
-  { collection: 'platform_posts', indexName: 'platform_posts_vector_index' },
 ];
 
 const vectorSearchDefinition = {

@@ -1,35 +1,13 @@
-import config from '../../config';
 import QueryBuilder from '../../builder/QueryBuilder';
 import { embed } from '../../lib/embeddings';
-import { redis } from '../../lib/redis';
 import { IRequestUser } from '../User/user.interface';
 import { NewsItemCategoryOverrideService } from '../NewsItemCategoryOverride/newsItemCategoryOverride.service';
-import { PlatformPost } from '../PlatformPost/platformPost.model';
-import { computeAudienceMatch } from '../Report/report.opportunities';
+import { Team } from '../Team/team.model';
 import { INewsItem } from './newsItem.interface';
 import { NewsItem } from './newsItem.model';
 import { newsItemSearchableFields } from './newsItem.utils';
 
 const HIGH_OPPORTUNITY_THRESHOLD = 7.5;
-
-const loadTeamEmbeddings = async (
-  teamId: string,
-): Promise<{ embedding: number[]; engagement: number }[]> => {
-  const cacheKey = `team_embeddings:${teamId}`;
-  const cached = await redis.get(cacheKey);
-  if (cached) {
-    return JSON.parse(cached) as { embedding: number[]; engagement: number }[];
-  }
-
-  const posts = await PlatformPost.find({ team_id: teamId }).select('embedding metrics').lean();
-  const result = posts.map((p) => ({
-    embedding: p.embedding,
-    engagement: p.metrics.likes + p.metrics.comments + p.metrics.shares,
-  }));
-
-  await redis.setex(cacheKey, config.analytics.team_embeddings_cache_ttl, JSON.stringify(result));
-  return result;
-};
 
 /** Splices in the requesting user's team override (if any) without mutating the stored document. */
 const withOverride = (item: InstanceType<typeof NewsItem>, override?: { category?: string; opportunity_score?: number }) => {
@@ -72,26 +50,30 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
     .sort()
     .paginate();
 
-  const result = await newsItemQuery.modelQuery;
-  const meta = await newsItemQuery.countTotal();
-
-  let teamEmbeddings: { embedding: number[]; engagement: number }[] = [];
   const teamId = queryTeamId ?? (requestingUser?.team_ids[0]);
 
-  if (teamId) {
+  // Auto-apply the team's category subscription only when the caller didn't already ask for a specific
+  // category — an explicit `?category=` always wins over the team's standing preference.
+  if (teamId && !remainingQuery.category) {
     try {
-      teamEmbeddings = await loadTeamEmbeddings(teamId);
+      const team = await Team.findById(teamId).select('subscribed_categories');
+      if (team?.subscribed_categories.length) {
+        newsItemQuery.modelQuery = newsItemQuery.modelQuery.find({
+          category: { $in: team.subscribed_categories },
+        });
+      }
     } catch {
-      // non-fatal — fall back to threshold
+      // non-fatal — fall back to the unfiltered feed
     }
   }
+
+  const result = await newsItemQuery.modelQuery;
+  const meta = await newsItemQuery.countTotal();
 
   const annotate = (plain: ReturnType<typeof withOverride>) => {
     if (!teamId) return plain;
 
-    const high_opportunity = teamEmbeddings.length > 0
-      ? computeAudienceMatch((plain as { embedding?: number[] }).embedding ?? [], teamEmbeddings) > 0.6
-      : (plain.opportunity_score ?? 0) >= HIGH_OPPORTUNITY_THRESHOLD;
+    const high_opportunity = (plain.opportunity_score ?? 0) >= HIGH_OPPORTUNITY_THRESHOLD;
 
     return { ...plain, high_opportunity };
   };

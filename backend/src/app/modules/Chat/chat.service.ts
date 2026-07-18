@@ -6,11 +6,10 @@ import { logger } from '../../lib/logger';
 import { resolveVoiceOptions } from '../../lib/voiceProfile';
 import { httpStatus } from '../../utils/httpStatus';
 import { IRequestUser } from '../User/user.interface';
-import { ChatContextItem, ChatRequest, ChatResponse } from './chat.interface';
-import { classifyIntent } from './chat.intent';
+import { ChatRequest, ChatResponse } from './chat.interface';
 import { ChatMessage } from './chat.model';
 import { buildMessages } from './chat.prompt';
-import { fetchConversationHistory, fetchNewsContext, fetchPerformanceContext } from './chat.retrieval';
+import { fetchConversationHistory, fetchNewsContext } from './chat.retrieval';
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
   if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') return;
@@ -30,15 +29,7 @@ const askChat = async (payload: ChatRequest, requestingUser: IRequestUser): Prom
     resolveVoiceOptions(payload.team_id, payload.language),
   ]);
 
-  const intent = classifyIntent(payload.message);
-  const contextGroups = await Promise.all([
-    intent.news ? fetchNewsContext(questionEmbedding) : Promise.resolve([] as ChatContextItem[]),
-    intent.performance
-      ? fetchPerformanceContext(payload.team_id, questionEmbedding)
-      : Promise.resolve([] as ChatContextItem[]),
-  ]);
-  const context = contextGroups.flat();
-
+  const context = await fetchNewsContext(questionEmbedding);
   const messages = buildMessages(payload.message, context, history, voiceOptions);
 
   await ChatMessage.create({

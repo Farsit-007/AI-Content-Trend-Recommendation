@@ -1,7 +1,5 @@
 import { cosineSimilarity } from '../../lib/similarity';
 import { NewsItem } from '../NewsItem/newsItem.model';
-import { rankPlatformPosts } from '../ContentGeneration/contentGeneration.retrieval';
-import { PlatformPost } from '../PlatformPost/platformPost.model';
 import { ChatContextItem, IChatMessage } from './chat.interface';
 import { ChatMessage } from './chat.model';
 
@@ -65,25 +63,6 @@ export const fetchNewsContext = async (
     .limit(NEWS_TREND_POOL_SIZE);
 
   return rankNewsItems(items, questionEmbedding);
-};
-
-export const fetchPerformanceContext = async (
-  teamId: string,
-  questionEmbedding: number[],
-): Promise<ChatContextItem[]> => {
-  const posts = await PlatformPost.find(
-    { team_id: teamId, content_snippet: { $exists: true, $ne: '' } },
-    { content_snippet: 1, embedding: 1, metrics: 1 },
-  );
-
-  return rankPlatformPosts(
-    posts.map((post) => ({
-      content_snippet: post.content_snippet as string,
-      embedding: post.embedding,
-      metrics: post.metrics,
-    })),
-    questionEmbedding,
-  ).map((example) => ({ source: 'platform_post' as const, content: example.content }));
 };
 
 export const fetchConversationHistory = async (

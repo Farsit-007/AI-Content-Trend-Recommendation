@@ -15,6 +15,12 @@ router.get(
 );
 
 router.post(
+  '/',
+  validation(GeneratedContentValidation.createDraftValidation),
+  GeneratedContentController.createDraft,
+);
+
+router.post(
   '/run',
   requireAdmin,
   validation(GeneratedContentValidation.triggerAutoGenerationValidation),

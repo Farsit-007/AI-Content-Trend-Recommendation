@@ -1,9 +1,10 @@
 import AppError from '../../errors/AppError';
 import { httpStatus } from '../../utils/httpStatus';
 import { IRequestUser } from '../User/user.interface';
-import { IAutoGenerationSummary, GeneratedContentStatus } from './generatedContent.interface';
+import { IAutoGenerationSummary, IGeneratedContentFormats, GeneratedContentStatus } from './generatedContent.interface';
 import { runAutoGeneration } from './generatedContent.job';
 import { GeneratedContent } from './generatedContent.model';
+import { assertHasAtLeastOneFormat } from './generatedContent.utils';
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
   if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') return;
@@ -63,8 +64,29 @@ const triggerRun = async (
   return runAutoGeneration(teamId);
 };
 
+const createDraft = async (
+  payload: {
+    team_id: string;
+    news_item_id?: string;
+    topic: string;
+    formats: IGeneratedContentFormats;
+    model_used?: string;
+  },
+  requestingUser: IRequestUser,
+) => {
+  assertTeamAccess(payload.team_id, requestingUser);
+  assertHasAtLeastOneFormat(payload.formats);
+
+  return GeneratedContent.create({
+    ...payload,
+    source: 'manual',
+    status: 'draft',
+  });
+};
+
 export const GeneratedContentService = {
   listDrafts,
   updateStatus,
   triggerRun,
+  createDraft,
 };

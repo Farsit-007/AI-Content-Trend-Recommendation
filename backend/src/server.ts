@@ -6,7 +6,7 @@ import { logger } from './app/lib/logger';
 import { redis } from './app/lib/redis';
 import { verifyConnections } from './app/lib/verifyConnections';
 import { seedSuperAdminIfMissing } from './app/lib/seedSuperAdmin';
-import { startAnalyticsScheduler, startAutoGenerationScheduler, startNewsIngestionScheduler } from './app/lib/scheduler';
+import { startAutoGenerationScheduler, startNewsIngestionScheduler } from './app/lib/scheduler';
 import { Server } from 'http';
 
 // Node's default resolver can fail `mongodb+srv://` SRV/TXT lookups on networks where the
@@ -46,7 +46,6 @@ async function main() {
       logger.warn({ err: verifyError }, 'Connection verification failed, but continuing startup');
     }
     startNewsIngestionScheduler();
-    startAnalyticsScheduler();
     startAutoGenerationScheduler();
     server = app.listen(config.port, () => {
       logger.info(`Server is running on port ${config.port}`);

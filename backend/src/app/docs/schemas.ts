@@ -100,56 +100,6 @@ export const NewsItemUpdate = {
   },
 } as const;
 
-const metrics = {
-  type: 'object',
-  properties: {
-    reach: { type: 'number' },
-    likes: { type: 'number' },
-    comments: { type: 'number' },
-    shares: { type: 'number' },
-    views: { type: 'number' },
-  },
-} as const;
-
-export const PlatformPost = {
-  type: 'object',
-  properties: {
-    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
-    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
-    platform: { type: 'string' },
-    post_id: { type: 'string' },
-    content_snippet: { type: 'string' },
-    embedding,
-    metrics,
-    published_at: { type: 'string', format: 'date-time' },
-    fetched_at: { type: 'string', format: 'date-time' },
-  },
-  required: ['team_id', 'platform', 'post_id'],
-} as const;
-
-export const PlatformPostCreate = {
-  type: 'object',
-  properties: {
-    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
-    platform: { type: 'string' },
-    post_id: { type: 'string' },
-    content_snippet: { type: 'string' },
-    metrics,
-    published_at: { type: 'string', format: 'date-time' },
-    embedding,
-  },
-  required: ['team_id', 'platform', 'post_id'],
-} as const;
-
-export const PlatformPostUpdate = {
-  type: 'object',
-  properties: {
-    content_snippet: { type: 'string' },
-    metrics,
-    published_at: { type: 'string', format: 'date-time' },
-  },
-} as const;
-
 export const BrandVoiceExample = {
   type: 'object',
   properties: {
@@ -226,6 +176,16 @@ export const Team = {
       items: { type: 'string' },
       description: "Team-added categories layered on top of the built-in defaults (AI, Web Dev, Career, Security, DevOps, Other). Max 20.",
     },
+    subscribed_categories: {
+      type: 'array',
+      items: { type: 'string' },
+      description: "Subset of the fixed news taxonomy (AI, Web Dev, Career, Security, DevOps, Other) the team's feed and auto-generation job are filtered to. Empty means all categories.",
+    },
+    default_style_pack_id: {
+      type: 'string',
+      nullable: true,
+      description: 'Optional reference to a globally-curated StylePack this team writes in by default. A dangling or inactive reference never breaks team operations.',
+    },
     created_at: { type: 'string', format: 'date-time' },
   },
   required: ['name', 'created_by'],
@@ -239,79 +199,6 @@ export const TeamCreate = {
     member_ids: { type: 'array', items: { type: 'string' } },
   },
   required: ['name'],
-} as const;
-
-export const PlatformCredential = {
-  type: 'object',
-  properties: {
-    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
-    team_id: { type: 'string' },
-    platform: {
-      type: 'string',
-      example: 'facebook',
-      description: 'Any social platform slug, e.g. facebook, youtube, linkedin, reddit, twitter, instagram, tiktok.',
-    },
-    token_last4: { type: 'string', example: '••••ab12' },
-    account_id: { type: 'string' },
-    added_by: { type: 'string' },
-    created_at: { type: 'string', format: 'date-time' },
-    updated_at: { type: 'string', format: 'date-time' },
-  },
-  description: 'The real token is never returned here — it is stored encrypted (AES-256-GCM) and only ever decrypted by the explicit reveal endpoint.',
-  required: ['team_id', 'platform', 'token_last4'],
-} as const;
-
-export const PlatformCredentialCreate = {
-  type: 'object',
-  properties: {
-    platform: {
-      type: 'string',
-      example: 'facebook',
-      description: 'Any social platform slug, e.g. facebook, youtube, linkedin, reddit, twitter, instagram, tiktok.',
-    },
-    token: { type: 'string', description: 'Plaintext platform token/API key — encrypted at rest, never logged.' },
-    account_id: { type: 'string' },
-  },
-  description: 'The team must have enabled this platform first (see Platform Catalog) — otherwise this is rejected with a 400.',
-  required: ['platform', 'token'],
-} as const;
-
-export const PlatformCatalog = {
-  type: 'object',
-  properties: {
-    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
-    name: {
-      type: 'string',
-      example: 'facebook',
-      description: 'Any social platform slug, e.g. facebook, youtube, linkedin, reddit, twitter, instagram, tiktok.',
-    },
-    label: { type: 'string', example: 'Facebook' },
-    is_enabled: { type: 'boolean', description: 'Global on/off switch — disabling immediately blocks every team from using this platform.' },
-    created_by: { type: 'string' },
-    created_at: { type: 'string', format: 'date-time' },
-    updated_at: { type: 'string', format: 'date-time' },
-  },
-  required: ['name', 'is_enabled', 'created_by'],
-} as const;
-
-export const PlatformCatalogCreate = {
-  type: 'object',
-  properties: {
-    name: { type: 'string', example: 'facebook' },
-    label: { type: 'string', example: 'Facebook' },
-    is_enabled: { type: 'boolean', default: true },
-  },
-  required: ['name'],
-} as const;
-
-export const TeamPlatform = {
-  type: 'object',
-  properties: {
-    name: { type: 'string', example: 'facebook' },
-    label: { type: 'string', example: 'Facebook' },
-    team_enabled: { type: 'boolean', description: 'Whether this specific team currently has the platform turned on.' },
-  },
-  required: ['name', 'team_enabled'],
 } as const;
 
 export const BrandVoiceExampleUpdate = {
@@ -335,12 +222,87 @@ export const GenerateContentRequest = {
       example: '507f1f77bcf86cd799439011',
       description: 'Optional. When provided and resolvable, its embedding and category/impact_note ground the generation instead of re-embedding the topic text.',
     },
+    language: {
+      type: 'string',
+      enum: ['bangla', 'english', 'banglish'],
+      description: "Optional per-request override of the team's default_language.",
+    },
+    style_pack_id: {
+      type: 'string',
+      example: '507f1f77bcf86cd799439011',
+      description: "Optional per-request override of the team's default_style_pack_id.",
+    },
+    formats: {
+      type: 'array',
+      items: { type: 'string', enum: ['facebook_post', 'linkedin_post', 'facebook_reel_script', 'youtube_idea', 'caption'] },
+      description: 'Non-empty, unique, at most 5 formats to generate — each is its own LLM call. Defaults to ["facebook_post", "linkedin_post"].',
+    },
+    regenerate: {
+      type: 'boolean',
+      description: 'When true, skip cache reads for the requested formats and overwrite their cache entries with fresh output.',
+    },
   },
   required: ['team_id', 'topic'],
 } as const;
 
+export const RefineContentRequest = {
+  type: 'object',
+  properties: {
+    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    format: {
+      type: 'string',
+      enum: ['facebook_post', 'linkedin_post', 'facebook_reel_script', 'caption'],
+      description: 'Text formats only — youtube_idea is a structured object and is not supported by refine.',
+    },
+    current_text: { type: 'string', minLength: 1, maxLength: 6000, description: 'The draft text to edit.' },
+    instruction: { type: 'string', minLength: 1, maxLength: 300, example: 'Make it shorter' },
+    language: { type: 'string', enum: ['bangla', 'english', 'banglish'] },
+    style_pack_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+  },
+  required: ['team_id', 'format', 'current_text', 'instruction'],
+} as const;
+
+export const RefineContentResponse = {
+  type: 'object',
+  properties: {
+    revised_text: { type: 'string' },
+  },
+  required: ['revised_text'],
+} as const;
+
+export const CreateDraftRequest = {
+  type: 'object',
+  properties: {
+    team_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    news_item_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    topic: { type: 'string', minLength: 1, maxLength: 300 },
+    formats: {
+      type: 'object',
+      description: 'Any non-empty subset — at least one format must be populated.',
+      properties: {
+        facebook_post: { type: 'string' },
+        facebook_reel_script: { type: 'string' },
+        linkedin_post: { type: 'string' },
+        youtube_idea: {
+          type: 'object',
+          properties: {
+            title: { type: 'string' },
+            hook: { type: 'string' },
+            chapters: { type: 'array', items: { type: 'string' } },
+            thumbnail_concept: { type: 'string' },
+          },
+        },
+        caption: { type: 'string' },
+      },
+    },
+    model_used: { type: 'string' },
+  },
+  required: ['team_id', 'topic', 'formats'],
+} as const;
+
 export const GeneratedContent = {
   type: 'object',
+  description: 'Only the requested formats are populated in the response, alongside topic.',
   properties: {
     topic: { type: 'string' },
     facebook_post: { type: 'string' },
@@ -358,7 +320,7 @@ export const GeneratedContent = {
     },
     caption: { type: 'string' },
   },
-  required: ['topic', 'facebook_post', 'facebook_reel_script', 'linkedin_post', 'youtube_idea', 'caption'],
+  required: ['topic'],
 } as const;
 
 export const AskChatRequest = {
@@ -445,4 +407,62 @@ export const AddCategoryRequest = {
     category: { type: 'string', minLength: 1, maxLength: 40, example: 'product-announcement' },
   },
   required: ['category'],
+} as const;
+
+export const StylePack = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    name: { type: 'string', example: 'Programming Hero' },
+    slug: { type: 'string', example: 'programming-hero' },
+    description: { type: 'string' },
+    language: { type: 'string', enum: ['bangla', 'english', 'banglish'] },
+    tone_tags: { type: 'array', items: { type: 'string' } },
+    style_card: { type: 'string', description: 'Freeform ~300-word description of tone, rhythm, and habits, curated or LLM-generated.' },
+    is_active: { type: 'boolean' },
+    created_by: { type: 'string' },
+    created_at: { type: 'string', format: 'date-time' },
+    example_count: { type: 'integer', description: 'Only present on the single-pack detail read.' },
+  },
+  required: ['name', 'slug', 'language', 'is_active', 'created_by'],
+} as const;
+
+export const StylePackCreate = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    slug: { type: 'string', pattern: '^[a-z0-9-]+$' },
+    description: { type: 'string' },
+    language: { type: 'string', enum: ['bangla', 'english', 'banglish'] },
+    tone_tags: { type: 'array', items: { type: 'string' } },
+    style_card: { type: 'string' },
+    is_active: { type: 'boolean' },
+  },
+  required: ['name', 'slug', 'language'],
+} as const;
+
+export const StyleExample = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    style_pack_id: { type: 'string' },
+    content: { type: 'string' },
+    embedding,
+    platform: { type: 'string', enum: ['facebook', 'linkedin', 'other'] },
+    source_ref: { type: 'string' },
+    engagement_hint: { type: 'string' },
+    created_at: { type: 'string', format: 'date-time' },
+  },
+  required: ['style_pack_id', 'content', 'embedding'],
+} as const;
+
+export const StyleExampleCreate = {
+  type: 'object',
+  properties: {
+    content: { type: 'string', minLength: 1, maxLength: 8000 },
+    platform: { type: 'string', enum: ['facebook', 'linkedin', 'other'] },
+    source_ref: { type: 'string' },
+    engagement_hint: { type: 'string' },
+  },
+  required: ['content'],
 } as const;

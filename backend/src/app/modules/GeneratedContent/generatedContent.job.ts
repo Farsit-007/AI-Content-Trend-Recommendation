@@ -6,7 +6,8 @@ import { BrandVoiceExample } from '../BrandVoiceExample/brandVoiceExample.model'
 import { ContentGenerationService } from '../ContentGeneration/contentGeneration.service';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { Team } from '../Team/team.model';
-import { IAutoGenerationSummary } from './generatedContent.interface';
+import { IAutoGenerationSummary, IGeneratedContentFormats } from './generatedContent.interface';
+import { assertHasAtLeastOneFormat } from './generatedContent.utils';
 import { GeneratedContent } from './generatedContent.model';
 
 const TOP_NEWS_PER_TEAM = 3;
@@ -24,7 +25,8 @@ export const runAutoGeneration = async (teamId?: string): Promise<IAutoGeneratio
   let callsUsed = 0;
 
   const teamsQuery = teamId ? Team.find({ _id: teamId }) : Team.find();
-  const teams = await teamsQuery.select('_id name').lean();
+  const teams = await teamsQuery.select('_id name subscribed_categories').lean();
+  const maxAgeHours = config.auto_generation.max_age_hours;
 
   for (const team of teams) {
     const tid = team._id.toString();
@@ -37,7 +39,11 @@ export const runAutoGeneration = async (teamId?: string): Promise<IAutoGeneratio
         continue;
       }
 
-      const topNews = await NewsItem.find()
+      const topNews = await NewsItem.find({
+        ...(team.subscribed_categories.length ? { category: { $in: team.subscribed_categories } } : {}),
+        created_at: { $gte: new Date(Date.now() - maxAgeHours * 3600 * 1000) },
+        // lifecycle: 'active' — seam for the retention plan to add once `lifecycle` exists on NewsItem
+      })
         .sort({ opportunity_score: -1, trend_score: -1 })
         .limit(TOP_NEWS_PER_TEAM)
         .select('_id title category impact_note')
@@ -61,17 +67,20 @@ export const runAutoGeneration = async (teamId?: string): Promise<IAutoGeneratio
           makeAdminUser(tid),
         );
 
+        const formats: IGeneratedContentFormats = {
+          facebook_post: result.facebook_post,
+          facebook_reel_script: result.facebook_reel_script,
+          linkedin_post: result.linkedin_post,
+          youtube_idea: result.youtube_idea,
+          caption: result.caption,
+        };
+        assertHasAtLeastOneFormat(formats);
+
         await GeneratedContent.create({
           team_id: tid,
           news_item_id: newsItemId,
           topic: result.topic,
-          formats: {
-            facebook_post: result.facebook_post,
-            facebook_reel_script: result.facebook_reel_script,
-            linkedin_post: result.linkedin_post,
-            youtube_idea: result.youtube_idea,
-            caption: result.caption,
-          },
+          formats,
           source: 'auto',
           status: 'draft',
           model_used: LLM_MODELS.content,

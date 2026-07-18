@@ -19,10 +19,6 @@ export const trends: Trend[] = [
   { tag: 'Edge inference', delta: '+42%', hot: false },
 ];
 
-/** Weekly engagement series for the analytics chart (last 6 weeks). */
-export const engagementSeries = [40, 58, 52, 74, 86, 95];
-export const engagementDelta = '+38%';
-
 export interface HeadlineStat {
   value: string;
   label: string;

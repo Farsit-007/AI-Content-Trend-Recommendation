@@ -1,6 +1,8 @@
-import { LogOut } from "lucide-react";
+import { Check, ChevronsUpDown, LogOut } from "lucide-react";
+import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 
 import { useAuth } from "@/context/auth-context";
+import { useTeamContext } from "@/context/team-context";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "./ThemeToggle";
@@ -12,6 +14,42 @@ const roleLabel: Record<string, string> = {
   user: "Member",
 };
 
+/** Team switcher — hidden entirely when the user only has one (or zero) visible teams. */
+function TeamSwitcher() {
+  const { teamId, teams, setActiveTeam } = useTeamContext();
+  if (teams.length <= 1) return null;
+
+  const activeTeam = teams.find((t) => t._id === teamId);
+
+  return (
+    <DropdownMenuPrimitive.Root>
+      <DropdownMenuPrimitive.Trigger asChild>
+        <Button variant="outline" size="sm" className="max-w-40 justify-between gap-1.5">
+          <span className="truncate">{activeTeam?.name ?? "Select team"}</span>
+          <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+        </Button>
+      </DropdownMenuPrimitive.Trigger>
+      <DropdownMenuPrimitive.Portal>
+        <DropdownMenuPrimitive.Content
+          align="start"
+          className="z-50 min-w-48 rounded-md border border-white/10 bg-popover p-1 text-popover-foreground shadow-md"
+        >
+          {teams.map((team) => (
+            <DropdownMenuPrimitive.Item
+              key={team._id}
+              onSelect={() => setActiveTeam(team._id)}
+              className="flex cursor-pointer items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
+            >
+              <span className="truncate">{team.name}</span>
+              {team._id === teamId && <Check className="size-3.5 shrink-0 text-violet-400" />}
+            </DropdownMenuPrimitive.Item>
+          ))}
+        </DropdownMenuPrimitive.Content>
+      </DropdownMenuPrimitive.Portal>
+    </DropdownMenuPrimitive.Root>
+  );
+}
+
 /** Dashboard topbar. Section navigation lives in the sidebar; the
  *  `SidebarTrigger` collapses it on desktop and opens it on mobile. */
 export function Navbar() {
@@ -22,6 +60,7 @@ export function Navbar() {
       <nav className="flex h-16 items-center justify-between gap-4 px-4">
         <div className="flex items-center gap-2">
           <SidebarTrigger className="-ml-1" />
+          <TeamSwitcher />
         </div>
 
         <div className="flex items-center gap-3">

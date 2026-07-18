@@ -13,11 +13,11 @@ const youtubeIdeaSchema = new Schema(
 
 const formatsSchema = new Schema(
   {
-    facebook_post: { type: String, required: true },
-    facebook_reel_script: { type: String, required: true },
-    linkedin_post: { type: String, required: true },
-    youtube_idea: { type: youtubeIdeaSchema, required: true },
-    caption: { type: String, required: true },
+    facebook_post: { type: String, required: false },
+    facebook_reel_script: { type: String, required: false },
+    linkedin_post: { type: String, required: false },
+    youtube_idea: { type: youtubeIdeaSchema, required: false },
+    caption: { type: String, required: false },
   },
   { _id: false },
 );
@@ -33,8 +33,14 @@ const generatedContentSchema = new Schema<IGeneratedContent>({
   created_at: { type: Date, default: Date.now },
 });
 
-// Prevent duplicate drafts for the same team+news item pair
-generatedContentSchema.index({ team_id: 1, news_item_id: 1 }, { unique: true, sparse: true });
+// Prevent duplicate *auto-generated* drafts for the same team+news item pair — scoped to
+// source: 'auto' so manual saves (a team may deliberately save more than one variant) never
+// collide with it. The auto job's own `alreadyDrafted` check (queries across both sources)
+// is what keeps it from re-drafting an item a team already saved manually.
+generatedContentSchema.index(
+  { team_id: 1, news_item_id: 1 },
+  { unique: true, partialFilterExpression: { source: 'auto', news_item_id: { $exists: true } } },
+);
 generatedContentSchema.index({ team_id: 1, created_at: -1 });
 
 export const GeneratedContent = model<IGeneratedContent>(

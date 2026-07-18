@@ -93,7 +93,7 @@ Reviewer approves → **Squash and merge** into `main` → delete the branch. Ev
 ```
 main (protected — no direct pushes)
  ├─ feat/news-ingestion-pipeline     (Samin)
- ├─ feat/social-handle-analytics     (Robayat)
+ ├─ feat/api-contract-openapi        (Robayat)
  └─ feat/dashboard-feed-ui           (Mehedi)
 ```
 
@@ -117,7 +117,7 @@ Every feature in [`project-ida-requirments.md`](./project-ida-requirments.md) is
 | Owner | Subsystem | Owns these paths |
 |-------|-----------|------------------|
 | **Samin Israr Ravi** | Backend infra + ingestion + AI intelligence + generation (RAG) | `backend/shared/**`, `backend/ingestion/**`, `backend/generation/**`, `backend/rag/**` |
-| **Robayat Kalam Farsit** | API contract + platform analytics + reporting + opportunity scoring | `backend/analytics/**`, `backend/reports/**`, `openapi/**` |
+| **Robayat Kalam Farsit** | API contract | `openapi/**` |
 | **Mehedi Imun** | Frontend — all UI | `frontend/app/**`, `frontend/components/**` |
 
 > **Shared duties (all three):** rotate PR reviews, and everyone helps with integration + demo-day warm-up. There is no dedicated infra person — the Day-1 foundation below is split across the team.
@@ -133,9 +133,6 @@ Every feature in [`project-ida-requirments.md`](./project-ida-requirments.md) is
 | 1 | `backend-scaffold` | **Samin** | Node + TS server, Mongo/Redis connections, OpenRouter client, env config | — |
 | 2 | `db-vector-indexes` | **Samin** | Create 3 Atlas Vector Search indexes + collection schemas | 1 |
 | 3 | `api-contract-openapi` | **Robayat** | Define REST endpoints in OpenAPI + a stub server so FE + BE build in parallel | 1 |
-| 4 | `platform-api-credentials` | **Robayat** | Meta / YouTube / LinkedIn app setup, long-lived tokens → `.env` (**start LinkedIn today** — slowest approval) | — |
-
-> Whoever holds page-admin / channel-owner access generates the tokens for #4 and shares them securely; Robayat wires them into config.
 
 ### 📡 Samin Israr Ravi — Ingestion & AI Intelligence
 
@@ -148,23 +145,14 @@ Every feature in [`project-ida-requirments.md`](./project-ida-requirments.md) is
 | 5 | `content-generator` | FR-13–17, 19–21 | 5 formats (FB post, Reel, LinkedIn, YouTube idea, caption), lazy + Redis 24h | 4 |
 | 6 | `ask-growth-studio-chat` | FR-22, FR-23 | RAG chat: embed query → `$vectorSearch news_items` → grounded Banglish answer | 3 |
 
-### 📊 Robayat Kalam Farsit — Analytics & Reporting
-
-| # | Change | FRs | Key work | Depends on |
-|---|--------|-----|----------|:---:|
-| 1 | `social-handle-analytics` | FR-06 | **Merged 2026-07-14** (was `facebook-analytics`/`youtube-analytics`/`linkedin-analytics` — 3 tasks, now 1, since platforms are no longer hardcoded). One generic job: for every team, for every platform it has enabled, pull last-30-day data via that platform's adapter. 3 adapters built in — Meta Graph API, YouTube Data API v3, LinkedIn API (fallback if approval slow); 6h refresh | scaffold, creds |
-| 2 | `opportunity-scoring` | FR-24 | Embed posts → `$vectorSearch platform_posts` → `opportunity_score = trend × audience` | 1, indexes |
-| 3 | `cross-platform-report` | FR-09–12 | Unified 30-day report + AI insight + content-opportunity ranking; Redis 6h | 1–2 |
-
 ### 🎨 Mehedi Imun — Frontend (Next.js 16)
 
 | # | Change | FRs | Key work | Depends on |
 |---|--------|-----|----------|:---:|
 | 1 | `news-feed-dashboard` | FR-05, FR-24 | daily.dev-style card feed, tabs, sort, trend 🔥 + "High opportunity" badges | api-contract |
 | 2 | `content-generator-ui` | FR-13–17, 21 | Generate button → 5 format panels, copy-to-clipboard | api-contract |
-| 3 | `report-ui` | FR-09–11 | 30-day report view: overview, per-platform, AI insight | api-contract |
-| 4 | `chat-ui` | FR-22 | Ask Growth Studio chat panel | api-contract |
-| 5 | `admin-triggers-ui` | FR-25, FR-26 | Manual "run ingestion" / "refresh analytics" buttons (demo tooling) | api-contract |
+| 3 | `chat-ui` | FR-22 | Ask Growth Studio chat panel | api-contract |
+| 4 | `admin-triggers-ui` | FR-25 | Manual "run ingestion" button (demo tooling) | api-contract |
 | ✅ | `landing-page`, `about-us` | — | *Done* | — |
 
 > **Why FE and BE can both "own" content generation:** they live in different folders (`frontend/components/**` vs `backend/generation/**`), so there's **no file overlap** — they meet only at the API contract. That's the whole trick to parallelizing without conflicts.
@@ -178,30 +166,24 @@ Every feature in [`project-ida-requirments.md`](./project-ida-requirments.md) is
 | FR-01, 02, 04 | Ingestion + filter pipeline | Samin |
 | FR-03 | AI categorization + scoring | Samin |
 | FR-05, 24 | Feed dashboard + opportunity badge (UI) | Mehedi |
-| FR-06 (was FR-06/07/08) | Social handle analytics — any team-enabled platform, 3 adapters built in | Robayat |
-| FR-09–12 | Cross-platform report | Robayat (BE) + Mehedi (UI) |
 | FR-13–17, 19–21 | Content generator | Samin (BE) + Mehedi (UI) |
 | FR-18 | Brand Voice RAG | Samin |
 | FR-22, 23 | Ask Growth Studio chat | Samin (BE) + Mehedi (UI) |
 | FR-25 | Admin trigger — ingestion run | Samin (BE) + Mehedi (UI) |
-| FR-26 | Admin trigger — analytics refresh | Robayat (BE) + Mehedi (UI) |
 | NFR-08, 09 | $0 AI + $0 API cost | Everyone (design constraint) |
 
 ### Build order (dependency graph)
 
 ```mermaid
 flowchart LR
-    S[Day-1 foundation: scaffold + indexes · Samin<br/>api-contract + creds · Robayat] --> ING[ingestion → filter → scoring<br/>· Samin]
-    S --> AN[social handle analytics<br/>fb/yt/li adapters · Robayat]
+    S[Day-1 foundation: scaffold + indexes · Samin<br/>api-contract · Robayat] --> ING[ingestion → filter → scoring<br/>· Samin]
     ING --> GEN[brand-voice-rag → content-generator → chat<br/>· Samin]
-    AN --> OPP[opportunity-scoring → report<br/>· Robayat]
-    S --> FE[feed → content-ui → report-ui → chat-ui<br/>· Mehedi against API stub]
+    S --> FE[feed → content-ui → chat-ui<br/>· Mehedi against API stub]
     GEN --> DEMO[Integration + demo · whole team]
-    OPP --> DEMO
     FE --> DEMO
 ```
 
-**Parallelism rule:** once the Day-1 foundation lands (`backend-scaffold` + `db-vector-indexes` from Samin, `api-contract-openapi` + `platform-api-credentials` from Robayat), all three tracks run **fully in parallel** — Samin in `backend/ingestion` + `backend/generation`, Robayat in `backend/analytics` + `backend/reports`, Mehedi in `frontend/` against the API stub. No two are ever in the same folder.
+**Parallelism rule:** once the Day-1 foundation lands (`backend-scaffold` + `db-vector-indexes` from Samin, `api-contract-openapi` from Robayat), all tracks run **fully in parallel** — Samin in `backend/ingestion` + `backend/generation`, Mehedi in `frontend/` against the API stub. No two are ever in the same folder.
 
 ---
 

@@ -1,11 +1,10 @@
-import { useAuth } from '@/context/auth-context';
+import { useTeamContext } from '@/context/team-context';
 
 /**
- * Resolves the team id the dashboard operates on. There is no team switcher yet, so we take
- * `VITE_DEFAULT_TEAM_ID` when set, otherwise the user's first team membership.
+ * Resolves the team id the dashboard operates on. Backed by `TeamProvider`
+ * (env override -> stored selection -> first membership), so every page using
+ * this hook picks up the team switcher for free.
  */
 export function useTeamId(): string | undefined {
-  const { user } = useAuth();
-  const fromEnv = import.meta.env.VITE_DEFAULT_TEAM_ID as string | undefined;
-  return fromEnv || user?.team_ids?.[0];
+  return useTeamContext().teamId;
 }

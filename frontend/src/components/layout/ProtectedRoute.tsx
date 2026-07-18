@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
+import { Outlet } from 'react-router-dom';
 import type { TUserRole } from '@/types';
 
 interface ProtectedRouteProps {
@@ -13,7 +11,7 @@ interface ProtectedRouteProps {
 
 /** Gates authenticated routes: waits for boot hydration, redirects
  *  unauthenticated users to /login, and role-guards when `roles` is set. */
-export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // const { isAuthenticated, isLoading, user } = useAuth();
 
   // if (isLoading) {

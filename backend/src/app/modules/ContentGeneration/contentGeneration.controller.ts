@@ -14,6 +14,17 @@ const generateContent = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const refineContent = catchAsync(async (req: Request, res: Response) => {
+  const result = await ContentGenerationService.refineContent(req.body, req.user!);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Content refined successfully',
+    data: result,
+  });
+});
+
 export const ContentGenerationController = {
   generateContent,
+  refineContent,
 };

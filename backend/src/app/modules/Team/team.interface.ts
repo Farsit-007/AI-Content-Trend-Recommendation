@@ -14,6 +14,10 @@ export interface ITeam {
   description?: string;
   created_by: string;
   custom_categories: string[];
+  /** Subset of NEWS_CATEGORIES the team wants its feed filtered to; empty = all categories. */
+  subscribed_categories: string[];
+  /** Optional reference to a globally-curated StylePack; a dangling/inactive reference must never break team ops. */
+  default_style_pack_id?: string;
   voice_profile?: ITeamVoiceProfile;
   created_at: Date;
 }

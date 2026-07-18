@@ -5,7 +5,6 @@ import config from '../app/config';
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 import { NewsItem } from '../app/modules/NewsItem/newsItem.model';
-import { PlatformPost } from '../app/modules/PlatformPost/platformPost.model';
 import { Team } from '../app/modules/Team/team.model';
 import { IRequestUser } from '../app/modules/User/user.interface';
 import { ChatMessage } from '../app/modules/Chat/chat.model';
@@ -35,8 +34,7 @@ async function main() {
   const requestingUser: IRequestUser = { id: 'live-verify-user', email: 'live-verify@example.com', role: 'user', team_ids: [teamId] };
 
   const newsCount = await NewsItem.countDocuments({});
-  const postCount = await PlatformPost.countDocuments({ team_id: teamId });
-  console.log(`NewsItem docs: ${newsCount}, PlatformPost docs for team: ${postCount}`);
+  console.log(`NewsItem docs: ${newsCount}`);
 
   // 1. Trend-shaped question
   const trendResult = await ChatService.askChat(
@@ -46,24 +44,18 @@ async function main() {
   check('trend question returns a non-empty reply', trendResult.reply.trim().length > 0);
   console.log(`  reply: ${trendResult.reply.slice(0, 200)}...`);
 
-  // 2. Performance-shaped question, follow-up in the same conversation
-  const perfResult = await ChatService.askChat(
-    { team_id: teamId, message: 'আমাদের Facebook performance কেমন?' },
-    requestingUser,
-  );
-  check('performance question returns a non-empty reply', perfResult.reply.trim().length > 0);
-
+  // 2. Follow-up in the same conversation
   const followUp = await ChatService.askChat(
-    { team_id: teamId, message: 'সেই সপ্তাহের সেরা পোস্টটা আবার বলো', conversation_id: perfResult.conversation_id },
+    { team_id: teamId, message: 'সেই বিষয়ে আর একটু বলো', conversation_id: trendResult.conversation_id },
     requestingUser,
   );
-  check('follow-up reuses the same conversation_id', followUp.conversation_id === perfResult.conversation_id);
-  const threadMessages = await ChatMessage.find({ team_id: teamId, conversation_id: perfResult.conversation_id }).sort({
+  check('follow-up reuses the same conversation_id', followUp.conversation_id === trendResult.conversation_id);
+  const threadMessages = await ChatMessage.find({ team_id: teamId, conversation_id: trendResult.conversation_id }).sort({
     created_at: 1,
   });
   check('conversation thread persisted 4 turns (2 user + 2 assistant)', threadMessages.length === 4);
 
-  // 3. Ambiguous question (no news/performance keywords) still gets a grounded, non-empty reply
+  // 3. Ambiguous question (no news keywords) still gets a grounded, non-empty reply
   const ambiguousResult = await ChatService.askChat({ team_id: teamId, message: 'আজকে কী করবো?' }, requestingUser);
   check('ambiguous question returns a non-empty reply', ambiguousResult.reply.trim().length > 0);
 
@@ -73,11 +65,11 @@ async function main() {
     const otherTeamId = (otherTeam._id as mongoose.Types.ObjectId).toString();
     const otherUser: IRequestUser = { id: 'live-verify-user-2', email: 'live-verify-2@example.com', role: 'user', team_ids: [otherTeamId] };
     await ChatService.askChat(
-      { team_id: otherTeamId, message: 'hello from another team', conversation_id: perfResult.conversation_id },
+      { team_id: otherTeamId, message: 'hello from another team', conversation_id: trendResult.conversation_id },
       otherUser,
     );
-    const teamAHistory = await ChatMessage.find({ team_id: teamId, conversation_id: perfResult.conversation_id });
-    const teamBHistory = await ChatMessage.find({ team_id: otherTeamId, conversation_id: perfResult.conversation_id });
+    const teamAHistory = await ChatMessage.find({ team_id: teamId, conversation_id: trendResult.conversation_id });
+    const teamBHistory = await ChatMessage.find({ team_id: otherTeamId, conversation_id: trendResult.conversation_id });
     check('reusing another team\'s conversation_id does not merge histories', teamAHistory.length === 4 && teamBHistory.length === 2);
   } else {
     console.log('Only one Team document exists — skipping cross-team isolation check.');

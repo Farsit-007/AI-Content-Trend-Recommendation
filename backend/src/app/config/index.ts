@@ -4,16 +4,6 @@ import { z } from 'zod';
 
 dotenv.config({ path: path.join(process.cwd(), '.env') });
 
-// A 32-byte key is what AES-256-GCM requires. Accept base64 or hex so operators
-// can paste the output of either `openssl rand -base64 32` or `openssl rand -hex 32`.
-const decodeKey = (raw: string): Buffer | null => {
-  for (const encoding of ['base64', 'hex'] as const) {
-    const buf = Buffer.from(raw, encoding);
-    if (buf.length === 32) return buf;
-  }
-  return null;
-};
-
 const envSchema = z.object({
   NODE_ENV: z.string().default('development'),
   PORT: z.string().default('3001'),
@@ -37,33 +27,11 @@ const envSchema = z.object({
     z.string().min(16, 'JWT_REFRESH_SECRET must be at least 16 characters').optional(),
   ),
   JWT_REFRESH_EXPIRES_IN: z.string().default('30d'),
-  CREDENTIAL_ENCRYPTION_KEY: z
-    .string()
-    .refine((v) => decodeKey(v) !== null, 'CREDENTIAL_ENCRYPTION_KEY must decode to exactly 32 bytes (openssl rand -base64 32)'),
 
   // Optional on purpose — if unset, the startup seed simply skips (see lib/seedSuperAdmin.ts).
   SUPER_ADMIN_EMAIL: z.string().email('SUPER_ADMIN_EMAIL must be a valid email').optional(),
   SUPER_ADMIN_PASSWORD: z.string().min(8, 'SUPER_ADMIN_PASSWORD must be at least 8 characters').optional(),
   SUPER_ADMIN_NAME: z.string().optional(),
-
-  // Platform values are all optional on purpose: a developer without LinkedIn
-  // approval (or without Mursalin's tokens yet) must still be able to boot.
-  OAUTH_REDIRECT_BASE_URL: z.string().default('http://localhost:3001/api/v1'),
-
-  FB_CLIENT_ID: z.string().optional(),
-  FB_CLIENT_SECRET: z.string().optional(),
-  FB_PAGE_TOKEN: z.string().optional(),
-  FB_PAGE_ID: z.string().optional(),
-
-  YOUTUBE_CLIENT_ID: z.string().optional(),
-  YOUTUBE_CLIENT_SECRET: z.string().optional(),
-  YOUTUBE_API_KEY: z.string().optional(),
-  YOUTUBE_CHANNEL_ID: z.string().optional(),
-
-  LINKEDIN_CLIENT_ID: z.string().optional(),
-  LINKEDIN_CLIENT_SECRET: z.string().optional(),
-  LINKEDIN_TOKEN: z.string().optional(),
-  LINKEDIN_ORG_ID: z.string().optional(),
 
   // News ingestion pipeline — all optional so the server boots fine before an operator
   // has configured RSS feeds or tuned the scoring thresholds.
@@ -103,21 +71,17 @@ const envSchema = z.object({
   // Comma-separated search topics (at most 3 used per run).
   NEWS_INGESTION_GNEWS_QUERIES: z.string().optional(),
 
-  // Analytics & Report
-  ANALYTICS_USE_MOCK_ADAPTERS: z.string().default('true'),
-  // Comma-separated platform allowlist that goes to REAL adapters when ANALYTICS_USE_MOCK_ADAPTERS
-  // is false. Empty (default) => every platform stays mock even with the global switch off.
-  ANALYTICS_REAL_PLATFORMS: z.string().default(''),
-  // Single upgrade point for the Meta Graph API version — never call unversioned endpoints.
-  GRAPH_API_VERSION: z.string().default('v23.0'),
-  ANALYTICS_REFRESH_CRON: z.string().default('0 */6 * * *'),
-  REPORT_CACHE_TTL_SECONDS: z.string().default('21600'),
+  // Content generation response cache (per team/topic/language/pack/format).
   CONTENT_CACHE_TTL_SECONDS: z.string().default('86400'),
-  TEAM_EMBEDDINGS_CACHE_TTL_SECONDS: z.string().default('21600'),
 
   // Auto-generation job
   AUTO_GENERATION_CRON: z.string().default('0 6 * * *'),
   AUTO_GENERATION_MAX_PER_RUN: z.string().default('10'),
+  AUTO_GENERATION_MAX_AGE_HOURS: z.string().default('72'),
+
+  // Content generation — facts-then-write fact-sheet extraction
+  CONTENT_FACTS_MIN_CHARS: z.string().default('800'),
+  CONTENT_FACTS_INPUT_MAX_CHARS: z.string().default('12000'),
 
   NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD: z.string().default('0.6'),
   NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE: z.string().default('0.4'),
@@ -147,8 +111,6 @@ if (!parsed.success) {
 
 const env = parsed.data;
 
-export const credentialEncryptionKey = decodeKey(env.CREDENTIAL_ENCRYPTION_KEY) as Buffer;
-
 export default {
   node_env: env.NODE_ENV,
   port: env.PORT,
@@ -175,44 +137,16 @@ export default {
     name: env.SUPER_ADMIN_NAME,
   },
 
-  oauth_redirect_base_url: env.OAUTH_REDIRECT_BASE_URL,
-
-  platforms: {
-    facebook: {
-      clientId: env.FB_CLIENT_ID,
-      clientSecret: env.FB_CLIENT_SECRET,
-      bootstrapToken: env.FB_PAGE_TOKEN,
-      accountId: env.FB_PAGE_ID,
-    },
-    youtube: {
-      clientId: env.YOUTUBE_CLIENT_ID,
-      clientSecret: env.YOUTUBE_CLIENT_SECRET,
-      bootstrapToken: env.YOUTUBE_API_KEY,
-      accountId: env.YOUTUBE_CHANNEL_ID,
-    },
-    linkedin: {
-      clientId: env.LINKEDIN_CLIENT_ID,
-      clientSecret: env.LINKEDIN_CLIENT_SECRET,
-      bootstrapToken: env.LINKEDIN_TOKEN,
-      accountId: env.LINKEDIN_ORG_ID,
-    },
-  },
-
-  analytics: {
-    use_mock_adapters: env.ANALYTICS_USE_MOCK_ADAPTERS === 'true',
-    real_platforms: env.ANALYTICS_REAL_PLATFORMS.split(',')
-      .map((p) => p.trim().toLowerCase())
-      .filter(Boolean),
-    graph_api_version: env.GRAPH_API_VERSION,
-    refresh_cron: env.ANALYTICS_REFRESH_CRON,
-    report_cache_ttl: Number(env.REPORT_CACHE_TTL_SECONDS),
-    content_cache_ttl: Number(env.CONTENT_CACHE_TTL_SECONDS),
-    team_embeddings_cache_ttl: Number(env.TEAM_EMBEDDINGS_CACHE_TTL_SECONDS),
-  },
-
   auto_generation: {
     cron: env.AUTO_GENERATION_CRON,
     max_per_run: Number(env.AUTO_GENERATION_MAX_PER_RUN),
+    max_age_hours: Number(env.AUTO_GENERATION_MAX_AGE_HOURS),
+  },
+
+  content_generation: {
+    cache_ttl_seconds: Number(env.CONTENT_CACHE_TTL_SECONDS),
+    facts_min_chars: Number(env.CONTENT_FACTS_MIN_CHARS),
+    facts_input_max_chars: Number(env.CONTENT_FACTS_INPUT_MAX_CHARS),
   },
 
   news_ingestion: {

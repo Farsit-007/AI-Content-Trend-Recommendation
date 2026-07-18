@@ -35,7 +35,7 @@ const createTeam = async (
 };
 
 const listTeams = async (requestingUser: IRequestUser) => {
-  if (requestingUser.role === 'admin') {
+  if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') {
     return Team.find();
   }
   return Team.find({ _id: { $in: requestingUser.team_ids } });
@@ -53,9 +53,14 @@ const getTeamById = async (teamId: string) => {
 
 const updateTeam = async (
   teamId: string,
-  payload: Partial<Pick<ITeam, 'name' | 'description' | 'voice_profile'>>,
+  payload: Partial<
+    Pick<ITeam, 'name' | 'description' | 'voice_profile' | 'subscribed_categories' | 'default_style_pack_id'>
+  >,
 ) => {
-  const team = await Team.findByIdAndUpdate(teamId, payload, { new: true, runValidators: true });
+  const dedupedPayload = payload.subscribed_categories
+    ? { ...payload, subscribed_categories: [...new Set(payload.subscribed_categories)] }
+    : payload;
+  const team = await Team.findByIdAndUpdate(teamId, dedupedPayload, { new: true, runValidators: true });
   if (!team) {
     throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
   }

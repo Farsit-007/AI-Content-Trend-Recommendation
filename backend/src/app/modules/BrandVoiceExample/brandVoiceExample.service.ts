@@ -8,7 +8,7 @@ import { BrandVoiceExample } from './brandVoiceExample.model';
 import { brandVoiceExampleSearchableFields } from './brandVoiceExample.utils';
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
-  if (requestingUser.role === 'admin') return;
+  if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') return;
   if (!requestingUser.team_ids.includes(teamId)) {
     throw new AppError(httpStatus.FORBIDDEN, 'You do not have access to this team');
   }
@@ -29,7 +29,7 @@ const getAllBrandVoiceExamples = async (query: Record<string, unknown>, requesti
     .sort()
     .paginate();
 
-  if (requestingUser.role !== 'admin') {
+  if (requestingUser.role !== 'admin' && requestingUser.role !== 'super_admin') {
     brandVoiceExampleQuery.modelQuery = brandVoiceExampleQuery.modelQuery.find({
       team_id: { $in: requestingUser.team_ids },
     });
@@ -43,7 +43,11 @@ const getAllBrandVoiceExamples = async (query: Record<string, unknown>, requesti
 const getSingleBrandVoiceExample = async (id: string, requestingUser: IRequestUser) => {
   const result = await BrandVoiceExample.findById(id);
   if (!result) return null;
-  if (requestingUser.role !== 'admin' && !requestingUser.team_ids.includes(result.team_id)) {
+  if (
+    requestingUser.role !== 'admin' &&
+    requestingUser.role !== 'super_admin' &&
+    !requestingUser.team_ids.includes(result.team_id)
+  ) {
     return null;
   }
   return result;

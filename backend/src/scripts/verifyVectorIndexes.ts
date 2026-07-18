@@ -4,7 +4,6 @@ import config from '../app/config';
 import { embed } from '../app/lib/embeddings';
 import { NewsItem } from '../app/modules/NewsItem/newsItem.model';
 import { BrandVoiceExample } from '../app/modules/BrandVoiceExample/brandVoiceExample.model';
-import { PlatformPost } from '../app/modules/PlatformPost/platformPost.model';
 
 // Same local DNS workaround as createVectorIndexes.ts — see backend-scaffold
 // tasks.md 7.2. Harmless no-op on machines without the quirk.
@@ -64,23 +63,6 @@ const verifyTargets = async (vector: number[]): Promise<VerifyTarget[]> => [
       return {
         id: doc._id,
         cleanup: async () => BrandVoiceExample.deleteOne({ _id: doc._id }).exec().then(() => undefined),
-      };
-    },
-  },
-  {
-    label: 'platform_posts',
-    collectionName: 'platform_posts',
-    indexName: 'platform_posts_vector_index',
-    seed: async () => {
-      const doc = await PlatformPost.create({
-        platform: '__verify__',
-        post_id: `verify-${Date.now()}`,
-        embedding: vector,
-        metrics: { reach: 0, likes: 0, comments: 0, shares: 0, views: 0 },
-      });
-      return {
-        id: doc._id,
-        cleanup: async () => PlatformPost.deleteOne({ _id: doc._id }).exec().then(() => undefined),
       };
     },
   },

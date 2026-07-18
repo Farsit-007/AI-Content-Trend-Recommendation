@@ -22,11 +22,6 @@ export interface ChatResponse {
 }
 
 export interface ChatContextItem {
-  source: 'news_item' | 'platform_post';
+  source: 'news_item';
   content: string;
-}
-
-export interface ChatIntent {
-  news: boolean;
-  performance: boolean;
 }

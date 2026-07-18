@@ -1,11 +1,12 @@
 import { YoutubeIdea } from '../ContentGeneration/contentGeneration.interface';
 
+/** Any non-empty subset — at least one field SHALL be populated on every write (service-level guard). */
 export interface IGeneratedContentFormats {
-  facebook_post: string;
-  facebook_reel_script: string;
-  linkedin_post: string;
-  youtube_idea: YoutubeIdea;
-  caption: string;
+  facebook_post?: string;
+  facebook_reel_script?: string;
+  linkedin_post?: string;
+  youtube_idea?: YoutubeIdea;
+  caption?: string;
 }
 
 export type GeneratedContentSource = 'auto' | 'manual';

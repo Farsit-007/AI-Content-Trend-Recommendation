@@ -4,7 +4,6 @@ import config from '../../app/config';
 import { UserRole } from '../../app/modules/User/user.interface';
 import { User } from '../../app/modules/User/user.model';
 import { Team, TeamMembership } from '../../app/modules/Team/team.model';
-import { PlatformCatalog, TeamPlatform } from '../../app/modules/PlatformCatalog/platformCatalog.model';
 
 export const TEST_PASSWORD = 'Password123!';
 
@@ -50,9 +49,3 @@ export const addTeamMember = async (teamId: string, userId: string) =>
 
 /** A valid 1536-dimension embedding vector — matches `NewsItem.embedding`'s schema validator. */
 export const testEmbedding = (): number[] => Array(1536).fill(0.01);
-
-/** Enables a platform both globally (catalog) and for a specific team, satisfying `assertTeamPlatformEnabled`. */
-export const enablePlatformForTeam = async (teamId: string, platform: string, enabledBy: string) => {
-  await PlatformCatalog.create({ name: platform, is_enabled: true, created_by: enabledBy });
-  await TeamPlatform.create({ team_id: teamId, platform, is_enabled: true, enabled_by: enabledBy });
-};

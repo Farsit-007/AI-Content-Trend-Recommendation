@@ -14,4 +14,10 @@ router.post(
   ContentGenerationController.generateContent,
 );
 
+router.post(
+  '/refine',
+  validation(ContentGenerationValidation.refineContentValidation),
+  ContentGenerationController.refineContent,
+);
+
 export const ContentGenerationRoutes = router;

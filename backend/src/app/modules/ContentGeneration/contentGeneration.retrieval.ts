@@ -1,11 +1,10 @@
 import { cosineSimilarity } from '../../lib/similarity';
 import { BrandVoiceExample } from '../BrandVoiceExample/brandVoiceExample.model';
-import { PlatformPost } from '../PlatformPost/platformPost.model';
+import { StyleExample } from '../StylePack/stylePack.model';
 import { FewShotExample } from './contentGeneration.interface';
 
 const BRAND_VOICE_LIMIT = 3;
-const PLATFORM_POST_ENGAGEMENT_POOL_SIZE = 20;
-const PLATFORM_POST_LIMIT = 3;
+const STYLE_EXAMPLE_LIMIT = 5;
 
 export interface BrandVoiceCandidate {
   content: string;
@@ -13,10 +12,10 @@ export interface BrandVoiceCandidate {
   engagement_hint?: string;
 }
 
-export interface PlatformPostCandidate {
-  content_snippet: string;
+export interface StyleExampleCandidate {
+  content: string;
   embedding: number[];
-  metrics: { reach: number; likes: number; comments: number; shares: number };
+  engagement_hint?: string;
 }
 
 /** Zero brand-voice examples is the cold-start signal — callers skip all retrieval on this. */
@@ -45,38 +44,25 @@ export const rankBrandVoiceExamples = (
       engagement_hint,
     }));
 
-/**
- * Linear ranking score used only to pick the top-N candidate pool before similarity
- * ranking — never shown to the user, unlike newsIngestion.scoring.ts's 0-10 display scores.
- * Comments/shares weighted highest since they're the most active engagement signals.
- */
-const engagementScore = (metrics: PlatformPostCandidate['metrics']): number =>
-  metrics.reach + metrics.likes * 2 + metrics.comments * 3 + metrics.shares * 4;
-
-/** Pure two-stage ranking (top-N by engagement, then top-M by similarity), testable without Mongo. */
-export const rankPlatformPosts = (
-  candidates: PlatformPostCandidate[],
+/** Pure ranking step for style-pack examples, mirroring rankBrandVoiceExamples but for the pack's own corpus. */
+export const rankStyleExamples = (
+  candidates: StyleExampleCandidate[],
   topicEmbedding: number[],
-  limit: number = PLATFORM_POST_LIMIT,
-  engagementPoolSize: number = PLATFORM_POST_ENGAGEMENT_POOL_SIZE,
-): FewShotExample[] => {
-  const topByEngagement = candidates
-    .slice()
-    .sort((a, b) => engagementScore(b.metrics) - engagementScore(a.metrics))
-    .slice(0, engagementPoolSize);
-
-  return topByEngagement
-    .map((post) => ({
-      similarity: cosineSimilarity(topicEmbedding, post.embedding),
-      content: post.content_snippet,
+  limit: number = STYLE_EXAMPLE_LIMIT,
+): FewShotExample[] =>
+  candidates
+    .map((candidate) => ({
+      similarity: cosineSimilarity(topicEmbedding, candidate.embedding),
+      content: candidate.content,
+      engagement_hint: candidate.engagement_hint,
     }))
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, limit)
-    .map(({ content }) => ({
-      source: 'platform_post' as const,
+    .map(({ content, engagement_hint }) => ({
+      source: 'style_pack_example' as const,
       content,
+      engagement_hint,
     }));
-};
 
 export const fetchTopBrandVoiceExamples = async (
   teamId: string,
@@ -89,20 +75,13 @@ export const fetchTopBrandVoiceExamples = async (
   return rankBrandVoiceExamples(examples, topicEmbedding);
 };
 
-export const fetchTopPerformingPosts = async (
-  teamId: string,
+export const fetchTopStyleExamples = async (
+  packId: string,
   topicEmbedding: number[],
 ): Promise<FewShotExample[]> => {
-  const posts = await PlatformPost.find(
-    { team_id: teamId, content_snippet: { $exists: true, $ne: '' } },
-    { content_snippet: 1, embedding: 1, metrics: 1 },
+  const examples = await StyleExample.find(
+    { style_pack_id: packId },
+    { content: 1, embedding: 1, engagement_hint: 1 },
   );
-  return rankPlatformPosts(
-    posts.map((post) => ({
-      content_snippet: post.content_snippet as string,
-      embedding: post.embedding,
-      metrics: post.metrics,
-    })),
-    topicEmbedding,
-  );
+  return rankStyleExamples(examples, topicEmbedding);
 };

@@ -18,6 +18,8 @@ const teamSchema = new Schema<ITeam>({
   description: { type: String, trim: true },
   created_by: { type: String, required: true },
   custom_categories: { type: [String], default: [] },
+  subscribed_categories: { type: [String], default: [] },
+  default_style_pack_id: { type: String, default: null },
   voice_profile: { type: voiceProfileSchema, default: () => ({}) },
   created_at: { type: Date, default: Date.now },
 });

@@ -2,18 +2,13 @@ import type { ReactNode } from 'react';
 import {
   Flame,
   Sparkles,
-  BarChart3,
   MessageSquare,
   TrendingUp,
   Check,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import {
-  trends,
-  engagementSeries,
-  engagementDelta,
-} from '@/lib/mock/landing';
+import { trends } from '@/lib/mock/landing';
 import { Section } from './Section';
 import { Reveal } from './Reveal';
 
@@ -86,30 +81,6 @@ function GenerateMockup() {
   );
 }
 
-function ReportMockup() {
-  return (
-    <div className="glass-card rounded-2xl p-4">
-      <div className="border-border flex items-center gap-2 border-b pb-3 text-sm font-medium">
-        <BarChart3 className="size-4 text-emerald-500" />
-        Engagement — last 6 weeks
-      </div>
-      <div className="mt-4 flex h-28 items-end gap-2">
-        {engagementSeries.map((h, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded-t bg-gradient-to-t from-emerald-500/40 to-emerald-500"
-            style={{ height: `${h}%` }}
-          />
-        ))}
-      </div>
-      <p className="mt-3 flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-        <TrendingUp className="size-3.5" />
-        {engagementDelta} vs. previous period
-      </p>
-    </div>
-  );
-}
-
 function ChatMockup() {
   return (
     <div className="glass-card rounded-2xl p-4">
@@ -151,17 +122,6 @@ const features: Feature[] = [
     accent: 'text-violet-500',
     accentBg: 'bg-violet-500/10',
     mockup: <GenerateMockup />,
-  },
-  {
-    key: 'report',
-    eyebrow: 'Analytics',
-    title: 'Measure what actually drives growth',
-    description:
-      'Clear reports and AI insights on what performed — so you double down on what works.',
-    bullets: ['Engagement over time', 'AI-written takeaways', 'Exportable reports'],
-    accent: 'text-emerald-500',
-    accentBg: 'bg-emerald-500/10',
-    mockup: <ReportMockup />,
   },
   {
     key: 'chat',

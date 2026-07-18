@@ -1,4 +1,3 @@
-import { classifyIntent } from '../app/modules/Chat/chat.intent';
 import { NewsCandidate, rankNewsItems } from '../app/modules/Chat/chat.retrieval';
 
 const topic = [1, 0, 0];
@@ -15,30 +14,6 @@ const check = (name: string, condition: boolean) => {
     console.log(`PASS: ${name}`);
   }
 };
-
-// Intent: platform/performance keywords are detected.
-{
-  const intent = classifyIntent('How did our Facebook engagement do this week?');
-  check('intent: facebook performance question detects performance only', intent.performance && !intent.news);
-}
-
-// Intent: news/trend keywords are detected.
-{
-  const intent = classifyIntent('What news is trending in AI right now?');
-  check('intent: trend question detects news only', intent.news && !intent.performance);
-}
-
-// Intent: ambiguous question falls back to both.
-{
-  const intent = classifyIntent('What should I do today?');
-  check('intent: ambiguous question defaults to both true', intent.news && intent.performance);
-}
-
-// Intent: Bengali keywords are detected.
-{
-  const intent = classifyIntent('আমাদের ফেসবুক পারফরম্যান্স কেমন?');
-  check('intent: Bengali facebook question detects performance', intent.performance);
-}
 
 // News ranking: highest trend_score within similarity pool wins.
 {

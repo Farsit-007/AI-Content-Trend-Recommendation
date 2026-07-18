@@ -9,7 +9,7 @@ export default function About() {
         It helps teams spot emerging trends, generate on-brand content in
         seconds, and understand what actually drives growth.
       </p>
-      <div className="mt-10 grid gap-6 sm:grid-cols-3">
+      <div className="mt-10 grid gap-6 sm:grid-cols-2">
         <div className="glass-card rounded-lg p-5">
           <h2 className="font-semibold">Trend Feed</h2>
           <p className="text-muted-foreground mt-2 text-sm">
@@ -20,12 +20,6 @@ export default function About() {
           <h2 className="font-semibold">Content Generation</h2>
           <p className="text-muted-foreground mt-2 text-sm">
             On-brand drafts tailored to your team&apos;s voice.
-          </p>
-        </div>
-        <div className="glass-card rounded-lg p-5">
-          <h2 className="font-semibold">Analytics</h2>
-          <p className="text-muted-foreground mt-2 text-sm">
-            Reports and AI insights on what performs.
           </p>
         </div>
       </div>

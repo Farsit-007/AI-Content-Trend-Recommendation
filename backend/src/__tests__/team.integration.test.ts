@@ -80,6 +80,24 @@ describe('Team CRUD', () => {
 
     expect(res.status).toBe(403);
   });
+
+  it('lets a super_admin list every team, including ones it has no membership in', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-super-admin-list@example.test' });
+    const superAdmin = await createTestUser({ role: 'super_admin', email: 'super-admin-list@example.test' });
+    await createTestTeam({ name: 'Team A', createdBy: admin._id.toString() });
+    await createTestTeam({ name: 'Team B', createdBy: admin._id.toString() });
+    const superAdminToken = createAuthToken(superAdmin);
+
+    const res = await request(app)
+      .get('/api/v1/teams')
+      .set('Authorization', `Bearer ${superAdminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+    expect(res.body.data.map((t: { name: string }) => t.name)).toEqual(
+      expect.arrayContaining(['Team A', 'Team B']),
+    );
+  });
 });
 
 describe('Team categories', () => {
@@ -114,5 +132,50 @@ describe('Team categories', () => {
       .set('Authorization', `Bearer ${outsiderToken}`);
 
     expect(res.status).toBe(403);
+  });
+});
+
+describe('Team category subscriptions', () => {
+  it('lets an admin set subscribed_categories without affecting custom_categories', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-subs@example.test' });
+    const adminToken = createAuthToken(admin);
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+
+    await request(app)
+      .post(`/api/v1/teams/${team._id}/categories`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ category: 'Robotics' });
+
+    const updateRes = await request(app)
+      .patch(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ subscribed_categories: ['AI', 'Web Dev'] });
+
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.data.subscribed_categories).toEqual(['AI', 'Web Dev']);
+    expect(updateRes.body.data.custom_categories).toContain('Robotics');
+
+    const getRes = await request(app)
+      .get(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(getRes.body.data.team.subscribed_categories).toEqual(['AI', 'Web Dev']);
+  });
+
+  it('rejects a subscribed_categories value outside the fixed taxonomy', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-subs-invalid@example.test' });
+    const adminToken = createAuthToken(admin);
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+
+    const res = await request(app)
+      .patch(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ subscribed_categories: ['Robotics'] });
+
+    expect(res.status).toBe(400);
+
+    const getRes = await request(app)
+      .get(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(getRes.body.data.team.subscribed_categories).toEqual([]);
   });
 });

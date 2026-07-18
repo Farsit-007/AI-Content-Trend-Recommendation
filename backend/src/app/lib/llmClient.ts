@@ -11,6 +11,14 @@ export const LLM_MODELS = {
   fallback: config.llm_model_fallback,
 };
 
+if (LLM_MODELS.fallback === LLM_MODELS.content) {
+  logger.warn(
+    { model: LLM_MODELS.content },
+    'LLM_MODEL_FALLBACK is identical to LLM_MODEL_CONTENT — failover is effectively disabled for content ' +
+      'generation (a primary-model failure will not retry on a different model). Set LLM_MODEL_FALLBACK to a distinct model.',
+  );
+}
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;

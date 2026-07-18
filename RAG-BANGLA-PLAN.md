@@ -35,7 +35,6 @@ The principle: **the model is never fine-tuned; the team's data IS the tuning.**
 |---|---|---|
 | `brand_voice_examples` | Writing style, tone, emoji use, Bangla/English mixing | Brand Voice settings page (CRUD API already exists) |
 | `team.voice_profile` (new) | Default language + standing instructions | Team settings page |
-| `platform_posts` | What performs with their audience (auto-collected by Analytics job) | Nothing to edit — flows in automatically |
 
 - **Edit:** `Team/team.model.ts` — add `voice_profile: { default_language: 'bangla' | 'english' | 'banglish', custom_instructions?: string }` (default language `'bangla'`). Editable via existing `PATCH /teams/:teamId`. `custom_instructions` is a free-text field ("always end with a question", "never use more than 2 emojis", "audience is beginner developers") appended to the system prompt — the team's standing rules, no deploy needed to change them.
 - **Edit:** `contentGeneration.validation.ts` + service — optional `language?: 'bangla' | 'english'` on `POST /content/generate`, overriding the team default per request. Same for `POST /chat`. One team writes Bangla on Facebook and English on LinkedIn — same RAG, per-request switch.
@@ -72,7 +71,7 @@ Pure Bangla script is meaningfully harder for small models than Banglish: an 8B 
 
 ---
 
-## Phase 2 — Team-specific auto-generated posts (after Analytics/Report; demo nice-to-have)
+## Phase 2 — Team-specific auto-generated posts (demo nice-to-have)
 
 Today generation is on-demand (user clicks a news card). This phase makes Growth Studio generate drafts **automatically, per team, in that team's voice** — the "full week of content in 5 minutes" pitch, without clicks.
 
@@ -87,7 +86,7 @@ Follow the standard module pattern (model/interface/service/controller/route/val
 
 - **New:** `generatedContent.job.ts` — `runAutoGeneration(teamId?)`:
   1. For each team with ≥1 brand voice example (cold-start teams are skipped — never auto-generate generic content),
-  2. pick top N (default 3) news items for that team by opportunity — reuse `computeAudienceMatch` from the Report module (BACKEND-REPORT.md plan) when it exists; until then, global `opportunity_score`,
+  2. pick top N (default 3) news items for that team by opportunity — global `opportunity_score`, filtered to the team's subscribed categories,
   3. skip news items that already have a draft for this team (dedup on `(team_id, news_item_id)`),
   4. run the **existing** generation service per item (team-scoped brand voice RAG does the Bangla voice automatically),
   5. save as `status: 'draft'`.
@@ -97,7 +96,7 @@ Follow the standard module pattern (model/interface/service/controller/route/val
 ### 2.3 Endpoints
 
 - `GET /generated-content?team_id=&status=` — list drafts (team member; feeds a "Drafts" tab in the Generate page).
-- `POST /generated-content/run` — admin manual trigger (mirrors `POST /news-items/ingest` and `POST /analytics/refresh`).
+- `POST /generated-content/run` — admin manual trigger (mirrors `POST /news-items/ingest`).
 - `PATCH /generated-content/:id` — approve/dismiss.
 
 ### Verification (Phase 2)
@@ -110,7 +109,7 @@ Follow the standard module pattern (model/interface/service/controller/route/val
 ## Phase 3 — Quality loop + scale (post-demo)
 
 1. **Self-improving voice:** "approve" on a draft (or a real published post that performed well) can insert it back into `brand_voice_examples` — the voice gets sharper with use. (One service call on the approve path.)
-2. **Unified RAG service:** extract `lib/rag/` — `retrieve({ collection, teamId?, queryText, limit })` — used by chat, generation, report, and the auto-gen job. This is also where retrieval switches from in-app cosine to Atlas `$vectorSearch` (indexes already exist) when `news_items` grows large.
+2. **Unified RAG service:** extract `lib/rag/` — `retrieve({ collection, teamId?, queryText, limit })` — used by chat, generation, and the auto-gen job. This is also where retrieval switches from in-app cosine to Atlas `$vectorSearch` (indexes already exist) when `news_items` grows large.
 3. **Per-format examples:** tag brand voice examples by platform and prefer same-platform examples when generating (Facebook voice ≠ LinkedIn voice). Field already exists (`platform`); it's a one-line filter in `fetchTopBrandVoiceExamples`.
 
 ---
@@ -119,8 +118,8 @@ Follow the standard module pattern (model/interface/service/controller/route/val
 
 | When | What |
 |---|---|
-| **Now (Day 1, alongside Analytics work)** | Phase 1 — seed script + prompt lines + language field + model check. Small, demo-critical, unblocks the "writes in OUR voice" pitch. **The 25–30 real posts collection is the human blocker — start today.** |
-| **Day 2–3, only after Report module is done** | Phase 2 — auto-generation. Analytics + Report (BACKEND-REPORT.md) stay first; they are Must-Have FRs. Auto-gen is a wow-feature, pre-agreed droppable if time runs out. |
+| **Now (Day 1)** | Phase 1 — seed script + prompt lines + language field + model check. Small, demo-critical, unblocks the "writes in OUR voice" pitch. **The 25–30 real posts collection is the human blocker — start today.** |
+| **Day 2–3** | Phase 2 — auto-generation. A wow-feature, pre-agreed droppable if time runs out. |
 | **Post-demo** | Phase 3 — approve-loop, `lib/rag/`, `$vectorSearch`. |
 
 ## What we are explicitly NOT doing

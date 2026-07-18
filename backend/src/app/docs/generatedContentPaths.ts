@@ -44,6 +44,24 @@ export const generatedContentPaths = {
         '403': errorResponse('You do not have access to this team'),
       },
     },
+    post: {
+      tags: ['Generated Content'],
+      summary: 'Save a manual draft (source: manual)',
+      description: 'Explicit Save action — at least one format must be populated. Does not conflict with the auto job\'s per-pair dedupe, which is scoped to source: auto.',
+      security: bearerAuth,
+      requestBody: {
+        required: true,
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateDraftRequest' } } },
+      },
+      responses: {
+        '201': {
+          description: 'Created draft',
+          content: { 'application/json': { schema: singleEnvelope('GeneratedContentDoc') } },
+        },
+        '400': errorResponse('Validation error — at least one format must be provided'),
+        '403': errorResponse('You do not have access to this team'),
+      },
+    },
   },
   '/generated-content/run': {
     post: {

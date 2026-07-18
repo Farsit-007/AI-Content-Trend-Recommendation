@@ -3,6 +3,7 @@ import app from '../app';
 import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
 import { addTeamMember, createAuthToken, createTestTeam, createTestUser, testEmbedding } from './support/fixtures';
 import { NewsItem } from '../app/modules/NewsItem/newsItem.model';
+import { Team } from '../app/modules/Team/team.model';
 
 beforeAll(connectTestDb);
 afterEach(clearTestDb);
@@ -69,6 +70,81 @@ describe('GET /api/v1/news-items', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).not.toHaveProperty('embedding');
     expect(res.body.data.content_status).toBe('none');
+  });
+});
+
+describe('Subscription-filtered feed', () => {
+  it('filters the feed to a subscribed team member and keeps meta.total accurate', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-sub-feed@example.test' });
+    const member = await createTestUser({ email: 'member-sub-feed@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    await addTeamMember(team._id.toString(), member._id.toString());
+    await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
+    const memberToken = createAuthToken(member);
+
+    await createNewsItemDoc({ category: 'AI' });
+    await createNewsItemDoc({ category: 'AI' });
+    await createNewsItemDoc({ category: 'DevOps' });
+
+    const res = await request(app)
+      .get('/api/v1/news-items')
+      .set('Authorization', `Bearer ${memberToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(2);
+    expect(res.body.data.every((item: { category: string }) => item.category === 'AI')).toBe(true);
+    expect(res.body.meta.total).toBe(2);
+  });
+
+  it('lets an explicit category param override the subscription filter', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-sub-override@example.test' });
+    const member = await createTestUser({ email: 'member-sub-override@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    await addTeamMember(team._id.toString(), member._id.toString());
+    await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
+    const memberToken = createAuthToken(member);
+
+    await createNewsItemDoc({ category: 'Security' });
+
+    const res = await request(app)
+      .get('/api/v1/news-items?category=Security')
+      .set('Authorization', `Bearer ${memberToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].category).toBe('Security');
+  });
+
+  it('does not filter an unauthenticated request', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-sub-unauth@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
+
+    await createNewsItemDoc({ category: 'AI' });
+    await createNewsItemDoc({ category: 'DevOps' });
+
+    const res = await request(app).get('/api/v1/news-items');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(2);
+  });
+
+  it('does not filter a team with empty subscribed_categories', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-sub-empty@example.test' });
+    const member = await createTestUser({ email: 'member-sub-empty@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    await addTeamMember(team._id.toString(), member._id.toString());
+    const memberToken = createAuthToken(member);
+
+    await createNewsItemDoc({ category: 'AI' });
+    await createNewsItemDoc({ category: 'DevOps' });
+
+    const res = await request(app)
+      .get('/api/v1/news-items')
+      .set('Authorization', `Bearer ${memberToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(2);
   });
 });
 

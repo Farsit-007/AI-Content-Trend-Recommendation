@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { NEWS_CATEGORIES } from '../NewsIngestion/newsIngestion.interface';
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a valid MongoDB ObjectId');
+const newsCategoryEnum = z.enum(NEWS_CATEGORIES as unknown as [string, ...string[]]);
 
 const createTeamValidation = z.object({
   body: z.object({
@@ -20,6 +22,8 @@ const updateTeamValidation = z.object({
         custom_instructions: z.string().trim().max(500).optional(),
       })
       .optional(),
+    subscribed_categories: z.array(newsCategoryEnum).max(NEWS_CATEGORIES.length).optional(),
+    default_style_pack_id: objectId.nullable().optional(),
   }),
 });
 

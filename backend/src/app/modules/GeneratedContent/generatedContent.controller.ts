@@ -43,8 +43,19 @@ const updateStatus = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const createDraft = catchAsync(async (req: Request, res: Response) => {
+  const result = await GeneratedContentService.createDraft(req.body, req.user as IRequestUser);
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: 'Draft saved successfully',
+    data: result,
+  });
+});
+
 export const GeneratedContentController = {
   list,
   triggerRun,
   updateStatus,
+  createDraft,
 };

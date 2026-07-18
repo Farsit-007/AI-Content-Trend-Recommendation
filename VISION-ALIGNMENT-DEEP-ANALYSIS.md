@@ -77,15 +77,17 @@ Shipped (per `RAG-BANGLA-PLAN.md` Phase 1, archived change `2026-07-15-rag-bangl
 
 Not shipped: the model fluency check (`RAG-BANGLA-PLAN.md` §1.4 — flagged there as "⚠️ the critical step") has no recorded outcome; every LLM role (`LLM_MODEL_STANDARD/CONTENT/FALLBACK`) currently points at the same free model (`nvidia/nemotron-3-ultra-550b-a55b:free`), which also **silently disables the fallback failover** (`llmClient.ts:53` throws when `fallbackModel === model`).
 
-### 3.4 Teams, RBAC, analytics ✅ (out of this vision's critical path)
+### 3.4 Teams, RBAC ✅ (out of this vision's critical path)
 
-Multi-team RBAC (user/admin/super_admin, memberships), platform catalog + per-team enablement, encrypted per-team credentials, Meta OAuth (FB/IG) + LinkedIn OAuth, analytics rollups + report LLM, "Ask Growth Studio" chat backend (intent → news/performance retrieval → answer). Report + Platforms settings pages are the only fully-wired user-facing pages besides Admin.
+Multi-team RBAC (user/admin/super_admin, memberships), "Ask Growth Studio" chat backend (news-grounded retrieval → answer). Admin (ingestion runs) is the only fully-wired user-facing page besides the shell.
 
-### 3.5 Frontend reality ❌
+> **Update:** the social-media-handle performance analytics feature (platform catalog + per-team enablement, encrypted per-team credentials, Meta OAuth + LinkedIn OAuth, analytics rollups + report LLM, and the Report/Settings-Platforms pages referenced below) has since been **removed from the product entirely** — it is no longer part of the vision or the codebase.
 
-- Wired: Landing, Login, About, dashboard shell + role-based sidebar, **Report**, **Admin (ingestion runs)**, **Settings/Platforms (OAuth)**.
-- Placeholders ("Coming soon"): **Feed**, **Generate**, **Chat**, Overview (welcome text only).
-- No team switcher (`useTeamId.ts`: env var or first membership), no brand-voice management UI, no team settings UI (language/custom instructions/categories), no drafts list UI.
+### 3.5 Frontend reality ❌ *(snapshot predates both the analytics removal and later frontend work — see current `CLAUDE.md` for the live page list)*
+
+- Wired at the time of this snapshot: Landing, Login, About, dashboard shell + role-based sidebar, **Admin (ingestion runs)**.
+- Placeholders ("Coming soon") at the time: **Feed**, **Generate**, **Chat**, Overview (welcome text only) — all have since shipped.
+- No team switcher (`useTeamId.ts`: env var or first membership), no brand-voice management UI, no team settings UI (language/custom instructions/categories), no drafts list UI — all have since shipped too.
 - Note: `CLAUDE.md`'s frontend file map (`components/feed/`, `lib/mock/news.ts`, etc.) no longer matches the actual tree (`routes/`-based, no mock dir) — worth updating so future agent/dev work doesn't follow a stale map.
 
 ---

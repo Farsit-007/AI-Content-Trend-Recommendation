@@ -1,0 +1,18 @@
+[
+  {
+    "content": "কোডিং শিখতে দেরি হয়ে গেছে ভাবছেন? 🚀 মনে রাখবেন, প্রতিটা expert একসময় beginner ছিল। আজকে যে ১ লাইন কোড লিখবেন, সেটাই আপনার জার্নির শুরু। Programming Hero-তে আমরা বিশ্বাস করি — শুরু করার সবচেয়ে ভালো সময় হলো এখনই। কে কে আজকেই শুরু করবে? কমেন্টে জানান! 💻🔥",
+    "platform": "facebook",
+    "source_ref": "https://example.test/programming-hero/post-1",
+    "engagement_hint": "3.1k likes, 420 comments, 210 shares"
+  },
+  {
+    "content": "একটা সত্যি কথা বলি — বেশিরভাগ junior developer resume-এ ১০টা project দেখায়, কিন্তু কোনোটাই deploy করা থাকে না। ২টা ভালো, live, production-ready project অনেক বেশি শক্তিশালী ১০টা half-finished project থেকে। Quality over quantity, সবসময়। আপনার portfolio-তে কয়টা live project আছে? 🎯",
+    "platform": "linkedin",
+    "engagement_hint": "1.2k reactions, 95 comments"
+  },
+  {
+    "content": "AI টুলস দিয়ে কোড লেখা এখন normal — কিন্তু AI যা লিখে দেয় সেটা বুঝে নেওয়া, debug করা, আর optimize করা এখনো শুধু মানুষই পারে। তাই AI-কে ভয় না পেয়ে, AI-এর সাথে কীভাবে কাজ করতে হয় সেটা শিখুন। এটাই আগামী ৫ বছরের সবচেয়ে দরকারি স্কিল হতে যাচ্ছে। 🤖✨",
+    "platform": "facebook",
+    "engagement_hint": "2.7k likes, 340 comments, 190 shares"
+  }
+]

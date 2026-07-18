@@ -3,7 +3,6 @@ import config from '../config';
 import { logger } from './logger';
 import { runAutoGeneration } from '../modules/GeneratedContent/generatedContent.job';
 import { runIngestionPipeline } from '../modules/NewsIngestion/newsIngestion.service';
-import { runAnalyticsRefresh } from '../modules/Analytics/analytics.service';
 
 /**
  * Runs in-process rather than as a separate worker — acceptable at this scale
@@ -21,19 +20,6 @@ export const startNewsIngestionScheduler = (): void => {
     }
   });
   logger.info(`[scheduler] News ingestion scheduled: ${config.news_ingestion.cron}`);
-};
-
-export const startAnalyticsScheduler = (): void => {
-  cron.schedule(config.analytics.refresh_cron, async () => {
-    logger.info('[scheduler] Running scheduled analytics refresh...');
-    try {
-      const summary = await runAnalyticsRefresh();
-      logger.info({ summary }, '[scheduler] Analytics refresh complete');
-    } catch (err) {
-      logger.error({ err: err instanceof Error ? err.message : err }, '[scheduler] Analytics refresh failed');
-    }
-  });
-  logger.info(`[scheduler] Analytics refresh scheduled: ${config.analytics.refresh_cron}`);
 };
 
 export const startAutoGenerationScheduler = (): void => {

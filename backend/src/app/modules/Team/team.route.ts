@@ -1,8 +1,6 @@
 import { Router } from 'express';
 import { requireAdmin, requireAuth, requireTeamAccess } from '../../middleware/auth';
 import { validation } from '../../middleware/validation';
-import { PlatformCredentialRoutes } from '../PlatformCredential/platformCredential.route';
-import { TeamPlatformRoutes } from '../PlatformCatalog/teamPlatform.route';
 import { TeamController } from './team.controller';
 import { TeamValidation } from './team.validation';
 
@@ -28,9 +26,6 @@ router.post(
   TeamController.addMember,
 );
 router.delete('/:teamId/members/:userId', requireAdmin, TeamController.removeMember);
-
-router.use('/:teamId/credentials', requireTeamAccess('teamId'), PlatformCredentialRoutes);
-router.use('/:teamId/platforms', requireTeamAccess('teamId'), TeamPlatformRoutes);
 
 router.get('/:teamId/categories', requireTeamAccess('teamId'), TeamController.getCategories);
 router.post(
