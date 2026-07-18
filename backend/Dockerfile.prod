@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1
+#
+# Production image. The sibling `Dockerfile` is the DEV image — it installs deps to /deps,
+# expects source bind-mounted at /app, and runs ts-node-dev. It never compiles TypeScript.
+# Keep both: docker-compose.yml uses the dev one, Dokploy builds this one.
+
+# ---- build: full deps, compile TS -> dist ----
+FROM node:22-bookworm-slim AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+# ---- prod-deps: runtime dependencies only ----
+FROM node:22-bookworm-slim AS prod-deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
+
+# ---- runtime ----
+FROM node:22-bookworm-slim AS runtime
+ENV NODE_ENV=production
+# config/index.ts defaults PORT to 3001; pin it here so the listen port and EXPOSE
+# below can never drift apart. Dokploy's port mapping targets this.
+ENV PORT=5000
+# All four node-cron schedules use the container's local timezone. Without TZ the
+# container is UTC, so AUTO_GENERATION_CRON="0 6 * * *" fires at noon Dhaka time.
+ENV TZ=Asia/Dhaka
+WORKDIR /app
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build     /app/dist         ./dist
+COPY package.json ./
+USER node
+EXPOSE 5000
+CMD ["node", "dist/server.js"]
