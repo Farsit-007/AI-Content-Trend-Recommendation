@@ -37,7 +37,10 @@ import {
   RefineContentResponse,
   SetNewsItemOverrideRequest,
   SourceSummary,
+  StyleCardGenerateResult,
   StyleExample,
+  StyleExampleBulkCreate,
+  StyleExampleBulkResult,
   StyleExampleCreate,
   StylePack,
   StylePackCreate,
@@ -121,6 +124,9 @@ export const openApiDocument = {
       StylePackCreate,
       StyleExample,
       StyleExampleCreate,
+      StyleExampleBulkCreate,
+      StyleExampleBulkResult,
+      StyleCardGenerateResult,
       GeneratedContentDoc: {
         type: 'object',
         properties: {

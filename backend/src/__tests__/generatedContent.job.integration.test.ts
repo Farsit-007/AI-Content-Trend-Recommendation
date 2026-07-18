@@ -133,4 +133,35 @@ describe('POST /api/v1/generated-content/run — team-scoped, freshness-windowed
     expect(res.status).toBe(200);
     expect(res.body.data.drafts_created).toBe(2);
   });
+
+  it('excludes an archived item even when it is fresh and high-opportunity', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-autogen-4@example.test' });
+    const adminToken = createAuthToken(admin);
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    await BrandVoiceExample.create({
+      team_id: team._id.toString(),
+      platform: 'facebook',
+      content: 'Example brand voice post',
+      embedding: testEmbedding(),
+    });
+
+    await createNewsItemDoc({
+      category: 'AI',
+      title: 'Archived AI item',
+      lifecycle: 'archived',
+      archived_at: new Date(),
+      archive_reason: 'trend_floor',
+    });
+
+    mockEmbedding();
+    mockChatCompletion(CANNED_TEXT);
+
+    const res = await request(app)
+      .post('/api/v1/generated-content/run')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ team_id: team._id.toString() });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.drafts_created).toBe(0);
+  });
 });

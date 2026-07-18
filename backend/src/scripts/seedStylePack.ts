@@ -9,16 +9,24 @@
  * --name and --language are only used when creating a new pack (defaults: a title-cased version
  * of the slug, and "bangla"). They are ignored when the pack already exists.
  *
- * Idempotent: an example whose exact content already exists in the pack is skipped, so the
- * script can be re-run after adding new posts to the file.
+ * Idempotent: an example whose whitespace-normalized content already exists in the pack is
+ * skipped (matching the bulk-import API's de-dup rule), so the script can be re-run after adding
+ * new posts to the file. Embeds every surviving example in one batched call rather than one HTTP
+ * call per item, chunked at 100 items per call to match the bulk-import endpoint's cap.
  */
 import { readFileSync } from 'fs';
+import dns from 'dns';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import config from '../app/config';
-import { embed } from '../app/lib/embeddings';
+
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
+import { embedBatch } from '../app/lib/embeddings';
 import { LanguageStyle } from '../app/modules/Team/team.interface';
 import { StyleExample, StylePack } from '../app/modules/StylePack/stylePack.model';
+
+const BULK_CHUNK_SIZE = 100;
 
 const seedFileSchema = z
   .array(
@@ -30,6 +38,16 @@ const seedFileSchema = z
     }),
   )
   .min(1);
+
+type SeedItem = z.infer<typeof seedFileSchema>[number];
+
+const normalizeContent = (content: string): string => content.trim().replace(/\s+/g, ' ');
+
+const chunk = <T>(items: T[], size: number): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+};
 
 const titleCaseFromSlug = (slug: string): string =>
   slug
@@ -80,18 +98,31 @@ const main = async () => {
 
   const packId = (pack._id as mongoose.Types.ObjectId).toString();
 
+  const existing = await StyleExample.find({ style_pack_id: packId }, { content: 1 });
+  const seen = new Set(existing.map((e) => normalizeContent(e.content)));
+
   let created = 0;
   let skipped = 0;
-  for (const example of examples) {
-    const exists = await StyleExample.exists({ style_pack_id: packId, content: example.content });
-    if (exists) {
-      skipped += 1;
-      continue;
+
+  for (const batch of chunk(examples, BULK_CHUNK_SIZE)) {
+    const survivors: SeedItem[] = [];
+    for (const item of batch) {
+      const key = normalizeContent(item.content);
+      if (seen.has(key)) {
+        skipped += 1;
+        continue;
+      }
+      seen.add(key);
+      survivors.push(item);
     }
 
-    const embedding = await embed(example.content);
-    await StyleExample.create({ ...example, style_pack_id: packId, embedding });
-    created += 1;
+    if (survivors.length === 0) continue;
+
+    const embeddings = await embedBatch(survivors.map((item) => item.content));
+    await StyleExample.insertMany(
+      survivors.map((item, i) => ({ ...item, style_pack_id: packId, embedding: embeddings[i] })),
+    );
+    created += survivors.length;
   }
 
   const total = await StyleExample.countDocuments({ style_pack_id: packId });

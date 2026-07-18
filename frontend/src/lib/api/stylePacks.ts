@@ -10,6 +10,10 @@ export interface StylePackDto {
   language: LanguageStyle;
   tone_tags: string[];
   style_card?: string;
+  /** When style_card was last (re)generated — compare style_card_example_count against the pack's
+   *  current example count to derive staleness; there is no separate stale flag from the API. */
+  style_card_generated_at?: string;
+  style_card_example_count?: number;
   is_active: boolean;
   created_by: string;
   created_at: string;
@@ -101,4 +105,22 @@ export function addStyleExample(packId: string, payload: CreateStyleExamplePaylo
 /** DELETE /style-packs/:id/examples/:exampleId (super_admin only). */
 export function deleteStyleExample(packId: string, exampleId: string): Promise<StyleExampleDto> {
   return apiDelete<StyleExampleDto>(`/style-packs/${packId}/examples/${exampleId}`);
+}
+
+export interface BulkImportResult {
+  created: number;
+  skipped: number;
+  total: number;
+}
+
+/** POST /style-packs/:id/examples/bulk (super_admin only) — up to 100 items, one embeddings call,
+ *  whitespace-normalized de-dup against existing examples and within the batch. */
+export function bulkAddExamples(packId: string, items: CreateStyleExamplePayload[]): Promise<BulkImportResult> {
+  return apiPost<BulkImportResult>(`/style-packs/${packId}/examples/bulk`, { items });
+}
+
+/** POST /style-packs/:id/generate-card (super_admin only) — shares implementation with the CLI
+ *  script; overwrites style_card and its freshness metadata on the pack. */
+export function generateCard(packId: string): Promise<{ style_card: string }> {
+  return apiPost<{ style_card: string }>(`/style-packs/${packId}/generate-card`, {});
 }

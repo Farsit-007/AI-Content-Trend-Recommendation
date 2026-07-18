@@ -125,6 +125,35 @@ export const stylePackPaths = {
       },
     },
   },
+  '/style-packs/{id}/examples/bulk': {
+    post: {
+      tags: ['Style Packs'],
+      summary: 'Bulk-import up to 100 examples in one call; embeds the batch in a single request and skips whitespace-normalized duplicates (super_admin only)',
+      security: bearerAuth,
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+      requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/StyleExampleBulkCreate' } } } },
+      responses: {
+        '201': { description: 'Import result', content: { 'application/json': { schema: singleEnvelope('StyleExampleBulkResult') } } },
+        '400': errorResponse('Invalid batch (empty, over 100 items, or an invalid item)'),
+        '403': errorResponse('Super admin access required'),
+        '404': errorResponse('Style pack not found'),
+      },
+    },
+  },
+  '/style-packs/{id}/generate-card': {
+    post: {
+      tags: ['Style Packs'],
+      summary: "(Re)generate a pack's style card from its current examples; shares implementation with the CLI script (super_admin only)",
+      security: bearerAuth,
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: {
+        '200': { description: 'Generated style card', content: { 'application/json': { schema: singleEnvelope('StyleCardGenerateResult') } } },
+        '400': errorResponse('Style pack has no examples'),
+        '403': errorResponse('Super admin access required'),
+        '404': errorResponse('Style pack not found'),
+      },
+    },
+  },
   '/style-packs/{id}/examples/{exampleId}': {
     delete: {
       tags: ['Style Packs'],

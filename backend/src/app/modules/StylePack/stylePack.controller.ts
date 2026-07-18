@@ -88,6 +88,26 @@ const deleteExample = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const addExamplesBulk = catchAsync(async (req: Request, res: Response) => {
+  const result = await StylePackService.addExamplesBulk(req.params.id as string, req.body.items);
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: 'Style examples imported',
+    data: result,
+  });
+});
+
+const generateCard = catchAsync(async (req: Request, res: Response) => {
+  const style_card = await StylePackService.generateCardForPack(req.params.id as string);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Style card generated successfully',
+    data: { style_card },
+  });
+});
+
 export const StylePackController = {
   createPack,
   listPacks,
@@ -95,6 +115,8 @@ export const StylePackController = {
   updatePack,
   deletePack,
   addExample,
+  addExamplesBulk,
   listExamples,
   deleteExample,
+  generateCard,
 };

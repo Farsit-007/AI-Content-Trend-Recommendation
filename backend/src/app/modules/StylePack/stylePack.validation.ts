@@ -36,12 +36,20 @@ const listStylePacksValidation = z.object({
   }),
 });
 
+const styleExampleShape = z.object({
+  content: z.string({ required_error: 'content is required' }).min(1).max(8000),
+  platform: z.enum(['facebook', 'linkedin', 'other']).optional(),
+  source_ref: z.string().optional(),
+  engagement_hint: z.string().optional(),
+});
+
 const createStyleExampleValidation = z.object({
+  body: styleExampleShape,
+});
+
+const bulkCreateStyleExamplesValidation = z.object({
   body: z.object({
-    content: z.string({ required_error: 'content is required' }).min(1).max(8000),
-    platform: z.enum(['facebook', 'linkedin', 'other']).optional(),
-    source_ref: z.string().optional(),
-    engagement_hint: z.string().optional(),
+    items: z.array(styleExampleShape).min(1).max(100),
   }),
 });
 
@@ -50,4 +58,5 @@ export const StylePackValidation = {
   updateStylePackValidation,
   listStylePacksValidation,
   createStyleExampleValidation,
+  bulkCreateStyleExamplesValidation,
 };

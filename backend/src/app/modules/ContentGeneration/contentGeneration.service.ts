@@ -20,11 +20,12 @@ import {
   RefineContentRequest,
   YoutubeIdea,
 } from './contentGeneration.interface';
-import { buildMessages, buildRefineMessages, StyleContext } from './contentGeneration.prompt';
+import { buildMessages, buildRefineMessages } from './contentGeneration.prompt';
 import { parseTextFormat, parseYoutubeIdea } from './contentGeneration.parse';
 import {
+  buildStyleContext,
+  fetchStylePackExamples,
   fetchTopBrandVoiceExamples,
-  fetchTopStyleExamples,
   hasBrandVoiceExamples,
 } from './contentGeneration.retrieval';
 import config from '../../config';
@@ -82,8 +83,14 @@ const resolveStylePack = async (
   return teamPack;
 };
 
-/** Soft-fail by design: a missing/invalid news_item_id falls back to embedding the topic text, not a request error. */
-const resolveNewsItemContext = async (
+/**
+ * Soft-fail by design: a missing/invalid news_item_id falls back to embedding the topic text, not
+ * a request error. Exported (not just used internally) so the bake-off harness
+ * (`contentGeneration.bakeoff.ts`) can resolve a topic's optional real news item exactly like a
+ * live request does — it takes no team context at all, so nothing about reusing it here
+ * team-scopes the harness.
+ */
+export const resolveNewsItemContext = async (
   newsItemId: string | undefined,
 ): Promise<{ embedding?: number[]; context?: NewsItemContext }> => {
   if (!newsItemId) return {};
@@ -159,9 +166,9 @@ const generateContent = async (
     const coldStart = !(await hasBrandVoiceExamples(payload.team_id));
     const fewShotExamples = coldStart ? [] : await fetchTopBrandVoiceExamples(payload.team_id, topicEmbedding);
 
-    const styleContext: StyleContext | undefined = stylePack
-      ? { card: stylePack.style_card, examples: await fetchTopStyleExamples(packId as string, topicEmbedding) }
-      : undefined;
+    // Fetched once regardless of how many formats are requested — each format ranks its own
+    // selection from this shared set via rankStyleExamples's platform preference (see below).
+    const stylePackExamples = stylePack ? await fetchStylePackExamples(packId as string) : null;
 
     const factSheet =
       payload.news_item_id && newsContext?.content && newsContext.content.length >= config.content_generation.facts_min_chars
@@ -172,6 +179,8 @@ const generateContent = async (
     try {
       missResults = await Promise.all(
         misses.map(async (format) => {
+          const styleContext = buildStyleContext(format, stylePack, stylePackExamples, topicEmbedding);
+
           const messages = buildMessages(
             format,
             payload.topic,

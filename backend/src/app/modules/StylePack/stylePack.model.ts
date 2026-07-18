@@ -8,6 +8,8 @@ const stylePackSchema = new Schema<IStylePack>({
   language: { type: String, enum: ['bangla', 'english', 'banglish'], required: true },
   tone_tags: { type: [String], default: [] },
   style_card: { type: String },
+  style_card_generated_at: { type: Date },
+  style_card_example_count: { type: Number },
   is_active: { type: Boolean, default: true },
   created_by: { type: String, required: true },
   created_at: { type: Date, default: Date.now },

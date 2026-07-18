@@ -419,6 +419,8 @@ export const StylePack = {
     language: { type: 'string', enum: ['bangla', 'english', 'banglish'] },
     tone_tags: { type: 'array', items: { type: 'string' } },
     style_card: { type: 'string', description: 'Freeform ~300-word description of tone, rhythm, and habits, curated or LLM-generated.' },
+    style_card_generated_at: { type: 'string', format: 'date-time', description: 'When style_card was last (re)generated via the CLI script or POST /:id/generate-card.' },
+    style_card_example_count: { type: 'integer', description: 'Example count at the time style_card was generated — compare against example_count to derive staleness.' },
     is_active: { type: 'boolean' },
     created_by: { type: 'string' },
     created_at: { type: 'string', format: 'date-time' },
@@ -465,4 +467,30 @@ export const StyleExampleCreate = {
     engagement_hint: { type: 'string' },
   },
   required: ['content'],
+} as const;
+
+export const StyleExampleBulkCreate = {
+  type: 'object',
+  properties: {
+    items: { type: 'array', items: { $ref: '#/components/schemas/StyleExampleCreate' }, minItems: 1, maxItems: 100 },
+  },
+  required: ['items'],
+} as const;
+
+export const StyleExampleBulkResult = {
+  type: 'object',
+  properties: {
+    created: { type: 'integer', description: 'Examples embedded and stored.' },
+    skipped: { type: 'integer', description: 'Items skipped as whitespace-normalized duplicates, either against existing examples or earlier items in the same batch.' },
+    total: { type: 'integer', description: "The pack's total example count after this import." },
+  },
+  required: ['created', 'skipped', 'total'],
+} as const;
+
+export const StyleCardGenerateResult = {
+  type: 'object',
+  properties: {
+    style_card: { type: 'string' },
+  },
+  required: ['style_card'],
 } as const;

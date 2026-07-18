@@ -1,0 +1,26 @@
+[
+  {
+    "topic": "A new open-source AI agent framework that lets developers chain LLM tool calls with automatic retries",
+    "category_hint": "AI"
+  },
+  {
+    "topic": "A major AI lab releases a smaller, cheaper model that matches last year's flagship on coding benchmarks",
+    "category_hint": "AI"
+  },
+  {
+    "topic": "A popular JavaScript framework ships a new compiler that cuts bundle size significantly",
+    "category_hint": "Web Dev"
+  },
+  {
+    "topic": "Why junior developers should ship two finished, production-ready projects instead of ten unfinished ones",
+    "category_hint": "Career"
+  },
+  {
+    "topic": "A critical vulnerability is discovered in a widely-used open-source authentication library",
+    "category_hint": "Security"
+  },
+  {
+    "topic": "A new Kubernetes release simplifies rolling out canary deployments without extra tooling",
+    "category_hint": "DevOps"
+  }
+]

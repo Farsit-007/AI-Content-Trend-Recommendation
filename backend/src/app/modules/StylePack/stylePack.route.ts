@@ -30,7 +30,15 @@ router.post(
   validation(StylePackValidation.createStyleExampleValidation),
   StylePackController.addExample,
 );
+router.post(
+  '/:id/examples/bulk',
+  requireSuperAdmin,
+  validation(StylePackValidation.bulkCreateStyleExamplesValidation),
+  StylePackController.addExamplesBulk,
+);
 router.get('/:id/examples', StylePackController.listExamples);
 router.delete('/:id/examples/:exampleId', requireSuperAdmin, StylePackController.deleteExample);
+
+router.post('/:id/generate-card', requireSuperAdmin, StylePackController.generateCard);
 
 export const StylePackRoutes = router;

@@ -9,6 +9,8 @@ export interface IStylePack {
   language: LanguageStyle;
   tone_tags: string[];
   style_card?: string;
+  style_card_generated_at?: Date;
+  style_card_example_count?: number;
   is_active: boolean;
   created_by: string;
   created_at: Date;

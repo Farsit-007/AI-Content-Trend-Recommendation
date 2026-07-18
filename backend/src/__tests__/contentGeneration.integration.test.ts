@@ -446,6 +446,113 @@ describe('POST /api/v1/content/generate — style pack conditioning', () => {
   });
 });
 
+describe('POST /api/v1/content/generate — platform-aware style retrieval', () => {
+  const createTaggedPack = async (
+    fbContents: string[],
+    liContents: string[],
+  ): Promise<InstanceType<typeof StylePack>> => {
+    const pack = await StylePack.create({
+      name: 'Programming Hero',
+      slug: `programming-hero-platform-${Date.now()}-${Math.random()}`,
+      language: 'bangla',
+      is_active: true,
+      created_by: 'test-seed',
+    });
+    await StyleExample.insertMany([
+      ...fbContents.map((content) => ({
+        style_pack_id: pack._id.toString(),
+        content,
+        embedding: testEmbedding(),
+        platform: 'facebook' as const,
+      })),
+      ...liContents.map((content) => ({
+        style_pack_id: pack._id.toString(),
+        content,
+        embedding: testEmbedding(),
+        platform: 'linkedin' as const,
+      })),
+    ]);
+    return pack;
+  };
+
+  it('gives facebook_post and linkedin_post distinct, platform-matched style example sets in one request', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-platform-1@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+
+    // 5 of each platform — exactly the retrieval limit, so matches alone satisfy each format's
+    // selection and no cross-platform backfill occurs, making the two prompts' example sets disjoint.
+    const fbContents = Array.from({ length: 5 }, (_, i) => `FB-EXAMPLE-${i}`);
+    const liContents = Array.from({ length: 5 }, (_, i) => `LI-EXAMPLE-${i}`);
+    const pack = await createTaggedPack(fbContents, liContents);
+    await Team.findByIdAndUpdate(team._id, { default_style_pack_id: pack._id.toString() });
+
+    mockEmbedding();
+    mockChatCompletionSequence([FB_TEXT, LI_TEXT]);
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing' });
+
+    expect(res.status).toBe(200);
+    const [fbCall, liCall] = getChatCompletionRequests();
+    const fbPrompt = fbCall.messages[0].content;
+    const liPrompt = liCall.messages[0].content;
+
+    for (const content of fbContents) expect(fbPrompt).toContain(content);
+    for (const content of liContents) expect(fbPrompt).not.toContain(content);
+
+    for (const content of liContents) expect(liPrompt).toContain(content);
+    for (const content of fbContents) expect(liPrompt).not.toContain(content);
+  });
+
+  it('fetches the style pack examples exactly once per request regardless of format count', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-platform-2@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    const pack = await createTaggedPack(['fb one'], ['li one']);
+    await Team.findByIdAndUpdate(team._id, { default_style_pack_id: pack._id.toString() });
+
+    mockEmbedding();
+    mockChatCompletionSequence([FB_TEXT, LI_TEXT]);
+
+    const findSpy = jest.spyOn(StyleExample, 'find');
+    try {
+      const res = await request(app)
+        .post('/api/v1/content/generate')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing' });
+
+      expect(res.status).toBe(200);
+      expect(findSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      findSpy.mockRestore();
+    }
+  });
+
+  it('untagged (platform: other) examples still surface via backfill — no regression from platform-aware ranking', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-platform-3@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    // No platform passed — defaults to 'other' per the schema, matching pre-change corpora.
+    const pack = await createPackWithExample('untagged legacy example text');
+    await Team.findByIdAndUpdate(team._id, { default_style_pack_id: pack._id.toString() });
+
+    mockEmbedding();
+    mockChatCompletion(FB_TEXT);
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing', formats: ['facebook_post'] });
+
+    expect(res.status).toBe(200);
+    const systemPrompt = getLastChatCompletionRequest().messages[0].content;
+    expect(systemPrompt).toContain('untagged legacy example text');
+  });
+});
+
 describe('POST /api/v1/content/generate — cache key correctness', () => {
   it('does not serve a language-mismatched cached result', async () => {
     const admin = await createTestUser({ role: 'admin', email: 'admin-cache-lang@example.test' });

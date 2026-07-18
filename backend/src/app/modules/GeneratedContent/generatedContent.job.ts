@@ -42,7 +42,7 @@ export const runAutoGeneration = async (teamId?: string): Promise<IAutoGeneratio
       const topNews = await NewsItem.find({
         ...(team.subscribed_categories.length ? { category: { $in: team.subscribed_categories } } : {}),
         created_at: { $gte: new Date(Date.now() - maxAgeHours * 3600 * 1000) },
-        // lifecycle: 'active' — seam for the retention plan to add once `lifecycle` exists on NewsItem
+        lifecycle: 'active',
       })
         .sort({ opportunity_score: -1, trend_score: -1 })
         .limit(TOP_NEWS_PER_TEAM)

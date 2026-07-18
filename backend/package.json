@@ -25,6 +25,7 @@
     "verify:chat-live": "ts-node src/scripts/verifyChatLive.ts",
     "verify:semantic-dedup-live": "ts-node src/scripts/verifySemanticDedupLive.ts",
     "verify:style-pack-retrieval": "ts-node src/scripts/verifyStylePackRetrieval.ts",
+    "verify:bangla-bakeoff": "ts-node src/scripts/banglaBakeoff.ts",
     "verify:dedup-calibrate": "ts-node src/scripts/verifySemanticDedupLive.ts --calibrate",
     "verify:dedup-judge": "ts-node src/scripts/verifySemanticDedupLive.ts --judge",
     "verify:engagement-refresh-live": "ts-node src/scripts/verifyEngagementRefreshLive.ts",

@@ -46,6 +46,18 @@ export const mockEmbedding = (vector: number[] = Array(1536).fill(0.01)): void =
   });
 };
 
+/**
+ * Configures the mocked embeddings call to resolve with one 1536-dimension vector per input item,
+ * regardless of how many items are sent — required for `embedBatch` callers (a single-vector
+ * `mockEmbedding` response fails `embedBatch`'s length-match validation for batches of size > 1).
+ */
+export const mockEmbeddingBatch = (vector: number[] = Array(1536).fill(0.01)): void => {
+  mocked.embeddings.create.mockImplementation(async (req: { input: string | string[] }) => {
+    const count = Array.isArray(req.input) ? req.input.length : 1;
+    return { data: Array.from({ length: count }, () => ({ embedding: vector })) };
+  });
+};
+
 export const getOpenRouterCallCounts = () => ({
   chatCompletionCalls: mocked.chat.completions.create.mock.calls.length,
   embeddingCalls: mocked.embeddings.create.mock.calls.length,
