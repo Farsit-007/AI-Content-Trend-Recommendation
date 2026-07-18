@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { Types } from 'mongoose';
-import { embedBatch } from '../../lib/embeddings';
+import { embedBatchForTask } from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
 import { cosineSimilarity } from '../../lib/similarity';
 import { NewsDedupLedger } from '../NewsDedupLedger/newsDedupLedger.model';
@@ -121,7 +121,10 @@ export const embedItems = async (items: HashedNewsItem[]): Promise<EmbeddedNewsI
   const embedded: EmbeddedNewsItem[] = [];
   for (let i = 0; i < items.length; i += EMBED_BATCH_SIZE) {
     const batch = items.slice(i, i + EMBED_BATCH_SIZE);
-    const vectors = await embedBatch(batch.map((item) => `${item.title} ${item.snippet ?? ''}`.trim()));
+    const vectors = await embedBatchForTask(
+      'embedding',
+      batch.map((item) => `${item.title} ${item.snippet ?? ''}`.trim()),
+    );
     batch.forEach((item, j) => embedded.push({ ...item, embedding: vectors[j] }));
   }
   return embedded;

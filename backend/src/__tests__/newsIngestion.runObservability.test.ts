@@ -1,6 +1,7 @@
 import { AdapterResult } from '../app/modules/NewsIngestion/newsIngestion.interface';
 import { buildSourceRunCounts } from '../app/modules/NewsIngestion/newsIngestion.service';
 import { IngestionRun } from '../app/modules/IngestionRun/ingestionRun.model';
+import { BrandVoiceExample } from '../app/modules/BrandVoiceExample/brandVoiceExample.model';
 import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
 
 jest.mock('../app/modules/NewsIngestion/adapters');
@@ -13,6 +14,7 @@ import { embedBatch } from '../app/lib/embeddings';
 import { categorizeBatch } from '../app/modules/NewsIngestion/newsIngestion.categorize';
 import { enrichContent } from '../app/modules/NewsIngestion/newsIngestion.contentFetch';
 import { runIngestionPipeline } from '../app/modules/NewsIngestion/newsIngestion.service';
+import { NewsItem } from '../app/modules/NewsItem/newsItem.model';
 import config from '../app/config';
 
 const mockedRunAllAdapters = runAllAdapters as jest.MockedFunction<typeof runAllAdapters>;
@@ -20,7 +22,12 @@ const mockedEmbedBatch = embedBatch as jest.MockedFunction<typeof embedBatch>;
 const mockedCategorizeBatch = categorizeBatch as jest.MockedFunction<typeof categorizeBatch>;
 const mockedEnrichContent = enrichContent as jest.MockedFunction<typeof enrichContent>;
 
-const rawItem = (source: string, id: string, title = `Story ${id}`): AdapterResult['items'][number] => ({
+const rawItem = (
+  source: string,
+  id: string,
+  title = `Story ${id}`,
+  overrides: Partial<AdapterResult['items'][number]> = {},
+): AdapterResult['items'][number] => ({
   source,
   source_id: id,
   title,
@@ -28,6 +35,7 @@ const rawItem = (source: string, id: string, title = `Story ${id}`): AdapterResu
   raw_points: 10,
   raw_comments: 2,
   raw_stars_delta: 0,
+  ...overrides,
 });
 
 // One-hot vectors are pairwise orthogonal (cosine similarity 0), keeping every mocked embedBatch()
@@ -167,6 +175,107 @@ describe('runIngestionPipeline persistence', () => {
     expect(summary.totalStored).toBe(1);
     const runs = await IngestionRun.find();
     expect(runs[0].error).toBeUndefined();
+  });
+
+  it('carries discussion_url and thumbnail_url from the adapter item through to the stored NewsItem', async () => {
+    mockedRunAllAdapters.mockResolvedValue([
+      {
+        source: 'producthunt',
+        items: [
+          rawItem('producthunt', '1', 'Story 1', {
+            discussion_url: 'https://www.producthunt.com/posts/acme',
+            thumbnail_url: 'https://ph-files.imgix.net/acme.png',
+          }),
+        ],
+      },
+    ]);
+    mockedEmbedBatch.mockImplementation(oneHotEmbedBatch());
+    mockedCategorizeBatch.mockImplementation(passthroughCategorize());
+
+    const summary = await runIngestionPipeline('manual');
+    expect(summary.totalStored).toBe(1);
+
+    const stored = await NewsItem.findOne({ source: 'producthunt', source_id: '1' });
+    expect(stored?.discussion_url).toBe('https://www.producthunt.com/posts/acme');
+    expect(stored?.thumbnail_url).toBe('https://ph-files.imgix.net/acme.png');
+  });
+
+  it('leaves discussion_url and thumbnail_url unset on the stored NewsItem when the adapter item has neither', async () => {
+    mockedRunAllAdapters.mockResolvedValue([{ source: 'hackernews', items: [rawItem('hackernews', '1')] }]);
+    mockedEmbedBatch.mockImplementation(oneHotEmbedBatch());
+    mockedCategorizeBatch.mockImplementation(passthroughCategorize());
+
+    const summary = await runIngestionPipeline('manual');
+    expect(summary.totalStored).toBe(1);
+
+    const stored = await NewsItem.findOne({ source: 'hackernews', source_id: '1' });
+    expect(stored?.discussion_url).toBeUndefined();
+    expect(stored?.thumbnail_url).toBeUndefined();
+  });
+
+  it('stores an item with a low relevance_score rather than dropping it (flexible-news-taxonomy-and-relevance)', async () => {
+    // A brand-voice example whose embedding is orthogonal to every item's one-hot embedding below
+    // guarantees relevance_score 0 for all of them — under the old gate (min_relevance 4.0,
+    // non-empty pool) every one of these would have been silently dropped before storage.
+    await BrandVoiceExample.create({
+      team_id: 'test-team',
+      platform: 'facebook',
+      content: 'unrelated brand voice content',
+      embedding: Array(1536).fill(0).map((_, i) => (i === 1500 ? 1 : 0)),
+    });
+    mockedRunAllAdapters.mockResolvedValue([{ source: 'hackernews', items: [rawItem('hackernews', '1')] }]);
+    mockedEmbedBatch.mockImplementation(oneHotEmbedBatch());
+    mockedCategorizeBatch.mockImplementation(passthroughCategorize());
+
+    const summary = await runIngestionPipeline('manual');
+
+    expect(summary.totalStored).toBe(1);
+    const stored = await NewsItem.findOne({ source: 'hackernews', source_id: '1' });
+    expect(stored).not.toBeNull();
+    expect(stored?.relevance_score).toBe(0);
+
+    const runs = await IngestionRun.find();
+    const row = runs[0].sources.find((s) => s.source === 'hackernews')!;
+    expect(row.relevance_dropped).toBe(0);
+    expect(row.stored).toBe(1);
+  });
+
+  it('enriches a high-relevance item (content-enrichment keeps its own separate relevance floor)', async () => {
+    const oneHot = (i: number) => Array(1536).fill(0).map((_, idx) => (idx === i ? 1 : 0));
+    await BrandVoiceExample.create({
+      team_id: 'test-team',
+      platform: 'facebook',
+      content: 'matching brand voice content',
+      embedding: oneHot(0), // matches the single item's embedding below (index 0) — relevance ~10
+    });
+    mockedRunAllAdapters.mockResolvedValue([{ source: 'hackernews', items: [rawItem('hackernews', '1')] }]);
+    mockedEmbedBatch.mockImplementation(oneHotEmbedBatch());
+    mockedCategorizeBatch.mockImplementation(passthroughCategorize());
+
+    await runIngestionPipeline('manual');
+
+    expect(mockedEnrichContent).toHaveBeenCalledTimes(1);
+    expect(mockedEnrichContent.mock.calls[0][0]).toHaveLength(1);
+  });
+
+  it('skips content enrichment for a low-relevance item, but still stores it', async () => {
+    const oneHot = (i: number) => Array(1536).fill(0).map((_, idx) => (idx === i ? 1 : 0));
+    await BrandVoiceExample.create({
+      team_id: 'test-team',
+      platform: 'facebook',
+      content: 'unrelated brand voice content',
+      embedding: oneHot(999), // orthogonal to the item's embedding below (index 0) — relevance 0
+    });
+    mockedRunAllAdapters.mockResolvedValue([{ source: 'hackernews', items: [rawItem('hackernews', '1')] }]);
+    mockedEmbedBatch.mockImplementation(oneHotEmbedBatch());
+    mockedCategorizeBatch.mockImplementation(passthroughCategorize());
+
+    const summary = await runIngestionPipeline('manual');
+
+    expect(mockedEnrichContent.mock.calls[0][0]).toHaveLength(0);
+    expect(summary.totalStored).toBe(1);
+    const stored = await NewsItem.findOne({ source: 'hackernews', source_id: '1' });
+    expect(stored).not.toBeNull();
   });
 
   it('never invokes content enrichment when NEWS_CONTENT_FETCH_ENABLED is false', async () => {

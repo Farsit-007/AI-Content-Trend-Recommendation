@@ -1,16 +1,13 @@
-import crypto from 'crypto';
 import AppError from '../../errors/AppError';
-import { embed } from '../../lib/embeddings';
-import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { chatCompletionForTask, resolveModelForTask } from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
-import { redis } from '../../lib/redis';
 import { resolveVoiceOptions } from '../../lib/voiceProfile';
 import { httpStatus } from '../../utils/httpStatus';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { StylePack } from '../StylePack/stylePack.model';
-import { LanguageStyle } from '../Team/team.interface';
 import { Team } from '../Team/team.model';
 import { IRequestUser } from '../User/user.interface';
+import { getOrEmbedTopic } from './contentGeneration.embedCache';
 import { getOrExtractFactSheet } from './contentGeneration.facts';
 import { CONTENT_FORMATS, DEFAULT_FORMATS, FormatId } from './contentGeneration.formats';
 import {
@@ -20,6 +17,7 @@ import {
   RefineContentRequest,
   YoutubeIdea,
 } from './contentGeneration.interface';
+import { critiqueText, isCritiqueEligible } from './contentGeneration.critique';
 import { buildMessages, buildRefineMessages } from './contentGeneration.prompt';
 import { parseTextFormat, parseYoutubeIdea } from './contentGeneration.parse';
 import {
@@ -30,21 +28,7 @@ import {
 } from './contentGeneration.retrieval';
 import config from '../../config';
 
-const CONTENT_TTL = config.content_generation.cache_ttl_seconds;
-
 type FormatValue = string | YoutubeIdea;
-
-const buildCacheKey = (
-  teamId: string,
-  newsItemId: string | undefined,
-  topic: string | undefined,
-  language: LanguageStyle,
-  packId: string | null,
-  format: FormatId,
-): string => {
-  const item = newsItemId ?? crypto.createHash('sha256').update(topic ?? '').digest('hex');
-  return `content:${teamId}:${item}:${language}:${packId ?? 'none'}:${format}`;
-};
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
   if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') return;
@@ -117,6 +101,12 @@ export const resolveNewsItemContext = async (
 const parseFormatValue = (format: FormatId, raw: string): FormatValue | null =>
   CONTENT_FORMATS[format].kind === 'json' ? parseYoutubeIdea(raw) : parseTextFormat(raw);
 
+/**
+ * Every requested format always produces a fresh LLM call — creative output is not idempotent and
+ * must not pretend to be (see generation-cache-rework). `regenerate` is accepted for API
+ * compatibility with older clients but has no effect. Deterministic intermediates (fact sheets,
+ * topic embeddings) remain cached — see contentGeneration.facts.ts / contentGeneration.embedCache.ts.
+ */
 const generateContent = async (
   payload: GenerateContentRequest,
   requestingUser: IRequestUser,
@@ -131,90 +121,74 @@ const generateContent = async (
   ]);
   const packId = stylePack ? (stylePack._id as { toString(): string }).toString() : null;
 
-  const cacheKeysByFormat = new Map(
-    requestedFormats.map((format) => [
-      format,
-      buildCacheKey(payload.team_id, payload.news_item_id, payload.topic, voiceOptions.language, packId, format),
-    ]),
-  );
+  const { embedding: newsItemEmbedding, context: newsContext } = await resolveNewsItemContext(payload.news_item_id);
+  const topicEmbedding = newsItemEmbedding ?? (await getOrEmbedTopic(payload.topic, payload.team_id));
 
-  // regenerate: true skips cache reads entirely — every requested format is treated as a miss,
-  // so the existing miss-handling path below naturally overwrites each format's cache entry.
-  const cachedEntries = payload.regenerate
-    ? requestedFormats.map((format) => [format, null] as const)
-    : await Promise.all(
-        requestedFormats.map(async (format) => {
-          const cached = await redis.get(cacheKeysByFormat.get(format) as string);
-          return [format, cached ? (JSON.parse(cached) as FormatValue) : null] as const;
-        }),
-      );
+  const coldStart = !(await hasBrandVoiceExamples(payload.team_id));
+  const fewShotExamples = coldStart ? [] : await fetchTopBrandVoiceExamples(payload.team_id, topicEmbedding);
+
+  // Fetched once regardless of how many formats are requested — each format ranks its own
+  // selection from this shared set via rankStyleExamples's platform preference (see below).
+  const stylePackExamples = stylePack ? await fetchStylePackExamples(packId as string) : null;
+
+  const factSheet =
+    payload.news_item_id && newsContext?.content && newsContext.content.length >= config.content_generation.facts_min_chars
+      ? (await getOrExtractFactSheet(payload.news_item_id, payload.topic, newsContext.content, payload.team_id)) ??
+        undefined
+      : undefined;
+
+  const modelUsed = (
+    await resolveModelForTask('content_generation', { teamId: payload.team_id, requestModelId: payload.llm_model_id })
+  ).model_id;
 
   const results: Partial<Record<FormatId, FormatValue>> = {};
-  const misses: FormatId[] = [];
-  for (const [format, value] of cachedEntries) {
-    if (value !== null) {
-      results[format] = value;
-    } else {
-      misses.push(format);
-    }
-  }
 
-  if (misses.length > 0) {
-    const { embedding: newsItemEmbedding, context: newsContext } = await resolveNewsItemContext(payload.news_item_id);
-    const topicEmbedding = newsItemEmbedding ?? (await embed(payload.topic));
+  let formatResults: [FormatId, FormatValue][];
+  try {
+    formatResults = await Promise.all(
+      requestedFormats.map(async (format) => {
+        const styleContext = buildStyleContext(format, stylePack, stylePackExamples, topicEmbedding);
 
-    const coldStart = !(await hasBrandVoiceExamples(payload.team_id));
-    const fewShotExamples = coldStart ? [] : await fetchTopBrandVoiceExamples(payload.team_id, topicEmbedding);
+        const messages = buildMessages(
+          format,
+          payload.topic,
+          fewShotExamples,
+          voiceOptions,
+          newsContext,
+          styleContext,
+          factSheet,
+        );
+        const raw = await chatCompletionForTask('content_generation', messages, {
+          teamId: payload.team_id,
+          requestModelId: payload.llm_model_id,
+          temperature: 0.7,
+        });
+        const parsed = parseFormatValue(format, raw);
+        if (parsed === null) {
+          throw new Error(`format "${format}" returned an unparseable response`);
+        }
 
-    // Fetched once regardless of how many formats are requested — each format ranks its own
-    // selection from this shared set via rankStyleExamples's platform preference (see below).
-    const stylePackExamples = stylePack ? await fetchStylePackExamples(packId as string) : null;
+        // Critique is text-format-only, pack-gated, and off by default (isCritiqueEligible
+        // checks all of that) — critiqueText itself soft-fails to `parsed` on any error or
+        // degenerate output, so this can never turn a successful format into a failed one.
+        const finalValue: FormatValue =
+          typeof parsed === 'string' && isCritiqueEligible(format, stylePack)
+            ? await critiqueText(parsed, stylePack!.style_card, voiceOptions, payload.team_id)
+            : parsed;
 
-    const factSheet =
-      payload.news_item_id && newsContext?.content && newsContext.content.length >= config.content_generation.facts_min_chars
-        ? (await getOrExtractFactSheet(payload.news_item_id, payload.topic, newsContext.content)) ?? undefined
-        : undefined;
-
-    let missResults: [FormatId, FormatValue][];
-    try {
-      missResults = await Promise.all(
-        misses.map(async (format) => {
-          const styleContext = buildStyleContext(format, stylePack, stylePackExamples, topicEmbedding);
-
-          const messages = buildMessages(
-            format,
-            payload.topic,
-            fewShotExamples,
-            voiceOptions,
-            newsContext,
-            styleContext,
-            factSheet,
-          );
-          const raw = await chatCompletion({ model: LLM_MODELS.content, messages, temperature: 0.7 });
-          const parsed = parseFormatValue(format, raw);
-          if (parsed === null) {
-            throw new Error(`format "${format}" returned an unparseable response`);
-          }
-          return [format, parsed] as [FormatId, FormatValue];
-        }),
-      );
-    } catch (err) {
-      logger.error({ err: err instanceof Error ? err.message : err }, '[ContentGeneration] LLM call failed');
-      throw new AppError(httpStatus.BAD_GATEWAY, 'Content generation failed — please try again');
-    }
-
-    await Promise.all(
-      missResults.map(([format, value]) =>
-        redis.setex(cacheKeysByFormat.get(format) as string, CONTENT_TTL, JSON.stringify(value)),
-      ),
+        return [format, finalValue] as [FormatId, FormatValue];
+      }),
     );
-
-    for (const [format, value] of missResults) {
-      results[format] = value;
-    }
+  } catch (err) {
+    logger.error({ err: err instanceof Error ? err.message : err }, '[ContentGeneration] LLM call failed');
+    throw new AppError(httpStatus.BAD_GATEWAY, 'Content generation failed — please try again');
   }
 
-  return { topic: payload.topic, ...results } as GeneratedContent;
+  for (const [format, value] of formatResults) {
+    results[format] = value;
+  }
+
+  return { topic: payload.topic, ...results, model_used: modelUsed } as GeneratedContent;
 };
 
 const refineContent = async (
@@ -232,7 +206,11 @@ const refineContent = async (
 
   let raw: string;
   try {
-    raw = await chatCompletion({ model: LLM_MODELS.content, messages, temperature: 0.5 });
+    raw = await chatCompletionForTask('content_generation', messages, {
+      teamId: payload.team_id,
+      requestModelId: payload.llm_model_id,
+      temperature: 0.5,
+    });
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : err }, '[ContentGeneration] Refine LLM call failed');
     throw new AppError(httpStatus.BAD_GATEWAY, 'Content refinement failed — please try again');

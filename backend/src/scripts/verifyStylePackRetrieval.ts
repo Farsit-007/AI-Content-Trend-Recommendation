@@ -34,7 +34,10 @@ const main = async () => {
   }
 
   const packId = (pack._id as mongoose.Types.ObjectId).toString();
-  const examples = await StyleExample.find({ style_pack_id: packId }, { content: 1, embedding: 1 });
+  const examples = await StyleExample.find(
+    { style_pack_id: packId },
+    { content: 1, embedding: 1, embedding_source: 1 },
+  );
   if (examples.length === 0) {
     console.error(`[verifyStylePackRetrieval] pack "${slug}" has no examples — seed it first`);
     await mongoose.disconnect();
@@ -47,13 +50,16 @@ const main = async () => {
   const ranked = examples
     .map((example) => ({
       content: example.content,
+      // Predates the field entirely on old rows that haven't been backfilled/migrated yet
+      // (style-example-topic-summary-embeddings) — 'content' is the correct interpretation either way.
+      embedding_source: example.embedding_source ?? 'content',
       similarity: cosineSimilarity(topicEmbedding, example.embedding),
     }))
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, 5);
 
   ranked.forEach((example, index) => {
-    console.log(`${index + 1}. score=${example.similarity.toFixed(4)}`);
+    console.log(`${index + 1}. score=${example.similarity.toFixed(4)} [embedding_source=${example.embedding_source}]`);
     console.log(`   ${example.content.slice(0, 200)}${example.content.length > 200 ? '…' : ''}\n`);
   });
 

@@ -10,11 +10,20 @@ interface RedditPost {
   id: string;
   title: string;
   permalink: string;
+  /** External link for a link-post; equals the permalink's target for a genuine self-post. */
+  url?: string;
+  is_self?: boolean;
+  /** A real https:// image URL, or a sentinel ("self"/"default"/"nsfw"/"spoiler") / empty string when there's no real thumbnail. */
+  thumbnail?: string;
   selftext?: string;
   ups?: number;
   num_comments?: number;
   created_utc?: number;
 }
+
+/** Reddit uses non-URL sentinel values in `thumbnail` for "no real image" cases — only a genuine https:// value is a usable thumbnail. */
+const isRealThumbnail = (thumbnail: string | undefined): thumbnail is string =>
+  typeof thumbnail === 'string' && thumbnail.startsWith('http');
 
 interface RedditListing {
   data: {
@@ -70,18 +79,26 @@ const fetchSubredditListing = async (subreddit: string, token: string): Promise<
   if (!res.ok) throw new Error(`Reddit request failed for r/${subreddit}: ${res.status}`);
 
   const listing = (await res.json()) as RedditListing;
-  return listing.data.children.map(({ data: post }) => ({
-    source: 'reddit',
-    source_id: post.id,
-    title: post.title,
-    url: `https://www.reddit.com${post.permalink}`,
-    snippet: post.selftext?.slice(0, 500),
-    content: post.selftext || undefined,
-    published_at: post.created_utc ? new Date(post.created_utc * 1000) : undefined,
-    raw_points: post.ups ?? 0,
-    raw_comments: post.num_comments ?? 0,
-    raw_stars_delta: 0,
-  }));
+  return listing.data.children.map(({ data: post }) => {
+    const discussionUrl = `https://www.reddit.com${post.permalink}`;
+    return {
+      source: 'reddit',
+      source_id: post.id,
+      title: post.title,
+      // A genuine self/text post has no external resource — the thread itself is the resource,
+      // matching this adapter's pre-existing behavior for that case. A link-post's real external
+      // link (Reddit's own `url` field) was previously never read at all.
+      url: post.is_self || !post.url ? discussionUrl : post.url,
+      discussion_url: discussionUrl,
+      thumbnail_url: isRealThumbnail(post.thumbnail) ? post.thumbnail : undefined,
+      snippet: post.selftext?.slice(0, 500),
+      content: post.selftext || undefined,
+      published_at: post.created_utc ? new Date(post.created_utc * 1000) : undefined,
+      raw_points: post.ups ?? 0,
+      raw_comments: post.num_comments ?? 0,
+      raw_stars_delta: 0,
+    };
+  });
 };
 
 /** On an expired/revoked token, invalidate the cache, obtain a fresh token, and retry exactly once. */

@@ -1,10 +1,10 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { Check, Copy, RotateCcw, Sparkles, Undo2 } from 'lucide-react';
 import type { FormatId } from '@/lib/api/content';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { ExpandableTextarea } from '@/components/ui/expandable-textarea';
 
 const FORMAT_LABELS: Record<FormatId, string> = {
   facebook_post: 'Facebook post',
@@ -62,21 +62,11 @@ export function FormatCard({
 }: FormatCardProps) {
   const [copied, setCopied] = useState(false);
   const [freeText, setFreeText] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const busy = isRegenerating || isRefining;
 
   const config = COUNTER_CONFIG[format];
   const count = config ? (config.unit === 'words' ? wordCount(text) : text.length) : 0;
   const outOfRange = config && ((config.min && count < config.min) || (config.max && count > config.max));
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange(e.target.value);
-    const el = textareaRef.current;
-    if (el) {
-      el.style.height = 'auto';
-      el.style.height = `${el.scrollHeight}px`;
-    }
-  };
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(text);
@@ -103,13 +93,13 @@ export function FormatCard({
         )}
       </div>
 
-      <textarea
-        ref={textareaRef}
+      <ExpandableTextarea
         value={text}
-        onChange={handleChange}
+        onChange={(e) => onChange(e.target.value)}
         disabled={busy}
         rows={4}
-        className="min-h-24 w-full resize-none rounded-md border border-input bg-transparent p-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
+        maxAutoGrowPx={480}
+        expandTitle={`Edit ${FORMAT_LABELS[format]}`}
       />
 
       {config && (
@@ -146,12 +136,24 @@ export function FormatCard({
           ))}
         </div>
         <div className="flex gap-2">
-          <Input
+          <ExpandableTextarea
             value={freeText}
             onChange={(e) => setFreeText(e.target.value.slice(0, 300))}
-            placeholder="Custom tweak instruction…"
+            placeholder="Custom tweak instruction… (Enter to submit, Shift+Enter for a new line)"
             disabled={busy}
-            onKeyDown={(e) => e.key === 'Enter' && submitFreeText()}
+            rows={1}
+            maxAutoGrowPx={120}
+            maxLength={300}
+            expandTitle="Custom tweak instruction"
+            // Preserves the original <Input>'s bare-Enter-submits behavior (least surprising for
+            // existing users) while still letting a textarea do what a single-line input couldn't:
+            // Shift+Enter inserts a newline instead of submitting, standard chat-UI convention.
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitFreeText();
+              }
+            }}
           />
           <Button size="sm" onClick={submitFreeText} disabled={busy || !freeText.trim()} className="gap-1.5">
             <Sparkles className={cn('size-3.5', isRefining && 'animate-spin')} />

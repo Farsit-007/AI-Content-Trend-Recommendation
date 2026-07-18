@@ -4,6 +4,7 @@ import { GeneratedContentRoutes } from '../modules/GeneratedContent/generatedCon
 import { BrandVoiceExampleRoutes } from '../modules/BrandVoiceExample/brandVoiceExample.route';
 import { ChatRoutes } from '../modules/Chat/chat.route';
 import { ContentGenerationRoutes } from '../modules/ContentGeneration/contentGeneration.route';
+import { LlmProviderRoutes } from '../modules/LlmProvider/llmProvider.route';
 import { NewsItemRoutes } from '../modules/NewsItem/newsItem.route';
 import { StylePackRoutes } from '../modules/StylePack/stylePack.route';
 import { StatsRoutes } from '../modules/Stats/stats.route';
@@ -30,6 +31,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: '/generated-content', route: GeneratedContentRoutes },
   { path: '/style-packs', route: StylePackRoutes },
   { path: '/stats', route: StatsRoutes },
+  { path: '/llm-providers', route: LlmProviderRoutes },
 ];
 
 moduleRoutes.forEach((route) => {

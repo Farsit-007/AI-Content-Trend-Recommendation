@@ -407,20 +407,31 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       trend_score: scoreTrend(item.raw_points, item.raw_comments, item.raw_stars_delta),
     }));
 
-    // Cold start: skip relevance filtering entirely when no brand voice examples exist yet.
-    const relevant =
-      brandVoicePool.length === 0
-        ? scored
-        : scored.filter((item) => (item.relevance_score ?? 0) >= config.news_ingestion.min_relevance);
+    // Every deduped, fresh item is stored regardless of relevance — see
+    // flexible-news-taxonomy-and-relevance. `relevance_score` is still computed above and stored
+    // below for ranking/opportunity-scoring purposes only, never as a storage gate. `relevant` is
+    // kept as a name (rather than renaming every downstream reference) since it's now simply an
+    // alias for `scored` — nothing is actually filtered out here anymore.
+    const relevant = scored;
     relevantCounts = countBySource(relevant);
 
     // Layer 3b: Content Enrichment (link-only items still missing `content` after adapter-level
-    // capture — see news-full-content-sources). Only survivors of relevance filtering are fetched.
+    // capture — see news-full-content-sources). Storage no longer gates on relevance (above), so
+    // enrichment gets its own, separate, independently-tunable relevance floor — otherwise every
+    // fetched item would trigger a full-content network fetch, multiplying outbound HTTP calls by
+    // however much volume the old storage gate used to cut. Cold start (no brand-voice pool yet)
+    // enriches everything, mirroring the old storage gate's cold-start behavior.
+    const enrichmentCandidates =
+      brandVoicePool.length === 0
+        ? relevant
+        : relevant.filter((item) => (item.relevance_score ?? 0) >= config.news_ingestion.content_fetch_min_relevance);
+    const belowEnrichmentFloor = relevant.filter((item) => !enrichmentCandidates.includes(item));
+
     let enrichedRelevant: ScoredNewsItem[] = relevant;
     if (config.news_ingestion.content_fetch.enabled) {
       try {
-        const enrichment = await enrichContent(relevant);
-        enrichedRelevant = enrichment.items;
+        const enrichment = await enrichContent(enrichmentCandidates);
+        enrichedRelevant = [...enrichment.items, ...belowEnrichmentFloor];
         contentFetchedCounts = {};
         contentFailedCounts = {};
         for (const [source, counts] of Object.entries(enrichment.countsBySource)) {
@@ -453,6 +464,10 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       content_hash: item.content_hash,
       title: item.title,
       url: item.url,
+      // See design.md decision 6 of news-source-link-and-thumbnail-fields: this map is an explicit
+      // field list, not a spread — a field only on RawNewsItem is silently dropped if not listed here.
+      discussion_url: item.discussion_url,
+      thumbnail_url: item.thumbnail_url,
       snippet: item.snippet,
       // A 'failed' marker means enrichment tried and found nothing — withContentMeta would
       // otherwise read the still-empty `content` as 'none' (never attempted), losing that signal.
@@ -478,6 +493,7 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
         ingestedAt,
       ),
       category: item.category,
+      category_group: item.category_group,
       relevance_score: item.relevance_score,
       impact_note: item.impact_note,
       embedding: item.embedding,

@@ -10,14 +10,16 @@
  * formatting are pure so they're testable without a live DB or OpenRouter.
  */
 import config from '../../config';
-import { embed } from '../../lib/embeddings';
 import { chatCompletion } from '../../lib/llmClient';
+import { embedForTask, resolveProviderForLiteralModel } from '../../lib/modelResolution';
+import { getAdapter } from '../LlmProvider/llmProvider.adapters';
 import { LanguageStyle } from '../Team/team.interface';
 import { StylePack } from '../StylePack/stylePack.model';
 import { VoiceOptions } from '../../lib/voiceProfile';
 import { FactSheet, getOrExtractFactSheet } from './contentGeneration.facts';
 import { FormatId } from './contentGeneration.formats';
 import { NewsItemContext } from './contentGeneration.interface';
+import { critiqueText, isCritiqueStructurallyEligible } from './contentGeneration.critique';
 import { buildMessages } from './contentGeneration.prompt';
 import { buildStyleContext, fetchStylePackExamples } from './contentGeneration.retrieval';
 import { resolveNewsItemContext } from './contentGeneration.service';
@@ -43,6 +45,8 @@ export interface BakeoffCell {
   output?: string;
   error?: string;
   latency_ms: number;
+  /** True when this cell went through the critique-and-rewrite pass (style-fidelity-critique-pass). */
+  critiqued: boolean;
 }
 
 export interface BakeoffRun {
@@ -59,6 +63,15 @@ export interface RunBakeoffMatrixOptions {
   packSlug: string;
   language?: LanguageStyle;
   seed?: number;
+  /**
+   * 'off' (default): today's behavior, one cell per (model, topic, format). 'both': for every cell
+   * where the format/pack combination is structurally critique-eligible, additionally run the
+   * critique pass on the successful output and record it as a second, independently-tagged cell —
+   * so the enable/disable decision in BANGLA-QUALITY-DECISION.md can be made from paired evidence.
+   * Note this can up to double the effective cell count within the existing MAX_MODELS/MAX_TOPICS/
+   * MAX_FORMATS caps (those bound the pre-doubling matrix, not the final cell count).
+   */
+  critique?: 'off' | 'both';
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -105,7 +118,7 @@ interface TopicContext {
  * failure — each cell's error is captured on the cell itself so the rest of the run completes.
  */
 export const runBakeoffMatrix = async (options: RunBakeoffMatrixOptions): Promise<BakeoffRun> => {
-  const { models, topics, formats, packSlug, language = 'bangla', seed = Date.now() } = options;
+  const { models, topics, formats, packSlug, language = 'bangla', seed = Date.now(), critique = 'off' } = options;
   const startedAt = new Date().toISOString();
 
   if (models.length === 0 || models.length > MAX_MODELS) {
@@ -130,7 +143,7 @@ export const runBakeoffMatrix = async (options: RunBakeoffMatrixOptions): Promis
   const topicContexts: TopicContext[] = [];
   for (const topic of topics) {
     const { embedding: newsItemEmbedding, context: newsContext } = await resolveNewsItemContext(topic.news_item_id);
-    const topicEmbedding = newsItemEmbedding ?? (await embed(topic.topic));
+    const topicEmbedding = newsItemEmbedding ?? (await embedForTask('embedding', topic.topic));
     const factSheet =
       topic.news_item_id && newsContext?.content && newsContext.content.length >= config.content_generation.facts_min_chars
         ? (await getOrExtractFactSheet(topic.news_item_id, topic.topic, newsContext.content)) ?? undefined
@@ -156,16 +169,28 @@ export const runBakeoffMatrix = async (options: RunBakeoffMatrixOptions): Promis
         const userPrompt = messages[1]?.content ?? '';
 
         const cellStartedAt = Date.now();
+        let baseOutput: string | undefined;
         try {
-          const output = await chatCompletion({ model, messages, temperature: 0.7 });
+          // Deliberately NOT chatCompletionForTask — this harness compares caller-supplied literal
+          // model strings against each other, so it only needs the right *provider* per model, not
+          // task-based default resolution (design.md Non-Goals of llm-provider-task-resolution-and-ui).
+          const routed = await resolveProviderForLiteralModel(model);
+          // Bootstrap (catalog miss) delegates to the existing static chatCompletion — including its
+          // own LLM_MODEL_FALLBACK retry — for true 100%-identical-to-today behavior when no LlmModel
+          // catalog entry matches, exactly like chatCompletionForTask's bootstrap tier.
+          baseOutput =
+            routed.source === 'bootstrap'
+              ? await chatCompletion({ model: routed.model_id, messages, temperature: 0.7 })
+              : await getAdapter(routed.provider_type, routed.api_key).chatCompletion(routed.model_id, messages, 0.7);
           cells.push({
             model,
             topic: topicContext.topic.topic,
             format,
             systemPrompt,
             userPrompt,
-            output,
+            output: baseOutput,
             latency_ms: Date.now() - cellStartedAt,
+            critiqued: false,
           });
         } catch (err) {
           cells.push({
@@ -176,10 +201,31 @@ export const runBakeoffMatrix = async (options: RunBakeoffMatrixOptions): Promis
             userPrompt,
             error: err instanceof Error ? err.message : String(err),
             latency_ms: Date.now() - cellStartedAt,
+            critiqued: false,
           });
         }
 
         await sleep(DELAY_BETWEEN_CALLS_MS);
+
+        // Only attempt a critiqued twin when the base generation actually succeeded — there's
+        // nothing to critique from an errored cell. `critiqueText` itself never throws (it
+        // soft-fails to the draft internally), so no separate try/catch is needed here.
+        if (critique === 'both' && baseOutput !== undefined && isCritiqueStructurallyEligible(format, pack)) {
+          const critiqueStartedAt = Date.now();
+          const critiquedOutput = await critiqueText(baseOutput, pack.style_card, voiceOptions);
+          cells.push({
+            model,
+            topic: topicContext.topic.topic,
+            format,
+            systemPrompt,
+            userPrompt,
+            output: critiquedOutput,
+            latency_ms: Date.now() - critiqueStartedAt,
+            critiqued: true,
+          });
+
+          await sleep(DELAY_BETWEEN_CALLS_MS);
+        }
       }
     }
   }

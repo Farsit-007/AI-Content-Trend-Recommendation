@@ -2,7 +2,14 @@ jest.mock('../app/lib/openrouterClient');
 
 import { extractFactSheet } from '../app/modules/ContentGeneration/contentGeneration.facts';
 import config from '../app/config';
+import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
 import { getLastChatCompletionRequest, mockChatCompletion } from './support/openrouterMock';
+
+// extractFactSheet now resolves its model via chatCompletionForTask, which reads LlmTaskDefault/Team
+// from Mongo even on the bootstrap (no LlmProvider records configured) path.
+beforeAll(connectTestDb);
+afterEach(clearTestDb);
+afterAll(disconnectTestDb);
 
 const VALID_FACT_SHEET = {
   summary: 'A new open-source tool streams LLM output with backpressure support.',

@@ -3,6 +3,9 @@ jest.mock('../app/lib/openrouterClient');
 jest.mock('../app/config', () => ({
   __esModule: true,
   default: {
+    // The bootstrap tier now requires a key to be present (modelResolution.resolveBootstrap
+    // throws LlmNotConfiguredError without one) — this test exercises exactly that tier.
+    openrouter_api_key: 'test-placeholder-openrouter-key',
     embedding_model: 'test-embedding-model',
     // newsDedupLedger.model.ts reads this at import time (schema-definition-time TTL index).
     news_ingestion: { dedup_ledger_ttl_days: 30 },
@@ -11,8 +14,15 @@ jest.mock('../app/config', () => ({
 
 import { openrouter } from '../app/lib/openrouterClient';
 import { HashedNewsItem, embedItems } from '../app/modules/NewsIngestion/newsIngestion.utils';
+import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
 
 const mocked = openrouter as unknown as { embeddings: { create: jest.Mock } };
+
+// embedItems now resolves its model via embedBatchForTask, which reads LlmTaskDefault from Mongo
+// even on the bootstrap (no LlmProvider records configured) path.
+beforeAll(connectTestDb);
+afterEach(clearTestDb);
+afterAll(disconnectTestDb);
 
 const hashedItem = (n: number): HashedNewsItem => ({
   source: 'test',

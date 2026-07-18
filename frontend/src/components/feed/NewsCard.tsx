@@ -1,4 +1,5 @@
-import { MessageCircle, PenLine, Star, ThumbsUp } from 'lucide-react';
+import { useState } from 'react';
+import { Briefcase, Code2, ExternalLink, MessageCircle, Newspaper, PenLine, Server, Shield, Sparkles, Star, ThumbsUp } from 'lucide-react';
 import type { NewsItemDto } from '@/lib/api/news';
 import { cn } from '@/lib/utils';
 import { ScoreMeter } from './ScoreMeter';
@@ -9,6 +10,15 @@ interface NewsCardProps {
   /** Tour-target marker (see `lib/tours.ts`'s `feed` tour) — set on the first rendered card. */
   tourTarget?: string;
 }
+
+/** Category-keyed fallback icon for items with no thumbnail_url (design.md decision 7). */
+const CATEGORY_ICONS: Record<string, typeof Sparkles> = {
+  AI: Sparkles,
+  'Web Dev': Code2,
+  Career: Briefcase,
+  Security: Shield,
+  DevOps: Server,
+};
 
 /** Small, dependency-free "3 hours ago" / "2 days ago" formatter. */
 function formatRelativeAge(iso: string): string {
@@ -25,6 +35,9 @@ function formatRelativeAge(iso: string): string {
 
 export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
   const age = formatRelativeAge(item.published_at ?? item.created_at);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
+  const showThumbnail = Boolean(item.thumbnail_url) && !thumbnailFailed;
+  const CategoryIcon = (item.category && CATEGORY_ICONS[item.category]) || Newspaper;
 
   return (
     <button
@@ -36,9 +49,42 @@ export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
         item.high_opportunity && 'border-emerald-400/50 bg-emerald-400/5 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]',
       )}
     >
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-white/5">
+        {showThumbnail ? (
+          <img
+            src={item.thumbnail_url}
+            alt=""
+            loading="lazy"
+            onError={() => setThumbnailFailed(true)}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <CategoryIcon className="size-8 text-muted-foreground/40" aria-hidden="true" />
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-medium capitalize">
-          {item.source.replace(/_/g, ' ')}
+        {/* The whole card is a <button> (opens the drawer), so this can't be a nested <a> —
+            window.open + stopPropagation gives the same "open original" affordance validly. */}
+        <span
+          role="link"
+          tabIndex={0}
+          title={item.url}
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(item.url, '_blank', 'noopener');
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.stopPropagation();
+              window.open(item.url, '_blank', 'noopener');
+            }
+          }}
+          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-medium capitalize hover:border-violet-400/40 hover:text-foreground"
+        >
+          {item.source.replace(/_/g, ' ')} <ExternalLink className="size-3" aria-label="Open original article" />
         </span>
         <span>{age}</span>
       </div>

@@ -21,6 +21,7 @@ import { useTour } from '@/context/tour-context';
 import { PAGE_TOURS } from '@/lib/tours';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { ExpandableTextarea } from '@/components/ui/expandable-textarea';
 import { Input } from '@/components/ui/input';
 import { PageHelp } from '@/components/dashboard/PageHelp';
 
@@ -133,12 +134,12 @@ function PackExamples({ packId }: { packId: string }) {
         few-shot mechanism as team brand-voice examples, shared platform-wide.
       </p>
       <div className="flex gap-2">
-        <textarea
+        <ExpandableTextarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Paste an example post in this style…"
           rows={2}
-          className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+          expandTitle="Add style example"
         />
         <Button
           type="button"
@@ -157,12 +158,14 @@ function PackExamples({ packId }: { packId: string }) {
           <Upload className="size-3.5" /> Bulk import (paste a JSON array, up to 100 items)
         </summary>
         <div className="mt-2 flex flex-col gap-2">
-          <textarea
+          <ExpandableTextarea
             value={bulkJson}
             onChange={(e) => setBulkJson(e.target.value)}
             placeholder={'[{ "content": "...", "platform": "facebook", "source_ref": "...", "engagement_hint": "..." }]'}
             rows={4}
-            className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+            maxAutoGrowPx={480}
+            expandTitle="Bulk import — JSON array"
+            className="font-mono text-xs"
           />
           <Button
             type="button"

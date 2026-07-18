@@ -201,3 +201,83 @@ describe('buildRefineMessages', () => {
     expect(messages[1].content).toBe('Draft:\nOriginal draft text.\n\nInstruction: make it shorter');
   });
 });
+
+// Regression test for bangla-authenticity-close-out §4 — pins the language-fidelity fix from the
+// 2026-07-18 session: requested output language must always win over style material's own
+// language. Deterministic, prompt-layer only (no live LLM calls) per that change's design.md
+// decision 4 — live spot checks against a real Bangla pack stay a manual, separate step.
+describe('Language fidelity — requested language always wins over style material', () => {
+  const banglaStyleContext: StyleContext = {
+    card: 'বাংলা প্রযুক্তি লেখার একটি প্রাণবন্ত ধরন।',
+    examples: [{ source: 'style_pack_example', content: 'এই বাংলা পোস্টের উদাহরণ' }],
+  };
+  const banglaFewShot: FewShotExample[] = [{ source: 'brand_voice_example', content: 'আরেকটি বাংলা উদাহরণ' }];
+
+  it('English request against a Bangla style pack: system prompt carries the English instruction and the dominance clause', () => {
+    const messages = buildMessages(
+      'facebook_post',
+      'AI agents in content marketing',
+      banglaFewShot,
+      { language: 'english' },
+      undefined,
+      banglaStyleContext,
+    );
+    const systemPrompt = messages[0].content;
+
+    expect(systemPrompt).toContain('Write in clear, natural English.');
+    expect(systemPrompt).toContain('This output language is non-negotiable');
+    expect(systemPrompt).toContain('still write the output in the requested language');
+    // The Bangla style material is still present (it defines tone, not language) alongside the
+    // English instruction — the dominance clause exists precisely because both are in the prompt.
+    expect(systemPrompt).toContain('বাংলা প্রযুক্তি লেখার একটি প্রাণবন্ত ধরন');
+  });
+
+  it('Banglish request against a Bangla style pack: system prompt carries the Banglish instruction and the dominance clause', () => {
+    const messages = buildMessages(
+      'facebook_post',
+      'AI agents in content marketing',
+      banglaFewShot,
+      { language: 'banglish' },
+      undefined,
+      banglaStyleContext,
+    );
+    const systemPrompt = messages[0].content;
+
+    expect(systemPrompt).toContain('Write in Banglish');
+    expect(systemPrompt).toContain('This output language is non-negotiable');
+  });
+
+  it('the dominance clause is absent when no style/few-shot material is present at all', () => {
+    const messages = buildMessages('facebook_post', 'AI agents', [], { language: 'english' });
+    expect(messages[0].content).not.toContain('This output language is non-negotiable');
+  });
+
+  it('buildSystemPrompt directly: dominance clause appears whenever style or few-shot blocks are present', () => {
+    expect(buildSystemPrompt([], { language: 'english' }, banglaStyleContext)).toContain(
+      'This output language is non-negotiable',
+    );
+    expect(buildSystemPrompt(banglaFewShot, { language: 'english' })).toContain(
+      'This output language is non-negotiable',
+    );
+    expect(buildSystemPrompt([], { language: 'english' })).not.toContain('This output language is non-negotiable');
+  });
+
+  it('refine preserves the draft\'s existing language, register, and factual claims regardless of the style card supplied alongside it', () => {
+    const messages = buildRefineMessages(
+      'এই খসড়াটি বাংলায় লেখা।',
+      'make it shorter',
+      { language: 'english' },
+      'An energetic English-language style card.',
+    );
+    const systemPrompt = messages[0].content;
+
+    expect(systemPrompt).toContain('Preserve its language, register, and factual claims');
+    // The style card is present but does not override the language-preservation contract.
+    expect(systemPrompt).toContain('An energetic English-language style card.');
+  });
+
+  it('refine preserves language even with no style card at all', () => {
+    const messages = buildRefineMessages('Bangla draft text.', 'make it shorter', { language: 'bangla' });
+    expect(messages[0].content).toContain('Preserve its language, register, and factual claims');
+  });
+});

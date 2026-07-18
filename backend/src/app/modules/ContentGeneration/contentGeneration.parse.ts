@@ -14,9 +14,14 @@ const isValidYoutubeIdea = (v: unknown): v is YoutubeIdea => {
   );
 };
 
+/** Reasoning models (e.g. Nemotron, DeepSeek-R1 variants) sometimes leak their chain of thought
+ *  into `message.content` as a `<think>…</think>` block before the real answer — strip it, or the
+ *  user-visible post opens with raw model reasoning. */
+const stripReasoningBlocks = (raw: string): string => raw.replace(/<think>[\s\S]*?(<\/think>|$)/gi, '');
+
 /** Text formats return plain prose, not JSON — this only strips incidental fences/quoting a model might add. */
 export const parseTextFormat = (raw: string): string | null => {
-  const cleaned = raw
+  const cleaned = stripReasoningBlocks(raw)
     .replace(/```[a-z]*\s*/gi, '')
     .replace(/```\s*$/g, '')
     .trim();
@@ -25,7 +30,7 @@ export const parseTextFormat = (raw: string): string | null => {
 
 /** Strict validation, no partial-object fallback — a malformed or incomplete response is a hard failure. */
 export const parseYoutubeIdea = (raw: string): YoutubeIdea | null => {
-  const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*$/g, '').trim();
+  const cleaned = stripReasoningBlocks(raw).replace(/```json\s*/gi, '').replace(/```\s*$/g, '').trim();
 
   let parsed: unknown;
   try {

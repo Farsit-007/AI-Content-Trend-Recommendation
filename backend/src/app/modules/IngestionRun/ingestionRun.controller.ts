@@ -19,6 +19,17 @@ const listRuns = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getLastIngestedAt = catchAsync(async (_req: Request, res: Response) => {
+  const result = await IngestionRunService.getLastIngestedAt();
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Last ingestion timestamp retrieved successfully',
+    data: result,
+  });
+});
+
 export const IngestionRunController = {
   listRuns,
+  getLastIngestedAt,
 };

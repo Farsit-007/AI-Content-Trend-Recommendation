@@ -9,6 +9,7 @@ import { sidebarItemsGenerator } from "@/utils/sidebarItemsGenerator";
 import { buildSidebarTour } from "@/lib/tours";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { ActiveTasksIndicator } from "./ActiveTasksIndicator";
 import { ThemeToggle } from "./ThemeToggle";
 
 /** Roles rendered in a friendlier form in the account area. */
@@ -74,6 +75,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
+          <ActiveTasksIndicator />
           <Button variant="outline" size="sm" onClick={handleTakeTour} className="gap-1.5">
             <Compass className="size-4" />
             <span className="hidden sm:inline">Take a tour</span>

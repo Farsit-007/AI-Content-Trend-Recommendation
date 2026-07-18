@@ -18,6 +18,12 @@ export interface ITeam {
   subscribed_categories: string[];
   /** Optional reference to a globally-curated StylePack; a dangling/inactive reference must never break team ops. */
   default_style_pack_id?: string;
+  /**
+   * Per-task `LlmModel` id override (task name -> `LlmModel._id` string). A dangling/inactive/
+   * wrong-capability reference must never break team ops — `resolveModelForTask` soft-fails
+   * through to the next tier rather than erroring. Defaults to `{}` (no overrides).
+   */
+  default_models: Record<string, string>;
   voice_profile?: ITeamVoiceProfile;
   created_at: Date;
 }

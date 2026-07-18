@@ -1,5 +1,6 @@
-import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { chatCompletionForTask } from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
+import { NewsCategoryTaxonomyService } from '../NewsCategoryTaxonomy/newsCategoryTaxonomy.service';
 import { CategorizedNewsItem, NEWS_CATEGORIES, NewsCategory, ScoredNewsItem } from './newsIngestion.interface';
 
 const BATCH_SIZE = 10;
@@ -7,13 +8,17 @@ const BATCH_SIZE = 10;
 interface LlmCategorization {
   id: number;
   category: string;
+  /** Only meaningful/required when `category` is a genuinely new proposal — see
+   *  `resolveCategorization` below, which re-derives the group from the taxonomy for any category
+   *  that already exists, ignoring this field to prevent drift. */
+  broad_group: string;
   impact_note: string;
   confidence: number;
   audience_fit: number;
 }
 
-const isValidCategory = (category: string): category is NewsCategory =>
-  (NEWS_CATEGORIES as readonly string[]).includes(category);
+const isValidBroadGroup = (group: string): group is NewsCategory =>
+  (NEWS_CATEGORIES as readonly string[]).includes(group);
 
 const isUnitInterval = (n: unknown): n is number => typeof n === 'number' && n >= 0 && n <= 1;
 
@@ -22,6 +27,7 @@ const isUnitInterval = (n: unknown): n is number => typeof n === 'number' && n >
 const fallbackCategorize = (item: ScoredNewsItem): CategorizedNewsItem => ({
   ...item,
   category: 'Other',
+  category_group: 'Other',
   impact_note: 'Automatically ingested — category/opportunity scoring unavailable for this item.',
   category_confidence: 0,
   audience_fit: (item.relevance_score ?? 0) / 10,
@@ -37,7 +43,47 @@ const parseLlmResponse = (raw: string): LlmCategorization[] | null => {
   }
 };
 
-const categorizeOneBatch = async (batch: ScoredNewsItem[]): Promise<CategorizedNewsItem[]> => {
+/**
+ * Resolves one LLM-proposed `{ category, broad_group }` pair against the global taxonomy: an
+ * existing category (exact or normalized match) always wins with its already-recorded broad
+ * group — the model's `broad_group` guess for an existing category is ignored, preventing drift
+ * from a model changing its mind about where a category belongs on a later run. A genuinely new
+ * category is created with the model's proposed group (falling back to "Other" if that group
+ * itself doesn't validate against the fixed six).
+ */
+const resolveCategorization = async (
+  proposedCategory: string,
+  proposedGroup: string,
+): Promise<{ name: string; broad_group: NewsCategory }> => {
+  const safeGroup: NewsCategory = isValidBroadGroup(proposedGroup) ? proposedGroup : 'Other';
+  const resolved = await NewsCategoryTaxonomyService.resolveOrCreateCategory(proposedCategory, safeGroup);
+  return { name: resolved.name, broad_group: resolved.broad_group as NewsCategory };
+};
+
+const buildSystemPrompt = (knownCategories: { name: string; broad_group: string }[]): string => {
+  const categoryList = knownCategories.map((c) => `"${c.name}" (under "${c.broad_group}")`).join(', ');
+  return (
+    'You categorize tech news items for a social media growth team. Respond with ONLY a strict JSON array, ' +
+    'no markdown fences, no commentary. Each element must be: ' +
+    '{ "id": <number>, "category": "<a category name>", "broad_group": "AI"|"Web Dev"|"Career"|"Security"|"DevOps"|"Other", ' +
+    '"impact_note": "<one sentence on audience fit>", "confidence": <number 0-1, how sure you are of the category>, ' +
+    '"audience_fit": <number 0-1, how well this topic fits a growth/social content team\'s audience, ' +
+    'independent of how trendy or on-brand it already scored> }. ' +
+    `Known categories already in use (reuse one of these whenever it reasonably fits the item — do not invent a ` +
+    `near-duplicate of an existing one, e.g. do not propose "Artificial Intelligence" when "AI" already exists): ` +
+    `${categoryList}. ` +
+    'Only propose a genuinely new category when none of the known ones reasonably fit — when you do, "category" ' +
+    'is your new, specific proposal and "broad_group" MUST be the one of the six fixed groups (AI/Web Dev/Career/' +
+    'Security/DevOps/Other) it belongs under. For an existing category, "broad_group" is ignored (the system ' +
+    'already knows it), so just repeat any of the six. ' +
+    'Include exactly one element per input item, using the same id.'
+  );
+};
+
+const categorizeOneBatch = async (
+  batch: ScoredNewsItem[],
+  knownCategories: { name: string; broad_group: string }[],
+): Promise<CategorizedNewsItem[]> => {
   const prompt = batch
     .map((item, id) => {
       const contentLead = item.content ? ` — content: ${item.content.slice(0, 500)}` : '';
@@ -47,24 +93,14 @@ const categorizeOneBatch = async (batch: ScoredNewsItem[]): Promise<CategorizedN
 
   let raw: string;
   try {
-    raw = await chatCompletion({
-      model: LLM_MODELS.standard,
-      temperature: 0.3,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You categorize tech news items for a social media growth team. Respond with ONLY a strict JSON array, ' +
-            'no markdown fences, no commentary. Each element must be: ' +
-            '{ "id": <number>, "category": one of "AI"|"Web Dev"|"Career"|"Security"|"DevOps"|"Other", ' +
-            '"impact_note": "<one sentence on audience fit>", "confidence": <number 0-1, how sure you are of the category>, ' +
-            '"audience_fit": <number 0-1, how well this topic fits a growth/social content team\'s audience, ' +
-            'independent of how trendy or on-brand it already scored> }. ' +
-            'Include exactly one element per input item, using the same id.',
-        },
+    raw = await chatCompletionForTask(
+      'categorization',
+      [
+        { role: 'system', content: buildSystemPrompt(knownCategories) },
         { role: 'user', content: prompt },
       ],
-    });
+      { temperature: 0.3 },
+    );
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : err }, '[NewsIngestion] Categorization LLM call failed');
     return batch.map(fallbackCategorize);
@@ -78,20 +114,25 @@ const categorizeOneBatch = async (batch: ScoredNewsItem[]): Promise<CategorizedN
 
   const byId = new Map(parsed.map((entry) => [entry.id, entry]));
 
-  return batch.map((item, id) => {
-    const result = byId.get(id);
-    if (!result || !isValidCategory(result.category)) {
-      return fallbackCategorize(item);
-    }
-    const fallback = fallbackCategorize(item);
-    return {
-      ...item,
-      category: result.category,
-      impact_note: result.impact_note ?? fallback.impact_note,
-      category_confidence: isUnitInterval(result.confidence) ? result.confidence : fallback.category_confidence,
-      audience_fit: isUnitInterval(result.audience_fit) ? result.audience_fit : fallback.audience_fit,
-    };
-  });
+  return Promise.all(
+    batch.map(async (item, id) => {
+      const result = byId.get(id);
+      const fallback = fallbackCategorize(item);
+      if (!result || typeof result.category !== 'string' || !result.category.trim()) {
+        return fallback;
+      }
+
+      const { name, broad_group } = await resolveCategorization(result.category, result.broad_group);
+      return {
+        ...item,
+        category: name,
+        category_group: broad_group,
+        impact_note: result.impact_note ?? fallback.impact_note,
+        category_confidence: isUnitInterval(result.confidence) ? result.confidence : fallback.category_confidence,
+        audience_fit: isUnitInterval(result.audience_fit) ? result.audience_fit : fallback.audience_fit,
+      };
+    }),
+  );
 };
 
 export const categorizeBatch = async (items: ScoredNewsItem[]): Promise<CategorizedNewsItem[]> => {
@@ -100,6 +141,13 @@ export const categorizeBatch = async (items: ScoredNewsItem[]): Promise<Categori
     batches.push(items.slice(i, i + BATCH_SIZE));
   }
 
-  const results = await Promise.all(batches.map(categorizeOneBatch));
+  // Fetched once per ingestion run (not once per batch) so every batch grounds against the same
+  // known-category snapshot — a category discovered by an earlier batch in this same run is not
+  // visible to a later batch's prompt either way (it isn't refetched mid-run), which is fine: a
+  // duplicate proposal within the same run is still caught by `resolveOrCreateCategory`'s
+  // normalized-key lookup/race guard, just not by prompt-grounding for that one run.
+  const knownCategories = await NewsCategoryTaxonomyService.listAllCategories();
+
+  const results = await Promise.all(batches.map((batch) => categorizeOneBatch(batch, knownCategories)));
   return results.flat();
 };

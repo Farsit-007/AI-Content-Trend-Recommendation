@@ -1,9 +1,21 @@
 jest.mock('../app/lib/openrouterClient');
 
+const mockOpenAIChatCreate = jest.fn();
+jest.mock('openai', () => {
+  return jest.fn().mockImplementation(() => ({
+    chat: { completions: { create: mockOpenAIChatCreate } },
+    embeddings: { create: jest.fn() },
+  }));
+});
+
 import request from 'supertest';
 import app from '../app';
+import config from '../app/config';
+import { encrypt } from '../app/lib/crypto';
 import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
 import { createAuthToken, createTestTeam, createTestUser, testEmbedding } from './support/fixtures';
+import { runBakeoffMatrix } from '../app/modules/ContentGeneration/contentGeneration.bakeoff';
+import { LlmModel, LlmProvider } from '../app/modules/LlmProvider/llmProvider.model';
 import { NewsItem } from '../app/modules/NewsItem/newsItem.model';
 import { StyleExample, StylePack } from '../app/modules/StylePack/stylePack.model';
 import { Team } from '../app/modules/Team/team.model';
@@ -13,6 +25,7 @@ import {
   getLastChatCompletionRequest,
   getOpenRouterCallCounts,
   mockChatCompletion,
+  mockChatCompletionByPrompt,
   mockChatCompletionFailureOnce,
   mockChatCompletionSequence,
   mockEmbedding,
@@ -31,7 +44,10 @@ const createNewsItemDoc = (overrides: Partial<Record<string, unknown>> = {}) =>
   });
 
 beforeAll(connectTestDb);
-afterEach(clearTestDb);
+afterEach(() => {
+  mockOpenAIChatCreate.mockReset();
+  return clearTestDb();
+});
 afterAll(disconnectTestDb);
 
 const FB_TEXT = 'Check out our latest AI update! This changes how growth teams ship content.';
@@ -52,7 +68,13 @@ describe('POST /api/v1/content/generate', () => {
     const token = createAuthToken(admin);
 
     mockEmbedding();
-    mockChatCompletionSequence([FB_TEXT, LI_TEXT]);
+    // Content-keyed, not order-keyed — facebook_post/linkedin_post generate concurrently, and each
+    // resolves its model via an async DB read before the HTTP call, so which physical call reaches
+    // create() first is not guaranteed.
+    mockChatCompletionByPrompt([
+      { match: 'Write a Facebook post', response: FB_TEXT },
+      { match: 'Write a LinkedIn post', response: LI_TEXT },
+    ]);
 
     const res = await request(app)
       .post('/api/v1/content/generate')
@@ -95,7 +117,7 @@ describe('POST /api/v1/content/generate', () => {
       .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['caption'] });
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual({ topic: 'AI agents', caption: CAPTION_TEXT });
+    expect(res.body.data).toEqual({ topic: 'AI agents', caption: CAPTION_TEXT, model_used: config.llm_model_content });
     expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(1);
   });
 
@@ -172,7 +194,7 @@ describe('POST /api/v1/content/generate', () => {
     expect(res.status).toBe(400);
   });
 
-  it('requesting an additional format after the default pair costs exactly one call', async () => {
+  it('requesting a single additional format costs exactly one call, independent of a prior request', async () => {
     const admin = await createTestUser({ role: 'admin', email: 'admin-additional-format@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
@@ -193,12 +215,17 @@ describe('POST /api/v1/content/generate', () => {
       .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing', formats: ['caption'] });
 
     expect(secondRes.status).toBe(200);
-    expect(secondRes.body.data).toEqual({ topic: 'AI agents in content marketing', caption: CAPTION_TEXT });
-    // Only the new format's call happened — the cached facebook_post/linkedin_post were untouched.
+    expect(secondRes.body.data).toEqual({
+      topic: 'AI agents in content marketing',
+      caption: CAPTION_TEXT,
+      model_used: config.llm_model_content,
+    });
+    // Only one more call happened — this request asked for `caption` only, so facebook_post/linkedin_post
+    // were never re-requested (there is no response cache to serve or bypass either way).
     expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(3);
   });
 
-  it('fails the whole request with 502 when one requested format errors, and caches nothing', async () => {
+  it('fails the whole request with 502 when one requested format errors', async () => {
     const admin = await createTestUser({ role: 'admin', email: 'admin-format-fail@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
@@ -217,7 +244,7 @@ describe('POST /api/v1/content/generate', () => {
 
     expect(res.status).toBe(502);
 
-    // Neither format was cached — a follow-up request for facebook_post alone still needs a call.
+    // A follow-up request for facebook_post alone succeeds independently of the earlier failure.
     mockChatCompletion(FB_TEXT);
     const followUp = await request(app)
       .post('/api/v1/content/generate')
@@ -324,6 +351,11 @@ describe('POST /api/v1/content/generate', () => {
     const admin = await createTestUser({ role: 'admin', email: 'admin-content-gen-invalid-id@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
+    // A topic string unique to this test (not reused elsewhere in this file) — the topic-embedding
+    // cache (contentGeneration.embedCache.ts) is keyed by topic text across the whole test run, so
+    // reusing a shared topic like 'AI agents in content marketing' here would risk a cache hit from
+    // an earlier test and silently zero out the embeddingCalls assertion below.
+    const topic = 'AI agents in content marketing — dangling news_item_id fallback test';
 
     mockEmbedding();
     mockChatCompletion(FB_TEXT);
@@ -333,14 +365,14 @@ describe('POST /api/v1/content/generate', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         team_id: team._id.toString(),
-        topic: 'AI agents in content marketing',
+        topic,
         news_item_id: '507f1f77bcf86cd799439011',
         formats: ['facebook_post'],
       });
 
     expect(res.status).toBe(200);
     const userPrompt = getLastChatCompletionRequest().messages[1].content;
-    expect(userPrompt).toBe('Generate content about: "AI agents in content marketing"');
+    expect(userPrompt).toBe(`Generate content about: "${topic}"`);
 
     // Falls back to embedding the raw topic text since the news item didn't resolve.
     const counts = getOpenRouterCallCounts();
@@ -496,9 +528,16 @@ describe('POST /api/v1/content/generate — platform-aware style retrieval', () 
       .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing' });
 
     expect(res.status).toBe(200);
-    const [fbCall, liCall] = getChatCompletionRequests();
-    const fbPrompt = fbCall.messages[0].content;
-    const liPrompt = liCall.messages[0].content;
+    // Each format's chatCompletionForTask call now resolves its model via an async DB read before
+    // the HTTP call, so the two concurrent calls' completion order is not guaranteed to match
+    // `misses` array order — identify each call by its prompt content, not its position.
+    const requests = getChatCompletionRequests();
+    const fbCall = requests.find((r) => r.messages[0].content.includes('Write a Facebook post'));
+    const liCall = requests.find((r) => r.messages[0].content.includes('Write a LinkedIn post'));
+    expect(fbCall).toBeDefined();
+    expect(liCall).toBeDefined();
+    const fbPrompt = fbCall!.messages[0].content;
+    const liPrompt = liCall!.messages[0].content;
 
     for (const content of fbContents) expect(fbPrompt).toContain(content);
     for (const content of liContents) expect(fbPrompt).not.toContain(content);
@@ -553,104 +592,61 @@ describe('POST /api/v1/content/generate — platform-aware style retrieval', () 
   });
 });
 
-describe('POST /api/v1/content/generate — cache key correctness', () => {
-  it('does not serve a language-mismatched cached result', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-cache-lang@example.test' });
+describe('POST /api/v1/content/generate — fresh generation (no response cache)', () => {
+  it('two identical generate requests produce independent drafts, each with its own LLM call', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-fresh-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
-    const newsItem = await createNewsItemDoc();
+    const topic = 'fresh-generation-identical-requests unique topic';
 
     mockEmbedding();
-    mockChatCompletion('Bangla-cached post');
-    const banglaRes = await request(app)
+    mockChatCompletion('First draft.');
+    const firstRes = await request(app)
       .post('/api/v1/content/generate')
       .set('Authorization', `Bearer ${token}`)
-      .send({
-        team_id: team._id.toString(),
-        topic: newsItem.title,
-        news_item_id: newsItem._id.toString(),
-        language: 'bangla',
-        formats: ['facebook_post'],
-      });
-    expect(banglaRes.status).toBe(200);
-    expect(banglaRes.body.data.facebook_post).toBe('Bangla-cached post');
+      .send({ team_id: team._id.toString(), topic, formats: ['facebook_post'] });
+    expect(firstRes.status).toBe(200);
+    expect(firstRes.body.data.facebook_post).toBe('First draft.');
 
-    mockChatCompletion('English-cached post');
-    const englishRes = await request(app)
+    mockChatCompletion('Second draft — different from the first, and it should be served.');
+    const secondRes = await request(app)
       .post('/api/v1/content/generate')
       .set('Authorization', `Bearer ${token}`)
-      .send({
-        team_id: team._id.toString(),
-        topic: newsItem.title,
-        news_item_id: newsItem._id.toString(),
-        language: 'english',
-        formats: ['facebook_post'],
-      });
-    expect(englishRes.status).toBe(200);
-    expect(englishRes.body.data.facebook_post).toBe('English-cached post');
+      .send({ team_id: team._id.toString(), topic, formats: ['facebook_post'] });
+    expect(secondRes.status).toBe(200);
+    expect(secondRes.body.data.facebook_post).toBe('Second draft — different from the first, and it should be served.');
 
+    // Each identical request made its own LLM call — nothing was served from a response cache.
     expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(2);
   });
 
-  it('does not serve a style-pack-mismatched cached result', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-cache-pack@example.test' });
-    const team = await createTestTeam({ createdBy: admin._id.toString() });
-    const token = createAuthToken(admin);
-    const newsItem = await createNewsItemDoc();
-    const pack = await createPackWithExample('cache test pack example');
-
-    mockEmbedding();
-    mockChatCompletion('Bangla-cached post');
-    const unstyledRes = await request(app)
-      .post('/api/v1/content/generate')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        team_id: team._id.toString(),
-        topic: newsItem.title,
-        news_item_id: newsItem._id.toString(),
-        formats: ['facebook_post'],
-      });
-    expect(unstyledRes.status).toBe(200);
-    expect(unstyledRes.body.data.facebook_post).toBe('Bangla-cached post');
-
-    mockChatCompletion('English-cached post');
-    const styledRes = await request(app)
-      .post('/api/v1/content/generate')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        team_id: team._id.toString(),
-        topic: newsItem.title,
-        news_item_id: newsItem._id.toString(),
-        style_pack_id: pack._id.toString(),
-        formats: ['facebook_post'],
-      });
-    expect(styledRes.status).toBe(200);
-    expect(styledRes.body.data.facebook_post).toBe('English-cached post');
-
-    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(2);
-  });
-
-  it('does not serve a format-mismatched cached result', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-cache-format@example.test' });
+  it('the regenerate field is accepted and ignored, regardless of its value', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-fresh-2@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
     mockEmbedding();
     mockChatCompletion(FB_TEXT);
-    await request(app)
+    const withTrueRes = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'], regenerate: true });
+    expect(withTrueRes.status).toBe(200);
+
+    const withFalseRes = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'], regenerate: false });
+    expect(withFalseRes.status).toBe(200);
+
+    const withoutFieldRes = await request(app)
       .post('/api/v1/content/generate')
       .set('Authorization', `Bearer ${token}`)
       .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'] });
+    expect(withoutFieldRes.status).toBe(200);
 
-    mockChatCompletion(LI_TEXT);
-    const res = await request(app)
-      .post('/api/v1/content/generate')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['linkedin_post'] });
-
-    expect(res.status).toBe(200);
-    expect(res.body.data.linkedin_post).toBe(LI_TEXT);
-    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(2);
+    // Every request produced its own LLM call — the flag's value made no difference.
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(3);
   });
 });
 
@@ -669,9 +665,14 @@ describe('POST /api/v1/content/generate — per-format prompt directives', () =>
       .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing' });
 
     expect(res.status).toBe(200);
-    const [firstCall, secondCall] = getChatCompletionRequests();
-    const fbPrompt = firstCall.messages[0].content;
-    const liPrompt = secondCall.messages[0].content;
+    // See the platform-matched-examples test above for why this matches by content, not position.
+    const requests = getChatCompletionRequests();
+    const firstCall = requests.find((r) => r.messages[0].content.includes('Write a Facebook post'));
+    const secondCall = requests.find((r) => r.messages[0].content.includes('Write a LinkedIn post'));
+    expect(firstCall).toBeDefined();
+    expect(secondCall).toBeDefined();
+    const fbPrompt = firstCall!.messages[0].content;
+    const liPrompt = secondCall!.messages[0].content;
 
     expect(fbPrompt).toContain('150-400 words');
     expect(fbPrompt).not.toContain('1,200-2,500 characters');
@@ -811,77 +812,6 @@ describe('POST /api/v1/content/generate — fact-grounded generation', () => {
   });
 });
 
-describe('POST /api/v1/content/generate — regenerate', () => {
-  it('bypasses the cache and overwrites it with fresh output', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-regen-1@example.test' });
-    const team = await createTestTeam({ createdBy: admin._id.toString() });
-    const token = createAuthToken(admin);
-
-    mockEmbedding();
-    mockChatCompletion(FB_TEXT);
-    const firstRes = await request(app)
-      .post('/api/v1/content/generate')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'] });
-    expect(firstRes.status).toBe(200);
-    expect(firstRes.body.data.facebook_post).toBe(FB_TEXT);
-    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(1);
-
-    const REGENERATED_TEXT = 'A completely different, freshly regenerated post.';
-    mockChatCompletion(REGENERATED_TEXT);
-    const regenRes = await request(app)
-      .post('/api/v1/content/generate')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'], regenerate: true });
-    expect(regenRes.status).toBe(200);
-    expect(regenRes.body.data.facebook_post).toBe(REGENERATED_TEXT);
-    // A new call happened even though the format was already cached.
-    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(2);
-
-    // The cache was overwritten — a plain follow-up request (no regenerate) returns the new text with zero further calls.
-    const followUpRes = await request(app)
-      .post('/api/v1/content/generate')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'] });
-    expect(followUpRes.status).toBe(200);
-    expect(followUpRes.body.data.facebook_post).toBe(REGENERATED_TEXT);
-    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(2);
-  });
-
-  it('regenerating one format leaves a cached sibling format untouched', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-regen-2@example.test' });
-    const team = await createTestTeam({ createdBy: admin._id.toString() });
-    const token = createAuthToken(admin);
-
-    mockEmbedding();
-    mockChatCompletionSequence([FB_TEXT, LI_TEXT]);
-    const firstRes = await request(app)
-      .post('/api/v1/content/generate')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents' });
-    expect(firstRes.status).toBe(200);
-    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(2);
-
-    const REGENERATED_FB = 'A fresh regenerated facebook post.';
-    mockChatCompletion(REGENERATED_FB);
-    const regenRes = await request(app)
-      .post('/api/v1/content/generate')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'], regenerate: true });
-    expect(regenRes.status).toBe(200);
-    expect(regenRes.body.data.facebook_post).toBe(REGENERATED_FB);
-    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(3); // only 1 more call, not 2
-
-    // linkedin_post is still served from its original cache entry, untouched by the regenerate.
-    const checkRes = await request(app)
-      .post('/api/v1/content/generate')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['linkedin_post'] });
-    expect(checkRes.body.data.linkedin_post).toBe(LI_TEXT);
-    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(3); // no new call
-  });
-});
-
 describe('POST /api/v1/content/refine', () => {
   const REVISED_TEXT = 'A shorter, punchier revision of the draft.';
 
@@ -1010,5 +940,311 @@ describe('POST /api/v1/content/refine', () => {
     const systemPrompt = getLastChatCompletionRequest().messages[0].content;
     expect(systemPrompt).toContain('Energetic edtech tone with short punchy sentences.');
     expect(systemPrompt).not.toContain('this pack example text should not appear in refine');
+  });
+});
+
+describe('bake-off harness prompt-assembly fidelity', () => {
+  it('builds the identical system prompt as a live request for the same topic/format/pack and a brand-voice-cold team', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-bakeoff-parity@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    const pack = await StylePack.create({
+      name: 'Bakeoff Parity Pack',
+      slug: `bakeoff-parity-${Date.now()}`,
+      language: 'bangla',
+      is_active: true,
+      created_by: 'test-seed',
+      style_card: 'Energetic edtech tone with short punchy sentences.',
+    });
+    await StyleExample.insertMany([
+      { style_pack_id: pack._id.toString(), content: 'fb parity example', embedding: testEmbedding(), platform: 'facebook' },
+      { style_pack_id: pack._id.toString(), content: 'li parity example', embedding: testEmbedding(), platform: 'linkedin' },
+    ]);
+
+    const topic = 'AI agents in content marketing';
+
+    mockEmbedding();
+    mockChatCompletion(FB_TEXT);
+    const liveRes = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic, style_pack_id: pack._id.toString(), formats: ['facebook_post'] });
+    expect(liveRes.status).toBe(200);
+    const liveSystemPrompt = getLastChatCompletionRequest().messages[0].content;
+
+    mockEmbedding();
+    mockChatCompletion('harness output — irrelevant to this assertion');
+    const run = await runBakeoffMatrix({
+      models: ['harness-model'],
+      topics: [{ topic }],
+      formats: ['facebook_post'],
+      packSlug: pack.slug,
+    });
+
+    expect(run.cells).toHaveLength(1);
+    expect(run.cells[0].systemPrompt).toBe(liveSystemPrompt);
+  });
+});
+
+describe('POST /api/v1/content/generate — critique pass', () => {
+  const originalEnabled = config.content_generation.critique_enabled;
+  const originalFormats = config.content_generation.critique_formats;
+
+  afterEach(() => {
+    config.content_generation.critique_enabled = originalEnabled;
+    config.content_generation.critique_formats = originalFormats;
+  });
+
+  const createPackForCritique = async () => {
+    const pack = await StylePack.create({
+      name: 'Critique Test Pack',
+      slug: `critique-test-${Date.now()}-${Math.random()}`,
+      language: 'bangla',
+      is_active: true,
+      created_by: 'test-seed',
+      style_card: 'Energetic edtech tone with short punchy sentences.',
+    });
+    await StyleExample.create({ style_pack_id: pack._id.toString(), content: 'a style example', embedding: testEmbedding() });
+    return pack;
+  };
+
+  it('flag off (default) makes zero extra calls and leaves output unchanged from pre-existing behavior', async () => {
+    config.content_generation.critique_enabled = false;
+
+    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-off@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    const pack = await createPackForCritique();
+    await Team.findByIdAndUpdate(team._id, { default_style_pack_id: pack._id.toString() });
+
+    mockEmbedding();
+    mockChatCompletion(FB_TEXT);
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.facebook_post).toBe(FB_TEXT);
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(1);
+  });
+
+  it('flag on + eligible format + resolved pack makes exactly one extra call and returns the critiqued text', async () => {
+    config.content_generation.critique_enabled = true;
+    config.content_generation.critique_formats = ['facebook_post', 'linkedin_post'];
+
+    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-on@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    const pack = await createPackForCritique();
+    await Team.findByIdAndUpdate(team._id, { default_style_pack_id: pack._id.toString() });
+
+    const CRITIQUED_TEXT = 'A critiqued, less-AI-sounding version of the post.';
+    mockEmbedding();
+    mockChatCompletionSequence([FB_TEXT, CRITIQUED_TEXT]);
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.facebook_post).toBe(CRITIQUED_TEXT);
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(2);
+  });
+
+  it('flag on but no style pack resolved makes zero extra calls', async () => {
+    config.content_generation.critique_enabled = true;
+    config.content_generation.critique_formats = ['facebook_post'];
+
+    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-nopack@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+
+    mockEmbedding();
+    mockChatCompletion(FB_TEXT);
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.facebook_post).toBe(FB_TEXT);
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(1);
+  });
+
+  it('flag on but youtube_idea (JSON-kind) makes zero extra calls', async () => {
+    config.content_generation.critique_enabled = true;
+    config.content_generation.critique_formats = ['facebook_post', 'linkedin_post', 'youtube_idea'] as never;
+
+    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-youtube@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    const pack = await createPackForCritique();
+    await Team.findByIdAndUpdate(team._id, { default_style_pack_id: pack._id.toString() });
+
+    mockEmbedding();
+    mockChatCompletion(JSON.stringify(YOUTUBE_IDEA));
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['youtube_idea'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.youtube_idea).toEqual(YOUTUBE_IDEA);
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(1);
+  });
+
+  it('the flag does not affect /content/refine at all', async () => {
+    config.content_generation.critique_enabled = true;
+    config.content_generation.critique_formats = ['facebook_post'];
+
+    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-refine@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    const REVISED = 'A refined version of the draft.';
+    mockChatCompletion(REVISED);
+
+    const res = await request(app)
+      .post('/api/v1/content/refine')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), format: 'facebook_post', current_text: 'Draft.', instruction: 'shorter' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.revised_text).toBe(REVISED);
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(1);
+  });
+
+  it('returns the critiqued text, not the first-pass draft, on every independent request', async () => {
+    config.content_generation.critique_enabled = true;
+    config.content_generation.critique_formats = ['facebook_post'];
+
+    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-cache@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    const pack = await createPackForCritique();
+    await Team.findByIdAndUpdate(team._id, { default_style_pack_id: pack._id.toString() });
+
+    const CRITIQUED_TEXT_1 = 'A first critiqued version of the post.';
+    mockEmbedding();
+    mockChatCompletionSequence([FB_TEXT, CRITIQUED_TEXT_1]);
+
+    const firstRes = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'] });
+    expect(firstRes.status).toBe(200);
+    expect(firstRes.body.data.facebook_post).toBe(CRITIQUED_TEXT_1);
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(2);
+
+    // A second, independent request re-runs both the base generation and the critique pass — no
+    // response cache exists to serve either step from, so a differently-mocked run returns its own
+    // (different) critiqued output rather than the first request's.
+    const CRITIQUED_TEXT_2 = 'A second, differently critiqued version of the post.';
+    mockChatCompletionSequence([FB_TEXT, CRITIQUED_TEXT_2]);
+    const secondRes = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['facebook_post'] });
+    expect(secondRes.status).toBe(200);
+    expect(secondRes.body.data.facebook_post).toBe(CRITIQUED_TEXT_2);
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(4);
+  });
+});
+
+describe('POST /api/v1/content/generate — non-bootstrap model resolution', () => {
+  /** A real, active LlmProvider(openrouter) with one active key and one active chat-capable model. */
+  const createConfiguredProviderAndModel = async (modelId: string) => {
+    const provider = await LlmProvider.create({ provider_type: 'openrouter', name: 'Configured OpenRouter', is_active: true });
+    provider.keys.push({
+      encrypted_key: encrypt('real-configured-key'),
+      key_last4: '9999',
+      is_active: true,
+      created_at: new Date(),
+    } as never);
+    await provider.save();
+
+    const model = await LlmModel.create({
+      provider_id: provider._id,
+      model_id: modelId,
+      display_name: 'Configured Model',
+      capabilities: ['chat'],
+      is_active: true,
+    });
+    return { provider, model };
+  };
+
+  it("resolves through the team's default_models[content_generation] — hits the adapter, not the bootstrap client", async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-team-default-model@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    const { model } = await createConfiguredProviderAndModel('openrouter/team-default-model');
+    await Team.findByIdAndUpdate(team._id, { default_models: { content_generation: model._id.toString() } });
+
+    mockEmbedding();
+    mockOpenAIChatCreate.mockResolvedValue({ choices: [{ message: { content: CAPTION_TEXT } }] });
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['caption'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.caption).toBe(CAPTION_TEXT);
+    expect(res.body.data.model_used).toBe('openrouter/team-default-model');
+    // The team-configured adapter handled the call — the bootstrap (shared openrouterClient) mock never did.
+    expect(mockOpenAIChatCreate).toHaveBeenCalledTimes(1);
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(0);
+  });
+
+  it('a request-level llm_model_id overrides the team default', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-request-override-model@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    const { model: teamModel } = await createConfiguredProviderAndModel('openrouter/team-default-model-2');
+    const { model: requestModel } = await createConfiguredProviderAndModel('openrouter/request-override-model');
+    await Team.findByIdAndUpdate(team._id, { default_models: { content_generation: teamModel._id.toString() } });
+
+    mockEmbedding();
+    mockOpenAIChatCreate.mockResolvedValue({ choices: [{ message: { content: CAPTION_TEXT } }] });
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        team_id: team._id.toString(),
+        topic: 'AI agents',
+        formats: ['caption'],
+        llm_model_id: requestModel._id.toString(),
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.model_used).toBe('openrouter/request-override-model');
+  });
+
+  it('an inactive team default model soft-falls-through to the bootstrap tier rather than failing the request', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-inactive-team-default@example.test' });
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    const token = createAuthToken(admin);
+    const { model } = await createConfiguredProviderAndModel('openrouter/inactive-team-default');
+    await LlmModel.findByIdAndUpdate(model._id, { is_active: false });
+    await Team.findByIdAndUpdate(team._id, { default_models: { content_generation: model._id.toString() } });
+
+    mockEmbedding();
+    mockChatCompletion(CAPTION_TEXT);
+
+    const res = await request(app)
+      .post('/api/v1/content/generate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ team_id: team._id.toString(), topic: 'AI agents', formats: ['caption'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.caption).toBe(CAPTION_TEXT);
+    expect(res.body.data.model_used).toBe(config.llm_model_content);
+    expect(mockOpenAIChatCreate).not.toHaveBeenCalled();
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(1);
   });
 });

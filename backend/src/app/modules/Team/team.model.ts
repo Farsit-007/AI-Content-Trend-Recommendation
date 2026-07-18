@@ -20,6 +20,7 @@ const teamSchema = new Schema<ITeam>({
   custom_categories: { type: [String], default: [] },
   subscribed_categories: { type: [String], default: [] },
   default_style_pack_id: { type: String, default: null },
+  default_models: { type: Schema.Types.Mixed, default: () => ({}) },
   voice_profile: { type: voiceProfileSchema, default: () => ({}) },
   created_at: { type: Date, default: Date.now },
 });

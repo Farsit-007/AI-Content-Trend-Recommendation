@@ -1,8 +1,21 @@
 import { z } from 'zod';
-import { NEWS_CATEGORIES } from '../NewsIngestion/newsIngestion.interface';
+import { LLM_TASKS } from '../LlmProvider/llmProvider.interface';
+import { NewsCategoryTaxonomyService } from '../NewsCategoryTaxonomy/newsCategoryTaxonomy.service';
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a valid MongoDB ObjectId');
-const newsCategoryEnum = z.enum(NEWS_CATEGORIES as unknown as [string, ...string[]]);
+const llmTaskEnum = z.enum(LLM_TASKS);
+
+// Any name currently in the global category taxonomy (fixed six + discovered), not just the fixed
+// six — see flexible-news-taxonomy-and-relevance. Async since it checks the live taxonomy; the
+// `validation` middleware already awaits `schema.parseAsync`.
+const subscribedCategoriesSchema = z
+  .array(z.string().min(1))
+  .max(200)
+  .refine(async (categories) => {
+    if (categories.length === 0) return true;
+    const known = new Set(await NewsCategoryTaxonomyService.listAllCategoryNames());
+    return categories.every((c) => known.has(c));
+  }, 'One or more subscribed_categories are not in the known category taxonomy');
 
 const createTeamValidation = z.object({
   body: z.object({
@@ -22,8 +35,9 @@ const updateTeamValidation = z.object({
         custom_instructions: z.string().trim().max(500).optional(),
       })
       .optional(),
-    subscribed_categories: z.array(newsCategoryEnum).max(NEWS_CATEGORIES.length).optional(),
+    subscribed_categories: subscribedCategoriesSchema.optional(),
     default_style_pack_id: objectId.nullable().optional(),
+    default_models: z.record(llmTaskEnum, objectId).optional(),
   }),
 });
 

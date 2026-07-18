@@ -34,7 +34,9 @@ export const NewsItem = {
     source_id: { type: 'string' },
     content_hash: { type: 'string' },
     title: { type: 'string' },
-    url: { type: 'string', format: 'uri' },
+    url: { type: 'string', format: 'uri', description: 'The resource itself — a link post resolves this to the external site, not the aggregator discussion page.' },
+    discussion_url: { type: 'string', format: 'uri', description: 'The aggregator/source discussion page (e.g. the Reddit thread, HN item page, Product Hunt post) when distinct from url.' },
+    thumbnail_url: { type: 'string', format: 'uri', description: 'Best-effort resource thumbnail from the source adapter, when available.' },
     snippet: { type: 'string' },
     content: { type: 'string', description: 'Fuller stored text when available (omitted from list responses; see content_status).' },
     content_status: { type: 'string', enum: ['none', 'partial', 'full', 'failed'], default: 'none' },
@@ -43,7 +45,8 @@ export const NewsItem = {
     published_at: { type: 'string', format: 'date-time' },
     engagement,
     trend_score: { type: 'number', default: 0 },
-    category: { type: 'string' },
+    category: { type: 'string', description: 'Any name in the global category taxonomy (fixed six or discovered during ingestion) — not restricted to a fixed enum.' },
+    category_group: { type: 'string', description: 'The one of the fixed six categories (AI/Web Dev/Career/Security/DevOps/Other) this item\'s category rolls up under.' },
     relevance_score: { type: 'number' },
     impact_note: { type: 'string' },
     embedding,
@@ -54,6 +57,11 @@ export const NewsItem = {
     is_overridden: {
       type: 'boolean',
       description: "True when the requesting user's team has a category/opportunity_score override on this item (see the override endpoints). Only ever computed on authenticated requests; category/opportunity_score above already reflect the override when true.",
+    },
+    match_reason: {
+      type: 'string',
+      enum: ['semantic'],
+      description: 'Present only on GET /news-items list responses, only on items surfaced by the optional semantic "nearly relevant" tier (off by default) rather than an exact/broad-group category match — see flexible-news-taxonomy-and-relevance.',
     },
     created_at: { type: 'string', format: 'date-time' },
   },
@@ -186,6 +194,11 @@ export const Team = {
       nullable: true,
       description: 'Optional reference to a globally-curated StylePack this team writes in by default. A dangling or inactive reference never breaks team operations.',
     },
+    default_models: {
+      type: 'object',
+      additionalProperties: { type: 'string' },
+      description: 'Per-task LlmModel id override (task name -> LlmModel._id), the 2nd of 4 tiers resolveModelForTask checks. A dangling/inactive/wrong-capability reference never breaks team operations — it soft-falls through to the next tier. Defaults to {}.',
+    },
     created_at: { type: 'string', format: 'date-time' },
   },
   required: ['name', 'created_by'],
@@ -239,7 +252,12 @@ export const GenerateContentRequest = {
     },
     regenerate: {
       type: 'boolean',
-      description: 'When true, skip cache reads for the requested formats and overwrite their cache entries with fresh output.',
+      description: 'Deprecated — no longer has any effect. Every request always produces a fresh draft for each requested format; the field is accepted-and-ignored so an older client is not rejected.',
+    },
+    llm_model_id: {
+      type: 'string',
+      example: '507f1f77bcf86cd799439011',
+      description: "Optional per-request override of the resolved content_generation model — an LlmModel _id. Highest-priority tier of resolveModelForTask.",
     },
   },
   required: ['team_id', 'topic'],
@@ -258,6 +276,11 @@ export const RefineContentRequest = {
     instruction: { type: 'string', minLength: 1, maxLength: 300, example: 'Make it shorter' },
     language: { type: 'string', enum: ['bangla', 'english', 'banglish'] },
     style_pack_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    llm_model_id: {
+      type: 'string',
+      example: '507f1f77bcf86cd799439011',
+      description: "Optional per-request override of the resolved content_generation model — an LlmModel _id.",
+    },
   },
   required: ['team_id', 'format', 'current_text', 'instruction'],
 } as const;
@@ -319,8 +342,12 @@ export const GeneratedContent = {
       required: ['title', 'hook', 'chapters', 'thumbnail_concept'],
     },
     caption: { type: 'string' },
+    model_used: {
+      type: 'string',
+      description: 'The literal model id resolveModelForTask resolved for content_generation on this request. Always present — every request generates fresh output for every requested format, so model resolution always runs.',
+    },
   },
-  required: ['topic'],
+  required: ['topic', 'model_used'],
 } as const;
 
 export const AskChatRequest = {
@@ -493,4 +520,129 @@ export const StyleCardGenerateResult = {
     style_card: { type: 'string' },
   },
   required: ['style_card'],
+} as const;
+
+export const LlmProviderKey = {
+  type: 'object',
+  description: 'Masked by default — encrypted_key never appears in a response. See POST .../reveal for the real value.',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    key_last4: { type: 'string', example: '1234' },
+    label: { type: 'string', example: 'primary' },
+    is_active: { type: 'boolean', default: true },
+    created_at: { type: 'string', format: 'date-time' },
+  },
+  required: ['_id', 'key_last4', 'is_active'],
+} as const;
+
+export const LlmProvider = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    provider_type: { type: 'string', enum: ['openrouter', 'anthropic', 'openai'] },
+    name: { type: 'string', example: 'OpenRouter (primary)' },
+    keys: { type: 'array', items: { $ref: '#/components/schemas/LlmProviderKey' } },
+    is_active: { type: 'boolean', default: true },
+    created_at: { type: 'string', format: 'date-time' },
+    updated_at: { type: 'string', format: 'date-time' },
+  },
+  required: ['provider_type', 'name'],
+} as const;
+
+export const LlmProviderCreate = {
+  type: 'object',
+  properties: {
+    provider_type: { type: 'string', enum: ['openrouter', 'anthropic', 'openai'] },
+    name: { type: 'string' },
+    is_active: { type: 'boolean' },
+  },
+  required: ['provider_type', 'name'],
+} as const;
+
+export const LlmProviderAddKey = {
+  type: 'object',
+  properties: {
+    key: { type: 'string', description: 'Plaintext API key — encrypted at rest, never echoed back beyond key_last4.' },
+    label: { type: 'string', example: 'primary' },
+  },
+  required: ['key'],
+} as const;
+
+export const LlmProviderKeyReveal = {
+  type: 'object',
+  properties: {
+    key_id: { type: 'string' },
+    key: { type: 'string', description: 'The decrypted, plaintext API key.' },
+  },
+  required: ['key_id', 'key'],
+} as const;
+
+export const LlmModel = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    provider_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    model_id: { type: 'string', example: 'anthropic/claude-3-5-sonnet' },
+    display_name: { type: 'string', example: 'Claude 3.5 Sonnet' },
+    capabilities: { type: 'array', items: { type: 'string', enum: ['chat', 'embedding'] } },
+    is_active: { type: 'boolean', default: true },
+    created_at: { type: 'string', format: 'date-time' },
+  },
+  required: ['provider_id', 'model_id', 'display_name', 'capabilities'],
+} as const;
+
+export const LlmModelCreate = {
+  type: 'object',
+  properties: {
+    model_id: { type: 'string' },
+    display_name: { type: 'string' },
+    capabilities: { type: 'array', items: { type: 'string', enum: ['chat', 'embedding'] }, minItems: 1 },
+    is_active: { type: 'boolean' },
+  },
+  required: ['model_id', 'display_name', 'capabilities'],
+} as const;
+
+const LLM_TASK_ENUM = [
+  'content_generation',
+  'chat',
+  'categorization',
+  'dedup_adjudication',
+  'style_card',
+  'critique',
+  'fact_extraction',
+  'embedding',
+];
+
+export const LlmTaskDefault = {
+  type: 'object',
+  description: 'A super-admin-set global default LlmModel for one named task — the 3rd of 4 tiers resolveModelForTask checks (request > team > global > bootstrap).',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    task: { type: 'string', enum: LLM_TASK_ENUM },
+    llm_model_id: { oneOf: [{ type: 'string' }, { $ref: '#/components/schemas/LlmModel' }], description: 'Populated with the full LlmModel on read.' },
+    updated_at: { type: 'string', format: 'date-time' },
+  },
+  required: ['task', 'llm_model_id'],
+} as const;
+
+export const LlmTaskDefaultSet = {
+  type: 'object',
+  properties: {
+    llm_model_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+  },
+  required: ['llm_model_id'],
+} as const;
+
+export const LlmModelActive = {
+  type: 'object',
+  description: 'Flat, active/chat-capable-only projection across every active provider — what the Generate page model picker consumes. Any authenticated user may read this (not super-admin-only).',
+  properties: {
+    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    model_id: { type: 'string', example: 'anthropic/claude-3-5-sonnet' },
+    display_name: { type: 'string', example: 'Claude 3.5 Sonnet' },
+    provider_id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+    provider_type: { type: 'string', enum: ['openrouter', 'anthropic', 'openai'] },
+    provider_name: { type: 'string', example: 'Anthropic (primary)' },
+  },
+  required: ['_id', 'model_id', 'display_name', 'provider_id'],
 } as const;

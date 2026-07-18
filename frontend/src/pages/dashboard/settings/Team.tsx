@@ -12,6 +12,7 @@ import { CategorySubscriptionsSection } from '@/components/team/CategorySubscrip
 import { StylePackSection } from '@/components/team/StylePackSection';
 import { BrandVoiceSection } from '@/components/team/BrandVoiceSection';
 import { CustomCategoriesSection } from '@/components/team/CustomCategoriesSection';
+import { TeamMembersSection } from '@/components/team/TeamMembersSection';
 import { PageHelp } from '@/components/dashboard/PageHelp';
 
 export default function Team() {
@@ -84,7 +85,7 @@ export default function Team() {
     );
   }
 
-  const { team } = teamQuery.data;
+  const { team, members } = teamQuery.data;
   // Presence, not shape, is the pre-5A/pre-6A signal — both fields already default to a value
   // on every team document today, so these sections render unless a backend genuinely omits them.
   const subscriptionsAvailable = Array.isArray(team.subscribed_categories);
@@ -102,6 +103,8 @@ export default function Team() {
         <PageHelp guideKey="team" onStartTour={() => startTour(PAGE_TOURS.team)} />
       </div>
 
+      <TeamMembersSection teamId={teamId} members={members} isAdmin={isAdmin} />
+
       <div data-tour="team-voice">
         <VoiceProfileSection
           key={`${team.voice_profile?.default_language ?? 'bangla'}:${team.voice_profile?.custom_instructions ?? ''}`}
@@ -116,6 +119,7 @@ export default function Team() {
         <CategorySubscriptionsSection
           key={team.subscribed_categories.join(',')}
           subscribed={team.subscribed_categories}
+          categories={categoriesQuery.data ?? []}
           isAdmin={isAdmin}
           isSaving={updateMutation.isPending}
           onSave={(subscribed_categories) => updateMutation.mutate({ subscribed_categories })}

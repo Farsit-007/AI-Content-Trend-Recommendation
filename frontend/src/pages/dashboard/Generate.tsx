@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
+  ALL_FORMATS,
   DEFAULT_FORMATS,
   generateContent,
   refineContent,
@@ -13,6 +14,7 @@ import {
   type YoutubeIdea,
 } from '@/lib/api/content';
 import { listStylePacks } from '@/lib/api/stylePacks';
+import { listActiveLlmModels } from '@/lib/api/llmProviders';
 import { getTeam } from '@/lib/api/teams';
 import { useTeamId } from '@/lib/useTeamId';
 import { useTour } from '@/context/tour-context';
@@ -45,6 +47,7 @@ export default function Generate() {
   const [manualTopic, setManualTopic] = useState('');
   const [languageOverride, setLanguageOverride] = useState<LanguageStyle | undefined>(undefined);
   const [stylePackId, setStylePackId] = useState<string | undefined>(undefined);
+  const [llmModelId, setLlmModelId] = useState<string | undefined>(undefined);
   const [selectedFormats, setSelectedFormats] = useState<FormatId[]>(DEFAULT_FORMATS);
   const [editor, setEditor] = useState<Partial<Record<FormatId, EditorEntry>>>({});
 
@@ -60,25 +63,55 @@ export default function Generate() {
     retry: false,
   });
 
+  const activeModelsQuery = useQuery({
+    queryKey: ['llm-active-models'],
+    queryFn: listActiveLlmModels,
+    retry: false,
+  });
+
   // Derived, not synced via effect: no local state needs to "catch up" once the team loads.
   const language = languageOverride ?? teamQuery.data?.team.voice_profile?.default_language ?? 'bangla';
   const topic = newsItemId ? (state.topic ?? '') : manualTopic;
   const stylePacks = stylePacksQuery.data ?? [];
+  const activeModels = activeModelsQuery.data ?? [];
+
+  // Auto-saves a fresh generation as a durable draft immediately, so the work isn't lost if the
+  // user navigates away before manually clicking "Save draft" (background-task-continuity) — a
+  // separate mutation instance from the explicit `saveMutation` below so the two can carry
+  // different success messaging without one silently overwriting the other's toast.
+  const autoSaveMutation = useMutation({
+    mutationFn: saveDraft,
+    onSuccess: () => {
+      toast.success('Generated — auto-saved as a draft', {
+        action: { label: 'View drafts', onClick: () => navigate('/dashboard/drafts') },
+      });
+    },
+    onError: (err: Error) => toast.error(err.message || 'Auto-save failed — the generated text is only in this editor until you save it manually'),
+  });
 
   const generateMutation = useMutation({
+    mutationKey: ['content-generation'],
     mutationFn: generateContent,
     onSuccess: (response) => {
       const next: Partial<Record<FormatId, EditorEntry>> = {};
+      const formats: GeneratedFormats = {};
       for (const [key, value] of Object.entries(response)) {
-        if (key === 'topic' || value === undefined) continue;
+        // The response also carries metadata keys (`topic`, `model_used`) — only real format
+        // entries may become editor cards.
+        if (!ALL_FORMATS.includes(key as FormatId) || value === undefined) continue;
         next[key as FormatId] = { text: value as string | YoutubeIdea };
+        formats[key as FormatId] = value as string | YoutubeIdea;
       }
       setEditor(next);
+      if (teamId && Object.keys(formats).length > 0) {
+        autoSaveMutation.mutate({ team_id: teamId, news_item_id: newsItemId, topic, formats });
+      }
     },
     onError: (err: Error) => toast.error(err.message || 'Generation failed'),
   });
 
   const regenerateMutation = useMutation({
+    mutationKey: ['content-generation'],
     mutationFn: (format: FormatId) =>
       generateContent({
         team_id: teamId as string,
@@ -86,8 +119,8 @@ export default function Generate() {
         news_item_id: newsItemId,
         language,
         style_pack_id: stylePackId,
+        llm_model_id: llmModelId,
         formats: [format],
-        regenerate: true,
       }),
     onError: (err: Error) => toast.error(err.message || 'Regenerate failed'),
   });
@@ -101,6 +134,7 @@ export default function Generate() {
         instruction: payload.instruction,
         language,
         style_pack_id: stylePackId,
+        llm_model_id: llmModelId,
       }),
     onError: (err: Error) => toast.error(err.message || 'Refine failed'),
   });
@@ -127,6 +161,7 @@ export default function Generate() {
       news_item_id: newsItemId,
       language,
       style_pack_id: stylePackId,
+      llm_model_id: llmModelId,
       formats: selectedFormats,
     });
   };
@@ -209,6 +244,9 @@ export default function Generate() {
         stylePacks={stylePacks}
         stylePackId={stylePackId}
         onStylePackChange={setStylePackId}
+        activeModels={activeModels}
+        llmModelId={llmModelId}
+        onLlmModelChange={setLlmModelId}
         selectedFormats={selectedFormats}
         onToggleFormat={toggleFormat}
         onGenerate={handleGenerate}

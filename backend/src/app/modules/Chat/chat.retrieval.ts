@@ -1,9 +1,9 @@
+import config from '../../config';
 import { cosineSimilarity } from '../../lib/similarity';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { ChatContextItem, IChatMessage } from './chat.interface';
 import { ChatMessage } from './chat.model';
 
-const NEWS_TREND_POOL_SIZE = 30;
 const NEWS_LIMIT = 5;
 const HISTORY_LIMIT = 10;
 
@@ -19,52 +19,60 @@ export interface NewsCandidate {
   embedding: number[];
 }
 
-const liveTrendScore = (item: { trend_score: number; current_trend_score?: number }): number =>
-  item.current_trend_score ?? item.trend_score;
+export interface RankedNewsContext {
+  context: ChatContextItem[];
+  topSimilarity: number;
+  poolSize: number;
+}
 
-/** Pure ranking step, kept separate from the DB fetch so it's testable without Mongo. */
+/**
+ * Pure ranking step, kept separate from the DB fetch so it's testable without Mongo. Ranks the
+ * entire candidate pool by semantic similarity to the question — no trend-score pre-filter, so a
+ * topically relevant item that hasn't accumulated engagement yet is never starved out before it
+ * gets a chance to match (see chat-retrieval-topical-coverage).
+ */
 export const rankNewsItems = (
   candidates: NewsCandidate[],
   questionEmbedding: number[],
   limit: number = NEWS_LIMIT,
-  poolSize: number = NEWS_TREND_POOL_SIZE,
-): ChatContextItem[] => {
-  const topByTrend = candidates
-    .slice()
-    .sort((a, b) => liveTrendScore(b) - liveTrendScore(a))
-    .slice(0, poolSize);
-
-  return topByTrend
+): RankedNewsContext => {
+  const ranked = candidates
     .map((item) => ({
       similarity: cosineSimilarity(questionEmbedding, item.embedding),
       item,
     }))
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, limit)
-    .map(({ item }) => ({
-      source: 'news_item' as const,
-      content: [
-        `Title: ${item.title}`,
-        item.category ? `Category: ${item.category}` : undefined,
-        item.snippet ? `Snippet: ${item.snippet}` : undefined,
-        item.content ? `Content: ${item.content.slice(0, 300)}` : undefined,
-        item.impact_note ? `Impact: ${item.impact_note}` : undefined,
-        `Trend score: ${item.trend_score}${item.opportunity_score !== undefined ? `, Opportunity score: ${item.opportunity_score}` : ''}`,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    }));
+    .sort((a, b) => b.similarity - a.similarity);
+
+  const context = ranked.slice(0, limit).map(({ item }) => ({
+    source: 'news_item' as const,
+    content: [
+      `Title: ${item.title}`,
+      item.category ? `Category: ${item.category}` : undefined,
+      item.snippet ? `Snippet: ${item.snippet}` : undefined,
+      item.content ? `Content: ${item.content.slice(0, 300)}` : undefined,
+      item.impact_note ? `Impact: ${item.impact_note}` : undefined,
+      `Trend score: ${item.trend_score}${item.opportunity_score !== undefined ? `, Opportunity score: ${item.opportunity_score}` : ''}`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  }));
+
+  return {
+    context,
+    topSimilarity: ranked.length ? ranked[0].similarity : 0,
+    poolSize: candidates.length,
+  };
 };
 
 export const fetchNewsContext = async (
   questionEmbedding: number[],
-): Promise<ChatContextItem[]> => {
+): Promise<RankedNewsContext> => {
+  const since = new Date(Date.now() - config.chat.context_window_days * 24 * 3600 * 1000);
+
   const items = await NewsItem.find(
-    {},
+    { lifecycle: 'active', created_at: { $gte: since } },
     { title: 1, snippet: 1, content: 1, category: 1, impact_note: 1, trend_score: 1, opportunity_score: 1, embedding: 1 },
-  )
-    .sort({ current_trend_score: -1 })
-    .limit(NEWS_TREND_POOL_SIZE);
+  ).limit(config.chat.context_pool_cap);
 
   return rankNewsItems(items, questionEmbedding);
 };

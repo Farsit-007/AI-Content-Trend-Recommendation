@@ -154,4 +154,47 @@ describe('fetchProductHunt', () => {
     await expect(fetchProductHunt()).rejects.toThrow('not configured');
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('resolves url to the product website and discussion_url to the PH post page when a website is present', async () => {
+    const fetchMock = jest.fn(async (url: string) =>
+      url.includes('oauth/token')
+        ? tokenResponse()
+        : graphqlResponse([node({ url: 'https://producthunt.com/posts/acme', website: 'https://producthunt.com/r/abc123' })]),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchProductHunt();
+
+    expect(items[0].url).toBe('https://producthunt.com/r/abc123');
+    expect(items[0].discussion_url).toBe('https://producthunt.com/posts/acme');
+  });
+
+  it('falls back to the PH post page for both url and discussion_url when no website is present', async () => {
+    const fetchMock = jest.fn(async (url: string) =>
+      url.includes('oauth/token') ? tokenResponse() : graphqlResponse([node({ url: 'https://producthunt.com/posts/acme', website: undefined })]),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchProductHunt();
+
+    expect(items[0].url).toBe('https://producthunt.com/posts/acme');
+    expect(items[0].discussion_url).toBe('https://producthunt.com/posts/acme');
+  });
+
+  it('maps thumbnail.url into thumbnail_url when present, and leaves it undefined otherwise', async () => {
+    const fetchMock = jest.fn(async (url: string) =>
+      url.includes('oauth/token')
+        ? tokenResponse()
+        : graphqlResponse([
+            node({ id: 'p1', thumbnail: { url: 'https://ph-files.imgix.net/acme.png' } }),
+            node({ id: 'p2', thumbnail: undefined }),
+          ]),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchProductHunt();
+
+    expect(items.find((i) => i.source_id === 'p1')?.thumbnail_url).toBe('https://ph-files.imgix.net/acme.png');
+    expect(items.find((i) => i.source_id === 'p2')?.thumbnail_url).toBeUndefined();
+  });
 });

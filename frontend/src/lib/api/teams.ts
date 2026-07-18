@@ -29,9 +29,9 @@ export function listTeams(): Promise<TeamDto[]> {
   return apiGet<TeamDto[]>('/teams');
 }
 
-/** GET /teams/:id -> { team, members } */
-export function getTeam(id: string): Promise<{ team: TeamDto; members: TeamMember[] }> {
-  return apiGet<{ team: TeamDto; members: TeamMember[] }>(`/teams/${id}`);
+/** GET /teams/:id -> { team, members, team_ready } */
+export function getTeam(id: string): Promise<{ team: TeamDto; members: TeamMember[]; team_ready: boolean }> {
+  return apiGet<{ team: TeamDto; members: TeamMember[]; team_ready: boolean }>(`/teams/${id}`);
 }
 
 export interface UpdateTeamPayload {

@@ -1,6 +1,6 @@
 import QueryBuilder from '../../builder/QueryBuilder';
 import AppError from '../../errors/AppError';
-import { embed } from '../../lib/embeddings';
+import { embedForTask } from '../../lib/modelResolution';
 import { httpStatus } from '../../utils/httpStatus';
 import { IRequestUser } from '../User/user.interface';
 import { IBrandVoiceExample } from './brandVoiceExample.interface';
@@ -17,7 +17,8 @@ const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
 const createBrandVoiceExample = async (payload: Partial<IBrandVoiceExample>, requestingUser: IRequestUser) => {
   assertTeamAccess(payload.team_id as string, requestingUser);
 
-  const embedding = payload.embedding ?? (await embed(payload.content as string));
+  const embedding =
+    payload.embedding ?? (await embedForTask('embedding', payload.content as string, { teamId: payload.team_id }));
   const result = await BrandVoiceExample.create({ ...payload, embedding });
   return result;
 };

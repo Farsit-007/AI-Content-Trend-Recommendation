@@ -12,6 +12,7 @@ import { StylePack } from '../app/modules/StylePack/stylePack.model';
 import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
 import {
   getOpenRouterCallCounts,
+  mockChatCompletion,
   mockChatCompletionFailureOnce,
   mockChatCompletionSequence,
   mockEmbedding,
@@ -54,6 +55,7 @@ describe('labelForPosition / buildLabelMap', () => {
       userPrompt: 'user',
       output: `output for ${model}`,
       latency_ms: 100,
+      critiqued: false,
     })),
   });
 
@@ -85,8 +87,8 @@ describe('formatReviewMarkdown — blinding', () => {
       startedAt: '2026-07-18T00:00:00.000Z',
       packSlug: 'test-pack',
       cells: [
-        { model: 'super-secret-model-xyz', topic: 'topic A', format: 'facebook_post', systemPrompt: 's', userPrompt: 'u', output: 'Output A', latency_ms: 100 },
-        { model: 'another-model-abc', topic: 'topic B', format: 'linkedin_post', systemPrompt: 's', userPrompt: 'u', output: 'Output B', latency_ms: 100 },
+        { model: 'super-secret-model-xyz', topic: 'topic A', format: 'facebook_post', systemPrompt: 's', userPrompt: 'u', output: 'Output A', latency_ms: 100, critiqued: false },
+        { model: 'another-model-abc', topic: 'topic B', format: 'linkedin_post', systemPrompt: 's', userPrompt: 'u', output: 'Output B', latency_ms: 100, critiqued: false },
       ],
     };
     const shuffled = shuffleWithSeed([0, 1], run.seed);
@@ -105,7 +107,7 @@ describe('formatReviewMarkdown — blinding', () => {
       seed: 1,
       startedAt: '2026-07-18T00:00:00.000Z',
       packSlug: 'test-pack',
-      cells: [{ model: 'model-a', topic: 'topic A', format: 'facebook_post', systemPrompt: 's', userPrompt: 'u', error: 'rate limited', latency_ms: 50 }],
+      cells: [{ model: 'model-a', topic: 'topic A', format: 'facebook_post', systemPrompt: 's', userPrompt: 'u', error: 'rate limited', latency_ms: 50, critiqued: false }],
     };
 
     const markdown = formatReviewMarkdown(run, [0]);
@@ -195,5 +197,94 @@ describe('runBakeoffMatrix — per-cell failure isolation', () => {
     expect(cellA?.error).toBeUndefined();
     expect(cellB?.output).toBeUndefined();
     expect(cellB?.error).toBeDefined();
+  });
+});
+
+describe('runBakeoffMatrix — critique: both mode (style-fidelity-critique-pass)', () => {
+  it('doubles structurally-eligible cells (text-kind) but not ineligible ones (JSON-kind), tagging critiqued correctly', async () => {
+    const pack = await StylePack.create({
+      name: 'Bakeoff Critique Pack',
+      slug: `bakeoff-critique-${Date.now()}`,
+      language: 'bangla',
+      is_active: true,
+      created_by: 'test-seed',
+      style_card: 'Energetic edtech tone.',
+    });
+
+    mockEmbedding();
+    // facebook_post: base call, then its critique call. youtube_idea: base call only (not eligible).
+    mockChatCompletionSequence(['FB base output', 'FB critiqued output', JSON.stringify({ title: 't', hook: 'h', chapters: ['a'], thumbnail_concept: 'c' })]);
+
+    const run = await runBakeoffMatrix({
+      models: ['model-a'],
+      topics: [{ topic: 'AI agents in content marketing' }],
+      formats: ['facebook_post', 'youtube_idea'],
+      packSlug: pack.slug,
+      critique: 'both',
+    });
+
+    expect(run.cells).toHaveLength(3);
+
+    const fbCells = run.cells.filter((c) => c.format === 'facebook_post');
+    expect(fbCells).toHaveLength(2);
+    expect(fbCells.find((c) => !c.critiqued)?.output).toBe('FB base output');
+    expect(fbCells.find((c) => c.critiqued)?.output).toBe('FB critiqued output');
+
+    const youtubeCells = run.cells.filter((c) => c.format === 'youtube_idea');
+    expect(youtubeCells).toHaveLength(1);
+    expect(youtubeCells[0].critiqued).toBe(false);
+  });
+
+  it('does not double or abort the run when critique: off (default)', async () => {
+    const pack = await StylePack.create({
+      name: 'Bakeoff No Critique Pack',
+      slug: `bakeoff-nocritique-${Date.now()}`,
+      language: 'bangla',
+      is_active: true,
+      created_by: 'test-seed',
+    });
+
+    mockEmbedding();
+    mockChatCompletion('base output only');
+
+    const run = await runBakeoffMatrix({
+      models: ['model-a'],
+      topics: [{ topic: 'AI agents in content marketing' }],
+      formats: ['facebook_post'],
+      packSlug: pack.slug,
+    });
+
+    expect(run.cells).toHaveLength(1);
+    expect(run.cells[0].critiqued).toBe(false);
+  });
+
+  it('a critique-step failure records the pre-critique draft as the critiqued cell rather than aborting the run', async () => {
+    const pack = await StylePack.create({
+      name: 'Bakeoff Critique Fail Pack',
+      slug: `bakeoff-critique-fail-${Date.now()}`,
+      language: 'bangla',
+      is_active: true,
+      created_by: 'test-seed',
+    });
+
+    mockEmbedding();
+    mockChatCompletionSequence(['FB base output']);
+    // The critique call's primary and fallback attempts both fail — critiqueText soft-fails
+    // internally and returns the draft, so the run itself never throws.
+    mockChatCompletionFailureOnce();
+    mockChatCompletionFailureOnce();
+
+    const run = await runBakeoffMatrix({
+      models: ['model-a'],
+      topics: [{ topic: 'AI agents in content marketing' }],
+      formats: ['facebook_post'],
+      packSlug: pack.slug,
+      critique: 'both',
+    });
+
+    expect(run.cells).toHaveLength(2);
+    const critiquedCell = run.cells.find((c) => c.critiqued);
+    expect(critiquedCell?.output).toBe('FB base output');
+    expect(critiquedCell?.error).toBeUndefined();
   });
 });

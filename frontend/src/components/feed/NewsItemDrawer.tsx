@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ExternalLink, Loader2, PenLine, RotateCcw, Sparkles } from 'lucide-react';
+import { ExternalLink, Loader2, MessageCircle, PenLine, RotateCcw, Sparkles } from 'lucide-react';
 import { clearNewsItemOverride, getNewsItem, setNewsItemOverride, type NewsItemDto } from '@/lib/api/news';
 import { getTeamCategories } from '@/lib/api/teams';
 import { useTeamId } from '@/lib/useTeamId';
@@ -177,10 +177,21 @@ export function NewsItemDrawer({ newsItemId, onOpenChange }: NewsItemDrawerProps
                   href={item.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-violet-300 hover:underline"
+                  className="inline-flex items-center gap-1 break-all text-violet-300 hover:underline"
                 >
-                  {item.source.replace(/_/g, ' ')} <ExternalLink className="size-3" />
+                  Read original — {(() => { try { return new URL(item.url).hostname.replace(/^www\./, ''); } catch { return item.url; } })()}
+                  <ExternalLink className="size-3 shrink-0" />
                 </a>
+                {item.discussion_url && (
+                  <a
+                    href={item.discussion_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+                  >
+                    <MessageCircle className="size-3" /> Discussion
+                  </a>
+                )}
               </SheetDescription>
             </SheetHeader>
 

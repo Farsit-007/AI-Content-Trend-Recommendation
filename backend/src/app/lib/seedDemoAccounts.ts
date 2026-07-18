@@ -2,7 +2,7 @@ import config from '../config';
 import { logger } from './logger';
 import { Team } from '../modules/Team/team.model';
 import { BrandVoiceExample } from '../modules/BrandVoiceExample/brandVoiceExample.model';
-import { embed } from './embeddings';
+import { embedForTask } from './modelResolution';
 import { User } from '../modules/User/user.model';
 import { UserService } from '../modules/User/user.service';
 
@@ -14,6 +14,10 @@ export const DEMO_ACCOUNTS = {
 } as const;
 
 const DEMO_TEAM_NAME = 'Growth Studio Demo Team';
+
+// Under team-readiness gating, empty subscribed_categories makes the demo team "not ready" and
+// defeats the point of a seeded demo — give it a real starting subscription.
+const DEMO_SUBSCRIBED_CATEGORIES = ['AI', 'Web Dev'];
 
 const DEMO_BRAND_VOICE_EXAMPLES: { content: string; platform: 'facebook' | 'linkedin' }[] = [
   {
@@ -58,13 +62,20 @@ export const seedDemoAccountsIfMissing = async (): Promise<void> => {
         name: DEMO_TEAM_NAME,
         description: 'Seeded demo team — safe sandbox for exploring every Growth Studio feature.',
         created_by: 'system',
-        subscribed_categories: [],
+        subscribed_categories: DEMO_SUBSCRIBED_CATEGORIES,
         custom_categories: [],
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
   const teamId = team._id.toString();
+
+  // Backfill for a demo team seeded before team-readiness gating existed (subscribed_categories
+  // was `[]` back then) — otherwise a pre-existing deployment's demo team stays permanently "not
+  // ready" even though this seed considers itself done.
+  if (team.subscribed_categories.length === 0) {
+    await Team.updateOne({ _id: teamId }, { subscribed_categories: DEMO_SUBSCRIBED_CATEGORIES });
+  }
 
   for (const [role, account] of [
     ['admin', DEMO_ACCOUNTS.admin],
@@ -88,7 +99,7 @@ export const seedDemoAccountsIfMissing = async (): Promise<void> => {
 
   try {
     for (const example of DEMO_BRAND_VOICE_EXAMPLES) {
-      const embedding = await embed(example.content);
+      const embedding = await embedForTask('embedding', example.content);
       await BrandVoiceExample.create({ team_id: teamId, ...example, embedding });
     }
     logger.info('[seedDemoAccounts] seeded demo brand-voice examples');

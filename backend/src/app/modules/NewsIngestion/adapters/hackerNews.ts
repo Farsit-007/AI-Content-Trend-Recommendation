@@ -51,6 +51,9 @@ export const fetchHackerNews = async (): Promise<RawNewsItem[]> => {
       source_id: String(hit.objectID),
       title: hit.title,
       url: hit.url ?? `https://news.ycombinator.com/item?id=${hit.objectID}`,
+      // Always constructible, independent of what `url` resolved to — see design.md decision 3
+      // of news-source-link-and-thumbnail-fields.
+      discussion_url: `https://news.ycombinator.com/item?id=${hit.objectID}`,
       snippet: hit.story_text ? stripHtml(hit.story_text) : undefined,
       content: hit.story_text ? stripHtml(hit.story_text) : undefined,
       published_at: hit.created_at_i ? new Date(hit.created_at_i * 1000) : undefined,

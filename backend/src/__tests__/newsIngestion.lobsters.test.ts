@@ -89,6 +89,28 @@ describe('fetchLobsters', () => {
     expect(items[0].content).toBeUndefined();
   });
 
+  it('always sets discussion_url to comments_url, independent of what url resolved to', async () => {
+    const fetchMock = jest.fn(async () =>
+      jsonResponse([story({ url: 'https://example.com/article', comments_url: 'https://lobste.rs/s/abc123/a_great_story' })]),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchLobsters();
+
+    expect(items[0].url).toBe('https://example.com/article');
+    expect(items[0].discussion_url).toBe('https://lobste.rs/s/abc123/a_great_story');
+  });
+
+  it('sets discussion_url equal to url when the story falls back to comments_url', async () => {
+    const fetchMock = jest.fn(async () => jsonResponse([story({ url: '', comments_url: 'https://lobste.rs/s/abc123/a_great_story' })]));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchLobsters();
+
+    expect(items[0].url).toBe('https://lobste.rs/s/abc123/a_great_story');
+    expect(items[0].discussion_url).toBe('https://lobste.rs/s/abc123/a_great_story');
+  });
+
   it('throws when the hottest endpoint returns a non-OK status', async () => {
     const fetchMock = jest.fn(async () => failedResponse(500));
     global.fetch = fetchMock as unknown as typeof fetch;

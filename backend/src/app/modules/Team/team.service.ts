@@ -2,7 +2,8 @@ import AppError from '../../errors/AppError';
 import { httpStatus } from '../../utils/httpStatus';
 import { User } from '../User/user.model';
 import { IRequestUser } from '../User/user.interface';
-import { NEWS_CATEGORIES } from '../NewsIngestion/newsIngestion.interface';
+import { NewsCategoryTaxonomyService } from '../NewsCategoryTaxonomy/newsCategoryTaxonomy.service';
+import { BrandVoiceExample } from '../BrandVoiceExample/brandVoiceExample.model';
 import { ITeam } from './team.interface';
 import { Team, TeamMembership } from './team.model';
 
@@ -47,14 +48,34 @@ const getTeamById = async (teamId: string) => {
     throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
   }
 
-  const memberships = await TeamMembership.find({ team_id: teamId }).populate('user_id', 'name email role');
-  return { team, members: memberships.map((m) => m.user_id) };
+  const [memberships, team_ready] = await Promise.all([
+    TeamMembership.find({ team_id: teamId }).populate('user_id', 'name email role'),
+    isTeamReady(teamId),
+  ]);
+  return { team, members: memberships.map((m) => m.user_id), team_ready };
+};
+
+/**
+ * A team is "ready" once it has told the system what it cares about (subscribed_categories)
+ * and what it sounds like (BrandVoiceExample) — both already-modeled signals, no new fields.
+ * Computed on read, never stored, so it can never drift from the underlying data.
+ */
+const isTeamReady = async (teamId: string): Promise<boolean> => {
+  const team = await Team.findById(teamId).select('subscribed_categories').lean();
+  if (!team || team.subscribed_categories.length === 0) {
+    return false;
+  }
+  const hasBrandVoice = await BrandVoiceExample.exists({ team_id: teamId });
+  return Boolean(hasBrandVoice);
 };
 
 const updateTeam = async (
   teamId: string,
   payload: Partial<
-    Pick<ITeam, 'name' | 'description' | 'voice_profile' | 'subscribed_categories' | 'default_style_pack_id'>
+    Pick<
+      ITeam,
+      'name' | 'description' | 'voice_profile' | 'subscribed_categories' | 'default_style_pack_id' | 'default_models'
+    >
   >,
 ) => {
   const dedupedPayload = payload.subscribed_categories
@@ -97,21 +118,28 @@ const removeMember = async (teamId: string, userId: string) => {
   return result;
 };
 
+/** Fixed six + every category discovered during ingestion + this team's own custom categories. */
 const getEffectiveCategories = async (teamId: string): Promise<string[]> => {
-  const team = await Team.findById(teamId);
+  const [team, taxonomyCategories] = await Promise.all([
+    Team.findById(teamId),
+    NewsCategoryTaxonomyService.listAllCategoryNames(),
+  ]);
   if (!team) {
     throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
   }
-  return [...NEWS_CATEGORIES, ...team.custom_categories];
+  return [...new Set([...taxonomyCategories, ...team.custom_categories])];
 };
 
 const addCustomCategory = async (teamId: string, category: string) => {
-  const team = await Team.findById(teamId);
+  const [team, taxonomyCategories] = await Promise.all([
+    Team.findById(teamId),
+    NewsCategoryTaxonomyService.listAllCategoryNames(),
+  ]);
   if (!team) {
     throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
   }
 
-  const existing = [...NEWS_CATEGORIES, ...team.custom_categories].map((c) => c.toLowerCase());
+  const existing = [...taxonomyCategories, ...team.custom_categories].map((c) => c.toLowerCase());
   if (existing.includes(category.toLowerCase())) {
     throw new AppError(httpStatus.BAD_REQUEST, 'That category already exists for this team');
   }
@@ -152,4 +180,5 @@ export const TeamService = {
   getEffectiveCategories,
   addCustomCategory,
   removeCustomCategory,
+  isTeamReady,
 };

@@ -16,6 +16,8 @@ export interface GeneratedContent {
   linkedin_post?: string;
   youtube_idea?: YoutubeIdea;
   caption?: string;
+  /** The literal model id `resolveModelForTask('content_generation', ...)` resolved for this request. */
+  model_used?: string;
 }
 
 export interface GenerateContentRequest {
@@ -28,8 +30,14 @@ export interface GenerateContentRequest {
   style_pack_id?: string;
   /** Non-empty unique subset of FormatId, max 5. Defaults to ['facebook_post', 'linkedin_post']. */
   formats?: FormatId[];
-  /** When true, skip cache reads for the requested formats and overwrite their cache entries on success. */
+  /**
+   * @deprecated No longer has any effect — every request always produces a fresh draft (see
+   * generation-cache-rework). Still accepted so an older frontend build doesn't get 400s from
+   * strict validation during the transition.
+   */
   regenerate?: boolean;
+  /** Per-request override of the resolved `content_generation` model — an `LlmModel._id`. */
+  llm_model_id?: string;
 }
 
 export interface RefineContentRequest {
@@ -40,6 +48,8 @@ export interface RefineContentRequest {
   instruction: string;
   language?: LanguageStyle;
   style_pack_id?: string;
+  /** Per-request override of the resolved `content_generation` model — an `LlmModel._id`. */
+  llm_model_id?: string;
 }
 
 export interface FewShotExample {

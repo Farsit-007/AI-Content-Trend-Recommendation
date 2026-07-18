@@ -9,6 +9,7 @@ import {
   type BrandVoicePlatform,
 } from '@/lib/api/brandVoice';
 import { Button } from '@/components/ui/button';
+import { ExpandableTextarea } from '@/components/ui/expandable-textarea';
 import { Input } from '@/components/ui/input';
 
 const PLATFORM_OPTIONS: { value: BrandVoicePlatform; label: string }[] = [
@@ -80,12 +81,12 @@ export function BrandVoiceSection({ teamId, isAdmin, categories }: BrandVoiceSec
 
       {isAdmin && (
         <div className="flex flex-col gap-2 rounded-lg border border-white/10 p-3">
-          <textarea
+          <ExpandableTextarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Paste a real post that sounds like your team…"
             rows={3}
-            className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+            expandTitle="Add brand voice example"
           />
           <div className="flex flex-wrap gap-2">
             <select

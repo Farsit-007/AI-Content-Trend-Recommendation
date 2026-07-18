@@ -26,7 +26,12 @@ describe('rss-parser construction', () => {
 
     expect(ParserMock!).toHaveBeenCalledWith({
       timeout: 10_000,
-      customFields: { item: [['content:encoded', 'contentEncoded']] },
+      customFields: {
+        item: [
+          ['content:encoded', 'contentEncoded'],
+          ['media:thumbnail', 'mediaThumbnail'],
+        ],
+      },
     });
   });
 });
@@ -91,5 +96,56 @@ describe('fetchRss', () => {
     const items = await fetchRss();
 
     expect(items[0].content).toBeUndefined();
+  });
+
+  it('captures a thumbnail from media:thumbnail when present', async () => {
+    mockParseURL.mockResolvedValue({
+      items: [
+        {
+          title: 'Has a media thumbnail',
+          link: 'https://medium.com/@author/thumb',
+          guid: 'guid-4',
+          mediaThumbnail: { $: { url: 'https://medium.com/thumb.jpg' } },
+        },
+      ],
+    });
+
+    const items = await fetchRss();
+
+    expect(items[0].thumbnail_url).toBe('https://medium.com/thumb.jpg');
+  });
+
+  it('falls back to an image enclosure when there is no media:thumbnail', async () => {
+    mockParseURL.mockResolvedValue({
+      items: [
+        {
+          title: 'Has an image enclosure',
+          link: 'https://medium.com/@author/enclosure',
+          guid: 'guid-5',
+          enclosure: { url: 'https://medium.com/enclosure.png', type: 'image/png' },
+        },
+      ],
+    });
+
+    const items = await fetchRss();
+
+    expect(items[0].thumbnail_url).toBe('https://medium.com/enclosure.png');
+  });
+
+  it('ignores a non-image enclosure and leaves thumbnail_url undefined when nothing usable is present', async () => {
+    mockParseURL.mockResolvedValue({
+      items: [
+        {
+          title: 'Audio enclosure, no thumbnail',
+          link: 'https://medium.com/@author/podcast',
+          guid: 'guid-6',
+          enclosure: { url: 'https://medium.com/episode.mp3', type: 'audio/mpeg' },
+        },
+      ],
+    });
+
+    const items = await fetchRss();
+
+    expect(items[0].thumbnail_url).toBeUndefined();
   });
 });

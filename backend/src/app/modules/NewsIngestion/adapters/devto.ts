@@ -6,6 +6,8 @@ interface DevToArticle {
   title: string;
   url: string;
   description?: string;
+  cover_image?: string;
+  social_image?: string;
   published_at?: string;
   public_reactions_count?: number;
   comments_count?: number;
@@ -43,6 +45,7 @@ export const fetchDevTo = async (): Promise<RawNewsItem[]> => {
     source_id: String(article.id),
     title: article.title,
     url: article.url,
+    thumbnail_url: article.cover_image ?? article.social_image,
     snippet: article.description,
     published_at: article.published_at ? new Date(article.published_at) : undefined,
     raw_points: article.public_reactions_count ?? 0,

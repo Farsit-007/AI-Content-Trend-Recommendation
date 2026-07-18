@@ -25,3 +25,11 @@ export interface ChatContextItem {
   source: 'news_item';
   content: string;
 }
+
+/** One row of `GET /chat/conversations` — a summary, not the full message list. */
+export interface ConversationSummary {
+  conversation_id: string;
+  last_message_preview: string;
+  message_count: number;
+  last_activity_at: Date;
+}

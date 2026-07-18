@@ -1,5 +1,6 @@
 import { ExternalLink, Loader2, Sparkles } from 'lucide-react';
 import type { FormatId, LanguageStyle } from '@/lib/api/content';
+import type { LlmModelActiveDto } from '@/lib/api/llmProviders';
 import type { StylePackDto } from '@/lib/api/stylePacks';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,9 @@ interface GenerateControlsProps {
   stylePacks: StylePackDto[];
   stylePackId: string | undefined;
   onStylePackChange: (id: string | undefined) => void;
+  activeModels: LlmModelActiveDto[];
+  llmModelId: string | undefined;
+  onLlmModelChange: (id: string | undefined) => void;
   selectedFormats: FormatId[];
   onToggleFormat: (format: FormatId) => void;
   onGenerate: () => void;
@@ -49,6 +53,9 @@ export function GenerateControls({
   stylePacks,
   stylePackId,
   onStylePackChange,
+  activeModels,
+  llmModelId,
+  onLlmModelChange,
   selectedFormats,
   onToggleFormat,
   onGenerate,
@@ -123,6 +130,29 @@ export function GenerateControls({
             {stylePacks.map((pack) => (
               <option key={pack._id} value={pack._id} className="bg-background text-foreground">
                 {pack.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {activeModels.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="generate-model" className="text-xs font-medium text-muted-foreground">
+            Model
+          </label>
+          <select
+            id="generate-model"
+            value={llmModelId ?? ''}
+            onChange={(e) => onLlmModelChange(e.target.value || undefined)}
+            className="h-9 rounded-md border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+          >
+            <option value="" className="bg-background text-foreground">
+              Default (team/platform default)
+            </option>
+            {activeModels.map((model) => (
+              <option key={model._id} value={model._id} className="bg-background text-foreground">
+                {model.display_name} ({model.provider_name})
               </option>
             ))}
           </select>

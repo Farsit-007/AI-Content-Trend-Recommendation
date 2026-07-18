@@ -22,7 +22,7 @@ import config from '../app/config';
 
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
-import { embedBatch } from '../app/lib/embeddings';
+import { resolveExamplesEmbeddingBatch } from '../app/modules/StylePack/stylePack.embeddingStrategy';
 import { LanguageStyle } from '../app/modules/Team/team.interface';
 import { StyleExample, StylePack } from '../app/modules/StylePack/stylePack.model';
 
@@ -118,9 +118,9 @@ const main = async () => {
 
     if (survivors.length === 0) continue;
 
-    const embeddings = await embedBatch(survivors.map((item) => item.content));
+    const resolved = await resolveExamplesEmbeddingBatch(survivors.map((item) => item.content));
     await StyleExample.insertMany(
-      survivors.map((item, i) => ({ ...item, style_pack_id: packId, embedding: embeddings[i] })),
+      survivors.map((item, i) => ({ ...item, style_pack_id: packId, ...resolved[i] })),
     );
     created += survivors.length;
   }

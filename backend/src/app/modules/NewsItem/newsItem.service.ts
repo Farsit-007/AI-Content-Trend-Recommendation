@@ -1,11 +1,15 @@
+import config from '../../config';
+import { logger } from '../../lib/logger';
 import QueryBuilder from '../../builder/QueryBuilder';
-import { embed } from '../../lib/embeddings';
+import { embedForTask } from '../../lib/modelResolution';
 import { IRequestUser } from '../User/user.interface';
 import { recordTombstones } from '../NewsDedupLedger/newsDedupLedger.service';
 import { NewsItemCategoryOverrideService } from '../NewsItemCategoryOverride/newsItemCategoryOverride.service';
 import { Team } from '../Team/team.model';
+import { TeamService } from '../Team/team.service';
 import { INewsItem } from './newsItem.interface';
 import { NewsItem } from './newsItem.model';
+import { findSemanticallyRelevantItems } from './newsItem.semanticMatch';
 import { newsItemSearchableFields } from './newsItem.utils';
 
 const HIGH_OPPORTUNITY_THRESHOLD = 7.5;
@@ -37,13 +41,30 @@ const omitListOnlyFields = <T extends Record<string, unknown>>(plain: T): Omit<T
 };
 
 const createNewsItem = async (payload: Partial<INewsItem>) => {
-  const embedding = payload.embedding ?? (await embed(`${payload.title ?? ''} ${payload.snippet ?? ''}`.trim()));
+  const embedding =
+    payload.embedding ?? (await embedForTask('embedding', `${payload.title ?? ''} ${payload.snippet ?? ''}`.trim()));
   const result = await NewsItem.create({ ...payload, embedding });
   return result;
 };
 
 const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: IRequestUser) => {
   const { team_id: queryTeamId, ...remainingQuery } = query as { team_id?: string } & Record<string, unknown>;
+
+  const teamId = queryTeamId ?? (requestingUser?.team_ids[0]);
+
+  // A team that hasn't told us what it cares about (categories) or what it sounds like (brand
+  // voice) sees an explicit "not ready" empty state instead of the unfiltered global pool — see
+  // team-readiness. Only applies when a team context actually resolved; unauthenticated/no-team
+  // requests are unaffected.
+  if (teamId && !(await TeamService.isTeamReady(teamId))) {
+    const meta = {
+      page: Number(remainingQuery.page) || 1,
+      limit: Number(remainingQuery.limit) || 10,
+      total: 0,
+      totalPage: 0,
+    };
+    return { meta, result: [], team_ready: false };
+  }
 
   // QueryBuilder.sort()'s own default (`-createdAt`) references a field that doesn't exist on
   // this schema, so it never does anything — inject the real default here, before QueryBuilder
@@ -63,16 +84,23 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
     .sort()
     .paginate();
 
-  const teamId = queryTeamId ?? (requestingUser?.team_ids[0]);
-
   // Auto-apply the team's category subscription only when the caller didn't already ask for a specific
   // category — an explicit `?category=` always wins over the team's standing preference.
+  // Matches on exact category OR the item's broad group (category_group) being subscribed to —
+  // e.g. subscribing to the broad group "AI" also surfaces a fine-grained discovered category like
+  // "LLM Tooling" whose category_group is "AI", not only items literally categorized "AI". See
+  // flexible-news-taxonomy-and-relevance.
+  let subscribedCategories: string[] = [];
   if (teamId && !remainingQuery.category) {
     try {
       const team = await Team.findById(teamId).select('subscribed_categories');
       if (team?.subscribed_categories.length) {
+        subscribedCategories = team.subscribed_categories;
         newsItemQuery.modelQuery = newsItemQuery.modelQuery.find({
-          category: { $in: team.subscribed_categories },
+          $or: [
+            { category: { $in: subscribedCategories } },
+            { category_group: { $in: subscribedCategories } },
+          ],
         });
       }
     } catch {
@@ -80,19 +108,64 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
     }
   }
 
-  const result = await newsItemQuery.modelQuery;
+  const primaryResult = await newsItemQuery.modelQuery;
   const meta = await newsItemQuery.countTotal();
+
+  // Semantic "nearly relevant" tier (flexible-news-taxonomy-and-relevance) — ready-but-inactive by
+  // default (config.news_feed.semantic_match_enabled), see config/index.ts for why. Only fills the
+  // remaining room on this page below the requested limit, so it never displaces an exact/group
+  // match; `meta.total` intentionally still reflects only the exact/group match count, not these
+  // supplementary items — a documented simplification (see design.md) rather than a full
+  // aggregation-based pagination rewrite.
+  const semanticMatchIds = new Set<string>();
+  let result: (typeof primaryResult)[number][] = primaryResult;
+  if (
+    teamId &&
+    !remainingQuery.category &&
+    config.news_feed.semantic_match_enabled &&
+    subscribedCategories.length > 0 &&
+    primaryResult.length < meta.limit
+  ) {
+    try {
+      const candidates = await findSemanticallyRelevantItems(
+        teamId,
+        subscribedCategories,
+        primaryResult.map((item) => item._id.toString()),
+        meta.limit - primaryResult.length,
+        config.news_feed.semantic_match_threshold,
+      );
+      if (candidates.length > 0) {
+        const extraItems = await NewsItem.find({ _id: { $in: candidates.map((c) => c._id) } });
+        for (const item of extraItems) semanticMatchIds.add(item._id.toString());
+        result = [...primaryResult, ...extraItems];
+      }
+    } catch (err) {
+      // Non-fatal — the semantic tier is a supplementary nice-to-have, never a hard requirement.
+      // Common cause: `news_items_vector_index` doesn't exist yet on this deployment's cluster.
+      logger.warn(
+        { err: err instanceof Error ? err.message : err, teamId },
+        '[NewsItem] semantic match tier failed — serving exact/group match results only',
+      );
+    }
+  }
 
   const annotate = (plain: ReturnType<typeof withOverride>) => {
     if (!teamId) return plain;
 
     const high_opportunity = (plain.opportunity_score ?? 0) >= HIGH_OPPORTUNITY_THRESHOLD;
+    const match_reason = semanticMatchIds.has(String(plain._id)) ? ('semantic' as const) : undefined;
 
-    return { ...plain, high_opportunity };
+    return { ...plain, high_opportunity, ...(match_reason ? { match_reason } : {}) };
   };
 
+  const teamReady = teamId ? true : undefined;
+
   if (!requestingUser || requestingUser.team_ids.length === 0) {
-    return { meta, result: result.map((item) => omitListOnlyFields(annotate(withOverride(item)))) };
+    return {
+      meta,
+      result: result.map((item) => omitListOnlyFields(annotate(withOverride(item)))),
+      team_ready: teamReady,
+    };
   }
 
   const overridesByItem = await NewsItemCategoryOverrideService.fetchOverridesForItems(
@@ -104,6 +177,7 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
     result: result.map((item) =>
       omitListOnlyFields(annotate(withOverride(item, overridesByItem.get(item._id.toString())))),
     ),
+    team_ready: teamReady,
   };
 };
 

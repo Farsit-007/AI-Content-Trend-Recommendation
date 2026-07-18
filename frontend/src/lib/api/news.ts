@@ -13,6 +13,8 @@ export interface NewsItemDto {
   source: string;
   title: string;
   url: string;
+  discussion_url?: string;
+  thumbnail_url?: string;
   snippet?: string;
   content?: string;
   content_status?: 'none' | 'partial' | 'full' | 'failed';
@@ -21,10 +23,16 @@ export interface NewsItemDto {
   trend_score: number;
   opportunity_score?: number;
   category?: string;
+  /** The one of the fixed six categories `category` rolls up under — see
+   *  flexible-news-taxonomy-and-relevance. */
+  category_group?: string;
   impact_note?: string;
   high_opportunity?: boolean;
   is_overridden?: boolean;
   needs_review?: boolean;
+  /** Present only on items surfaced by the optional semantic "nearly relevant" tier (off by
+   *  default), not an exact/broad-group category match. */
+  match_reason?: 'semantic';
   created_at: string;
 }
 
@@ -40,7 +48,7 @@ export interface GetNewsItemsParams {
 
 export function getNewsItems(
   params: GetNewsItemsParams,
-): Promise<{ data: NewsItemDto[]; meta?: Meta }> {
+): Promise<{ data: NewsItemDto[]; meta?: Meta; team_ready?: boolean }> {
   return apiGetList<NewsItemDto[]>('/news-items', { params });
 }
 
@@ -106,6 +114,18 @@ export interface IngestSummary {
 /** POST /news-items/ingest (admin) — synchronously runs the full ingestion pipeline now. */
 export function triggerIngestion(): Promise<IngestSummary> {
   return apiPost<IngestSummary>('/news-items/ingest', {});
+}
+
+export interface LastIngestedAt {
+  run_id: string | null;
+  finished_at: string | null;
+}
+
+/** GET /news-items/last-ingested-at — any authenticated user (not admin-gated); id + timestamp
+ *  only, used to detect a cron-triggered ingestion completing without polling the admin-only
+ *  ingestion-runs endpoint. */
+export function getLastIngestedAt(): Promise<LastIngestedAt> {
+  return apiGet<LastIngestedAt>('/news-items/last-ingested-at');
 }
 
 // --- Per-team category/score override (PATCH/DELETE /news-items/:id/override) --

@@ -6,12 +6,14 @@ export interface Meta {
   totalPage: number;
 }
 
-/** Standard backend success envelope: `{ success, message, meta?, data }`. */
+/** Standard backend success envelope: `{ success, message, meta?, data }`, plus any additive
+ *  top-level fields a given endpoint chooses to send alongside `data` (e.g. `team_ready`). */
 export interface ApiEnvelope<T> {
   success: true;
   message: string;
   meta?: Meta;
   data: T;
+  team_ready?: boolean;
 }
 
 /** One field-level error entry from the backend error envelope. */

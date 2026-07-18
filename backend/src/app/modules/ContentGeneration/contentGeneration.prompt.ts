@@ -34,8 +34,17 @@ export const buildSystemPrompt = (
   voiceOptions: VoiceOptions,
   styleContext?: StyleContext,
 ): string => {
+  // The style card/examples may be written in a different language than the requested output
+  // (e.g. Bangla style pack + an English request). Without this explicit precedence line the
+  // model reliably follows the examples' language over the Language instruction.
+  const languageDominance =
+    styleContext || fewShotExamples.length
+      ? ' This output language is non-negotiable: any style card, style examples, or past posts below define ' +
+        'tone, rhythm, and register ONLY — if their language differs from the language requested here, ' +
+        'still write the output in the requested language.'
+      : '';
   const voiceInstructions =
-    `Language: ${languageInstruction(voiceOptions.language)}` +
+    `Language: ${languageInstruction(voiceOptions.language)}${languageDominance}` +
     (voiceOptions.custom_instructions
       ? `\nTeam instructions (always follow these): ${voiceOptions.custom_instructions}`
       : '');

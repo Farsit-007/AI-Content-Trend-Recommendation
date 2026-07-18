@@ -3,6 +3,10 @@ export interface RawNewsItem {
   source_id: string;
   title: string;
   url: string;
+  /** The aggregator's own comment/discussion thread, when distinct from `url` (e.g. HN item page, Reddit permalink, Product Hunt post page). */
+  discussion_url?: string;
+  /** A source-native preview image (cover image, social image, thumbnail field) — never scraped/derived. */
+  thumbnail_url?: string;
   snippet?: string;
   content?: string;
   /** Set to 'failed' by content enrichment when a fetch/extraction attempt found nothing usable — distinct from simply never having been attempted. */
@@ -28,7 +32,11 @@ export interface ScoredNewsItem extends RawNewsItem {
 }
 
 export interface CategorizedNewsItem extends ScoredNewsItem {
-  category: NewsCategory;
+  /** Free-form — any name in the global category taxonomy (fixed six or discovered), not just
+   *  `NewsCategory`. See flexible-news-taxonomy-and-relevance. */
+  category: string;
+  /** The one of the fixed six (`NewsCategory`) `category` rolls up under. */
+  category_group: NewsCategory;
   impact_note: string;
   category_confidence: number;
   audience_fit: number;

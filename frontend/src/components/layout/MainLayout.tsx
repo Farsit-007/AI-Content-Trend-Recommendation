@@ -4,6 +4,7 @@ import { TourProvider } from "@/context/TourProvider";
 import { Navbar } from "@/components/shared/Navbar";
 import { TourOverlay } from "@/components/tour/TourOverlay";
 import { WelcomeTourModal } from "@/components/tour/WelcomeTourModal";
+import { useNewsIngestionWatcher } from "@/hooks/useNewsIngestionWatcher";
 import { AppSidebar } from "./Sidebar";
 import {
   SidebarInset,
@@ -12,6 +13,10 @@ import {
 
 /** Authenticated dashboard shell: collapsible sidebar + topbar + routed content. */
 export function MainLayout() {
+  // Mounted once here (not per-page) so it keeps polling across every dashboard route change —
+  // see news-feed-live-refresh.
+  useNewsIngestionWatcher();
+
   return (
     <TeamProvider>
       <TourProvider>

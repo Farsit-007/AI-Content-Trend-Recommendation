@@ -106,6 +106,24 @@ describe('fetchHackerNews', () => {
     expect(items[0].content).toBeUndefined();
   });
 
+  it('always sets discussion_url to the HN item page, independent of what url resolved to', async () => {
+    mockFetchSequence(jsonResponse([hit({ objectID: '55', url: 'https://example.com/external-article' })]), jsonResponse([]));
+
+    const items = await fetchHackerNews();
+
+    expect(items[0].url).toBe('https://example.com/external-article');
+    expect(items[0].discussion_url).toBe('https://news.ycombinator.com/item?id=55');
+  });
+
+  it('sets discussion_url equal to url for a url-less (Ask HN style) story', async () => {
+    mockFetchSequence(jsonResponse([hit({ objectID: '66', url: undefined })]), jsonResponse([]));
+
+    const items = await fetchHackerNews();
+
+    expect(items[0].url).toBe('https://news.ycombinator.com/item?id=66');
+    expect(items[0].discussion_url).toBe('https://news.ycombinator.com/item?id=66');
+  });
+
   describe('content_hash compatibility with the previous Firebase adapter', () => {
     /** Reproduces the old Firebase adapter's URL-derivation rule exactly, for comparison. */
     const oldAdapterUrl = (item: { url?: string; id: number }) =>

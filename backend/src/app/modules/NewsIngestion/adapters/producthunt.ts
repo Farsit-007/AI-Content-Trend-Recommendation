@@ -15,7 +15,7 @@ const QUERY = `
   query TopLaunches($postedAfter: DateTime!) {
     posts(order: VOTES, postedAfter: $postedAfter, first: 25) {
       edges {
-        node { id name tagline description url votesCount commentsCount createdAt }
+        node { id name tagline description url website thumbnail { url } votesCount commentsCount createdAt }
       }
     }
   }
@@ -26,7 +26,11 @@ interface ProductHuntNode {
   name: string;
   tagline: string;
   description?: string;
+  /** The Product Hunt post page itself — a discussion/listing page, not the product's real site. */
   url: string;
+  /** Product Hunt's tracking-redirect link that resolves to the product's actual external site (verified live against the real API — distinct from `url`). */
+  website?: string;
+  thumbnail?: { url: string };
   votesCount: number;
   commentsCount: number;
   createdAt: string;
@@ -93,7 +97,11 @@ const fetchTopLaunches = async (token: string): Promise<RawNewsItem[]> => {
     source: 'producthunt',
     source_id: node.id,
     title: `${node.name} — ${node.tagline}`,
-    url: node.url,
+    // `website` (the real product) becomes the resource; `url` (the PH post page) becomes the
+    // discussion link — see design.md decision 2 of news-source-link-and-thumbnail-fields.
+    url: node.website ?? node.url,
+    discussion_url: node.url,
+    thumbnail_url: node.thumbnail?.url,
     snippet: node.tagline,
     content: node.description || undefined,
     published_at: new Date(node.createdAt),

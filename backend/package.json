@@ -31,13 +31,20 @@
     "verify:engagement-refresh-live": "ts-node src/scripts/verifyEngagementRefreshLive.ts",
     "verify:trend-decay-live": "ts-node src/scripts/verifyTrendDecayLive.ts",
     "verify:dedup-tombstone-live": "ts-node src/scripts/verifyDedupTombstoneLive.ts",
+    "audit:content-coverage": "ts-node src/scripts/auditContentCoverage.ts",
+    "migrate:style-example-embeddings": "ts-node src/scripts/migrateStyleExampleEmbeddings.ts",
     "seed:admin": "ts-node src/scripts/seedAdmin.ts",
     "seed:brand-voice": "ts-node src/scripts/seedBrandVoice.ts",
     "seed:demo-analytics": "ts-node src/scripts/seedDemoAnalytics.ts",
     "seed:style-pack": "ts-node src/scripts/seedStylePack.ts",
-    "style:generate-card": "ts-node src/scripts/generateStyleCard.ts"
+    "style:generate-card": "ts-node src/scripts/generateStyleCard.ts",
+    "dev:reset-data": "ts-node src/scripts/resetDevData.ts",
+    "dev:clear-news": "ts-node src/scripts/clearNewsItems.ts",
+    "seed:news-categories": "ts-node src/scripts/seedNewsCategoryTaxonomy.ts",
+    "backfill:category-group": "ts-node src/scripts/backfillCategoryGroup.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.112.3",
     "@extractus/article-extractor": "^8.1.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",

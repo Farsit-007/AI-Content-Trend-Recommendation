@@ -29,6 +29,26 @@ export const mockChatCompletionSequence = (responses: string[]): void => {
 };
 
 /**
+ * Configures the mocked chat-completion call to respond based on which substring appears in the
+ * prompt, rather than call order. Required whenever a test needs specific response content mapped
+ * to a specific format/prompt in a request that generates multiple formats concurrently — each
+ * format's `chatCompletionForTask` call now does an async DB read (model resolution) before the
+ * HTTP call, so the physical order in which concurrent calls reach `create()` is not guaranteed to
+ * match the formats' request/array order the way a purely-synchronous-until-the-HTTP-call chain
+ * once did.
+ */
+export const mockChatCompletionByPrompt = (rules: { match: string; response: string }[]): void => {
+  mocked.chat.completions.create.mockImplementation(async (req: { messages: { content: string }[] }) => {
+    const prompt = req.messages[0]?.content ?? '';
+    const rule = rules.find((r) => prompt.includes(r.match));
+    if (!rule) {
+      throw new Error(`mockChatCompletionByPrompt: no rule matched prompt: ${prompt.slice(0, 200)}`);
+    }
+    return { choices: [{ message: { content: rule.response } }] };
+  });
+};
+
+/**
  * Queues a single rejected chat-completion call, for the *next* call only (chains after
  * `mockChatCompletionSequence`/`mockChatCompletion`, consumed in call order). Explicit rejection
  * rather than relying on an "exhausted mock" default — `clearMocks` only clears call history

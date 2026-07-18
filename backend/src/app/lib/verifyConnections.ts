@@ -1,8 +1,7 @@
 import mongoose from 'mongoose';
 import { logger } from './logger';
 import { pingRedis } from './redis';
-import { chatCompletion, LLM_MODELS } from './llmClient';
-import { embed } from './embeddings';
+import { chatCompletionForTask, embedForTask, LlmNotConfiguredError } from './modelResolution';
 
 const withLabel = async (label: string, fn: () => Promise<void>): Promise<void> => {
   try {
@@ -28,15 +27,31 @@ export const verifyConnections = async (): Promise<void> => {
 
   await withLabel('Redis', pingRedis);
 
-  await withLabel('OpenRouter LLM', async () => {
-    await chatCompletion({
-      model: LLM_MODELS.fallback,
-      messages: [{ role: 'user', content: 'Reply with exactly: OK' }],
-    });
+  // Smoke-tests whatever resolveModelForTask picks (request/team/global DB tiers, or the
+  // test-only bootstrap env key). A deployment with no provider configured yet is expected
+  // during first-run setup — warn and continue so the admin can add one through the UI.
+  await withLabel('LLM chat completion', async () => {
+    try {
+      await chatCompletionForTask('content_generation', [{ role: 'user', content: 'Reply with exactly: OK' }]);
+    } catch (err) {
+      if (err instanceof LlmNotConfiguredError) {
+        logger.warn(`[verifyConnections] ${err.message} — skipping LLM smoke test`);
+        return;
+      }
+      throw err;
+    }
   });
 
-  await withLabel('Embeddings (OpenRouter)', async () => {
-    const vector = await embed('connectivity check');
-    if (!vector.length) throw new Error('Embedding provider returned an empty vector');
+  await withLabel('Embeddings', async () => {
+    try {
+      const vector = await embedForTask('embedding', 'connectivity check');
+      if (!vector.length) throw new Error('Embedding provider returned an empty vector');
+    } catch (err) {
+      if (err instanceof LlmNotConfiguredError) {
+        logger.warn(`[verifyConnections] ${err.message} — skipping embedding smoke test`);
+        return;
+      }
+      throw err;
+    }
   });
 };

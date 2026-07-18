@@ -13,6 +13,8 @@ type TResponse<T> = {
   message?: string;
   meta?: TMeta;
   data: T;
+  /** Additive top-level fields (e.g. `team_ready`) spread alongside `data`/`meta` — never replaces them. */
+  extra?: Record<string, unknown>;
 };
 
 const sendResponse = <T>(res: Response, data: TResponse<T>) => {
@@ -21,6 +23,7 @@ const sendResponse = <T>(res: Response, data: TResponse<T>) => {
     message: data.message,
     meta: data.meta,
     data: data.data,
+    ...(data.extra ?? {}),
   });
 };
 

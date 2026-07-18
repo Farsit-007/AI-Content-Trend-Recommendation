@@ -3,7 +3,7 @@ import { fetchDevTo } from '../app/modules/NewsIngestion/adapters/devto';
 const jsonResponse = (body: unknown): Response => ({ ok: true, json: async () => body }) as Response;
 const failedResponse = (status: number): Response => ({ ok: false, status, json: async () => [] }) as Response;
 
-const topArticle = (id: number, title = `Top article ${id}`) => ({
+const topArticle = (id: number, title = `Top article ${id}`, overrides: Partial<Record<string, unknown>> = {}) => ({
   id,
   title,
   url: `https://dev.to/article-${id}`,
@@ -11,6 +11,7 @@ const topArticle = (id: number, title = `Top article ${id}`) => ({
   published_at: new Date().toISOString(),
   public_reactions_count: 10,
   comments_count: 2,
+  ...overrides,
 });
 
 describe('fetchDevTo', () => {
@@ -52,5 +53,44 @@ describe('fetchDevTo', () => {
     global.fetch = fetchMock as unknown as typeof fetch;
 
     await expect(fetchDevTo()).rejects.toThrow('both top and rising requests failed');
+  });
+
+  it('prefers cover_image for thumbnail_url when present', async () => {
+    const fetchMock = jest.fn(async (url: string) => {
+      if (url.includes('top=1')) return jsonResponse([topArticle(1, undefined, { cover_image: 'https://dev.to/cover.png', social_image: 'https://dev.to/social.png' })]);
+      if (url.includes('state=rising')) return jsonResponse([]);
+      throw new Error(`unexpected url: ${url}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchDevTo();
+
+    expect(items[0].thumbnail_url).toBe('https://dev.to/cover.png');
+  });
+
+  it('falls back to social_image when there is no cover_image', async () => {
+    const fetchMock = jest.fn(async (url: string) => {
+      if (url.includes('top=1')) return jsonResponse([topArticle(1, undefined, { cover_image: undefined, social_image: 'https://dev.to/social.png' })]);
+      if (url.includes('state=rising')) return jsonResponse([]);
+      throw new Error(`unexpected url: ${url}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchDevTo();
+
+    expect(items[0].thumbnail_url).toBe('https://dev.to/social.png');
+  });
+
+  it('leaves thumbnail_url undefined when neither cover_image nor social_image is present', async () => {
+    const fetchMock = jest.fn(async (url: string) => {
+      if (url.includes('top=1')) return jsonResponse([topArticle(1, undefined, { cover_image: undefined, social_image: undefined })]);
+      if (url.includes('state=rising')) return jsonResponse([]);
+      throw new Error(`unexpected url: ${url}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchDevTo();
+
+    expect(items[0].thumbnail_url).toBeUndefined();
   });
 });

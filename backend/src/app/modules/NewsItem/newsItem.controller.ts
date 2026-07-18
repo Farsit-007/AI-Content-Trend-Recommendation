@@ -16,13 +16,14 @@ const createNewsItem = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllNewsItems = catchAsync(async (req: Request, res: Response) => {
-  const { meta, result } = await NewsItemService.getAllNewsItems(req.query, req.user);
+  const { meta, result, team_ready } = await NewsItemService.getAllNewsItems(req.query, req.user);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: 'News items retrieved successfully',
     meta,
     data: result,
+    extra: team_ready === undefined ? undefined : { team_ready },
   });
 });
 

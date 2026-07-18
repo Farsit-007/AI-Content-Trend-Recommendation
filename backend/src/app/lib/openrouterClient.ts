@@ -8,11 +8,16 @@ import config from '../config';
  * model string change, not a new HTTP client.
  */
 export const openrouter = new OpenAI({
-  apiKey: config.openrouter_api_key,
+  // The SDK requires a non-empty string at construction time. When OPENROUTER_API_KEY is unset
+  // (the normal case — providers/keys live in the DB via the admin LLM settings), the bootstrap
+  // tier in modelResolution.ts throws before this client is ever invoked, so the placeholder can
+  // never reach the network.
+  apiKey: config.openrouter_api_key ?? 'unconfigured',
   baseURL: 'https://openrouter.ai/api/v1',
   // The SDK default (10 min, 2 retries) lets a slow/rate-limited free-tier model hang a
-  // request for a very long time with nothing logged — fail fast instead.
-  timeout: 20_000,
+  // request for a very long time with nothing logged — stay bounded, but leave room for
+  // large free-tier reasoning models that regularly need more than 20s on long-form posts.
+  timeout: 60_000,
   maxRetries: 1,
   defaultHeaders: {
     'HTTP-Referer': config.web_url as string,

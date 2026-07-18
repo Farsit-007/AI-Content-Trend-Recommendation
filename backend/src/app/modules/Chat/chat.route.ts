@@ -10,4 +10,7 @@ router.use(requireAuth);
 
 router.post('/', validation(ChatValidation.askChatValidation), ChatController.askChat);
 
+router.get('/conversations', ChatController.listConversations);
+router.get('/conversations/:conversationId', ChatController.getConversationMessages);
+
 export const ChatRoutes = router;

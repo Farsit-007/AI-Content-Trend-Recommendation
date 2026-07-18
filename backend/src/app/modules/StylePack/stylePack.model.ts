@@ -28,6 +28,8 @@ const styleExampleSchema = new Schema<IStyleExample>({
       message: 'embedding must be a 1536-dimension vector (openai/text-embedding-3-small)',
     },
   },
+  embedding_source: { type: String, enum: ['content', 'topic_summary'], default: 'content' },
+  topic_summary: { type: String },
   platform: { type: String, enum: ['facebook', 'linkedin', 'other'], default: 'other' },
   source_ref: { type: String },
   engagement_hint: { type: String },

@@ -110,6 +110,7 @@ export default function Admin() {
   const teamsQuery = useQuery({ queryKey: ['teams', 'all'], queryFn: listTeams });
 
   const ingestMutation = useMutation({
+    mutationKey: ['ingestion'],
     mutationFn: triggerIngestion,
     onSuccess: (summary) => {
       toast.success(`Ingestion complete — ${summary.totalStored} new items stored`);

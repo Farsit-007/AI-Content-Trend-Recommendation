@@ -4,6 +4,10 @@ export interface INewsItem {
   content_hash: string;
   title: string;
   url: string;
+  /** The aggregator's own comment/discussion thread, when distinct from `url`. */
+  discussion_url?: string;
+  /** A source-native preview image — never scraped/derived beyond what the source's own API provides. */
+  thumbnail_url?: string;
   snippet?: string;
   content?: string;
   content_status: 'none' | 'partial' | 'full' | 'failed';
@@ -18,6 +22,9 @@ export interface INewsItem {
   trend_score: number;
   current_trend_score?: number;
   category?: string;
+  /** Broad-group parent (one of the fixed six) `category` rolls up under — see
+   *  flexible-news-taxonomy-and-relevance. */
+  category_group?: string;
   relevance_score?: number;
   impact_note?: string;
   embedding: number[];

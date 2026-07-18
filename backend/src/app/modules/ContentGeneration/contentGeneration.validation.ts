@@ -19,6 +19,7 @@ const generateContentValidation = z.object({
       .refine((formats) => new Set(formats).size === formats.length, 'formats must not contain duplicates')
       .optional(),
     regenerate: z.boolean().optional(),
+    llm_model_id: objectId.optional(),
   }),
 });
 
@@ -30,6 +31,7 @@ const refineContentValidation = z.object({
     instruction: z.string({ required_error: 'instruction is required' }).min(1).max(300),
     language: z.enum(['bangla', 'english', 'banglish']).optional(),
     style_pack_id: objectId.optional(),
+    llm_model_id: objectId.optional(),
   }),
 });
 

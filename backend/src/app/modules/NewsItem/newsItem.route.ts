@@ -15,6 +15,10 @@ router.post('/ingest', requireAuth, requireAdmin, NewsIngestionController.ingest
 // Must stay above the `/:id` routes below — otherwise Express matches "ingestion-runs" as an :id.
 router.get('/ingestion-runs', requireAuth, requireAdmin, IngestionRunController.listRuns);
 router.get('/maintenance-runs', requireAuth, requireAdmin, MaintenanceRunController.listRuns);
+// Deliberately requireAuth only (no requireAdmin) — id + timestamp only, safe for any
+// authenticated user; see news-feed-live-refresh design.md for why `ingestion-runs` above can't
+// be reused directly (it's admin-gated and returns per-source operational detail).
+router.get('/last-ingested-at', requireAuth, IngestionRunController.getLastIngestedAt);
 
 router.patch(
   '/:id/override',

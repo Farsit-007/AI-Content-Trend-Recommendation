@@ -28,6 +28,8 @@ const newsItemSchema = new Schema<INewsItem>({
   content_hash: { type: String, required: true, unique: true },
   title: { type: String, required: true },
   url: { type: String, required: true },
+  discussion_url: { type: String },
+  thumbnail_url: { type: String },
   snippet: { type: String },
   content: { type: String },
   content_status: { type: String, enum: ['none', 'partial', 'full', 'failed'], default: 'none' },
@@ -41,7 +43,11 @@ const newsItemSchema = new Schema<INewsItem>({
   },
   trend_score: { type: Number, default: 0 },
   current_trend_score: { type: Number, index: true },
-  category: { type: String },
+  category: { type: String, index: true },
+  // Broad-group parent (one of the fixed six) this item's `category` rolls up under — a fixed-six
+  // category's group is itself; a discovered fine-grained category's group is assigned at
+  // categorization time. See flexible-news-taxonomy-and-relevance.
+  category_group: { type: String, index: true },
   relevance_score: { type: Number },
   impact_note: { type: String },
   embedding: {

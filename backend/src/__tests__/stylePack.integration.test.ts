@@ -2,9 +2,16 @@ jest.mock('../app/lib/openrouterClient');
 
 import request from 'supertest';
 import app from '../app';
+import config from '../app/config';
 import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
 import { createAuthToken, createTestTeam, createTestUser } from './support/fixtures';
-import { getOpenRouterCallCounts, mockChatCompletion, mockEmbedding, mockEmbeddingBatch } from './support/openrouterMock';
+import {
+  getOpenRouterCallCounts,
+  mockChatCompletion,
+  mockChatCompletionSequence,
+  mockEmbedding,
+  mockEmbeddingBatch,
+} from './support/openrouterMock';
 import { StyleExample, StylePack } from '../app/modules/StylePack/stylePack.model';
 
 beforeAll(connectTestDb);
@@ -388,5 +395,68 @@ describe('Style card generation', () => {
         .set('Authorization', `Bearer ${createAuthToken(requester)}`);
       expect(res.status).toBe(403);
     }
+  });
+});
+
+describe('Topic-summary embedding strategy (style-example-topic-summary-embeddings)', () => {
+  const originalFlag = config.style_packs.embed_examples_by_topic_summary;
+  afterEach(() => {
+    config.style_packs.embed_examples_by_topic_summary = originalFlag;
+  });
+
+  it('flag off (default): single add embeds raw content, byte-identical to pre-change behavior', async () => {
+    config.style_packs.embed_examples_by_topic_summary = false;
+    const superAdmin = await createTestUser({ role: 'super_admin', email: 'super-stylepack-embed-off@example.test' });
+    const token = createAuthToken(superAdmin);
+    const pack = await createPackDoc();
+    mockEmbedding();
+
+    const res = await request(app)
+      .post(`/api/v1/style-packs/${pack._id}/examples`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ content: 'একটা Bangla example post' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.embedding_source).toBe('content');
+    expect(res.body.data.topic_summary).toBeUndefined();
+    expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(0);
+  });
+
+  it('flag on: single add extracts a topic summary and embeds it', async () => {
+    config.style_packs.embed_examples_by_topic_summary = true;
+    const superAdmin = await createTestUser({ role: 'super_admin', email: 'super-stylepack-embed-on@example.test' });
+    const token = createAuthToken(superAdmin);
+    const pack = await createPackDoc();
+    mockChatCompletion('A motivational post encouraging beginners to start coding.');
+    mockEmbedding();
+
+    const res = await request(app)
+      .post(`/api/v1/style-packs/${pack._id}/examples`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ content: 'একটা Bangla example post' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.embedding_source).toBe('topic_summary');
+    expect(res.body.data.topic_summary).toBe('A motivational post encouraging beginners to start coding.');
+  });
+
+  it('flag on: bulk import tags each created example with its own embedding_source', async () => {
+    config.style_packs.embed_examples_by_topic_summary = true;
+    const superAdmin = await createTestUser({ role: 'super_admin', email: 'super-stylepack-embed-bulk@example.test' });
+    const token = createAuthToken(superAdmin);
+    const pack = await createPackDoc();
+    mockChatCompletionSequence(['Summary one.', 'Summary two.']);
+    mockEmbeddingBatch();
+
+    const res = await request(app)
+      .post(`/api/v1/style-packs/${pack._id}/examples/bulk`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ items: [{ content: 'bulk item one' }, { content: 'bulk item two' }] });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.created).toBe(2);
+
+    const stored = await StyleExample.find({ style_pack_id: pack._id.toString() }).sort('content');
+    expect(stored.every((e) => e.embedding_source === 'topic_summary')).toBe(true);
   });
 });

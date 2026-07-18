@@ -14,6 +14,7 @@ import { authTeamPaths } from './authTeamPaths';
 import { contentGenerationPaths } from './contentGenerationPaths';
 import { chatPaths } from './chatPaths';
 import { generatedContentPaths } from './generatedContentPaths';
+import { llmProviderPaths } from './llmProviderPaths';
 import { newsItemPaths } from './newsItemPaths';
 import { stylePackPaths } from './stylePackPaths';
 import {
@@ -28,6 +29,16 @@ import {
   GenerateContentRequest,
   GeneratedContent,
   IngestionSummary,
+  LlmModel,
+  LlmModelActive,
+  LlmModelCreate,
+  LlmProvider,
+  LlmProviderAddKey,
+  LlmProviderCreate,
+  LlmProviderKey,
+  LlmProviderKeyReveal,
+  LlmTaskDefault,
+  LlmTaskDefaultSet,
   LoginRequest,
   NewsItem,
   NewsItemCategoryOverride,
@@ -69,6 +80,7 @@ export const openApiDocument = {
     { name: 'Chat', description: "Conversational Q&A grounded in the team's own trending news." },
     { name: 'Generated Content', description: 'Persisted generated content drafts; auto-generated daily per team in their brand voice.' },
     { name: 'Style Packs', description: 'Globally shared, super_admin-curated writer styles (packs + examples) teams can opt into.' },
+    { name: 'LLM Providers', description: 'Super-admin-managed registry of LLM providers, encrypted API keys, and per-provider model catalogs, wired into live generation via per-task model resolution (request > team default > global default > .env bootstrap).' },
   ],
   paths: {
     ...authTeamPaths,
@@ -87,6 +99,7 @@ export const openApiDocument = {
     ...chatPaths,
     ...generatedContentPaths,
     ...stylePackPaths,
+    ...llmProviderPaths,
   },
   components: {
     securitySchemes: {
@@ -127,6 +140,16 @@ export const openApiDocument = {
       StyleExampleBulkCreate,
       StyleExampleBulkResult,
       StyleCardGenerateResult,
+      LlmProvider,
+      LlmProviderCreate,
+      LlmProviderKey,
+      LlmProviderAddKey,
+      LlmProviderKeyReveal,
+      LlmModel,
+      LlmModelCreate,
+      LlmModelActive,
+      LlmTaskDefault,
+      LlmTaskDefaultSet,
       GeneratedContentDoc: {
         type: 'object',
         properties: {

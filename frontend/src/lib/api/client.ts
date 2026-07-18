@@ -109,9 +109,9 @@ export async function apiGet<T>(
 export async function apiGetList<T>(
   url: string,
   config?: AxiosRequestConfig,
-): Promise<{ data: T; meta?: Meta }> {
+): Promise<{ data: T; meta?: Meta; team_ready?: boolean }> {
   const res = await api.get<ApiEnvelope<T>>(url, config);
-  return { data: res.data.data, meta: res.data.meta };
+  return { data: res.data.data, meta: res.data.meta, team_ready: res.data.team_ready };
 }
 
 export async function apiPost<T>(
@@ -129,6 +129,15 @@ export async function apiPatch<T>(
   config?: AxiosRequestConfig,
 ): Promise<T> {
   const res = await api.patch<ApiEnvelope<T>>(url, body, config);
+  return res.data.data;
+}
+
+export async function apiPut<T>(
+  url: string,
+  body?: unknown,
+  config?: AxiosRequestConfig,
+): Promise<T> {
+  const res = await api.put<ApiEnvelope<T>>(url, body, config);
   return res.data.data;
 }
 

@@ -1,5 +1,6 @@
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
+import { ExpandableTextarea } from '@/components/ui/expandable-textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { cn } from '@/lib/utils';
 import type { TeamVoiceProfile } from '@/lib/api/teams';
@@ -87,13 +88,13 @@ export function VoiceProfileSection({ voiceProfile, isAdmin, isSaving, onSave }:
               <FormItem>
                 <FormLabel>Custom instructions</FormLabel>
                 <FormControl>
-                  <textarea
+                  <ExpandableTextarea
                     {...field}
                     disabled={!isAdmin}
                     maxLength={500}
                     rows={4}
                     placeholder="e.g. always end with a question, never use more than 2 emojis, audience is beginner developers"
-                    className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-input/30"
+                    expandTitle="Custom instructions"
                   />
                 </FormControl>
                 <p className="text-right text-xs text-muted-foreground">{instructions.length}/500</p>

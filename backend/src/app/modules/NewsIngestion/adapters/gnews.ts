@@ -10,6 +10,7 @@ interface GNewsArticle {
   title: string;
   description?: string;
   url: string;
+  image?: string;
   publishedAt: string;
 }
 
@@ -35,6 +36,7 @@ const fetchTopicArticles = async (topic: string): Promise<RawNewsItem[]> => {
     source_id: article.url,
     title: article.title,
     url: article.url,
+    thumbnail_url: article.image,
     snippet: article.description,
     published_at: new Date(article.publishedAt),
     raw_points: 0,

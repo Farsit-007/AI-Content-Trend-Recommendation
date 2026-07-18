@@ -1,5 +1,5 @@
 import { ADJUDICATION_SYSTEM_PROMPT } from '../../../scripts/dedupCalibrationPairs';
-import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { chatCompletionForTask } from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
 
 const BATCH_SIZE = 10;
@@ -54,14 +54,14 @@ const judgeBatch = async (batch: AdjudicationInput[]): Promise<Map<number, Adjud
 
   let raw: string;
   try {
-    raw = await chatCompletion({
-      model: LLM_MODELS.standard,
-      temperature: 0.3,
-      messages: [
+    raw = await chatCompletionForTask(
+      'dedup_adjudication',
+      [
         { role: 'system', content: ADJUDICATION_SYSTEM_PROMPT },
         { role: 'user', content: prompt },
       ],
-    });
+      { temperature: 0.3 },
+    );
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : err }, '[NewsIngestion] adjudication LLM call failed — keeping all pairs in batch');
     batch.forEach((p) => out.set(p.id, FALLBACK));

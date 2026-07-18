@@ -9,7 +9,13 @@
  * script is the tool, not the decision itself).
  *
  * Run: npm run verify:bangla-bakeoff -- --models <id,id,...> --pack <slug> \
- *        [--topics-file <path>] [--formats facebook_post,linkedin_post] [--language bangla] [--seed <n>]
+ *        [--topics-file <path>] [--formats facebook_post,linkedin_post] [--language bangla] [--seed <n>] \
+ *        [--critique both]
+ *
+ * --critique both (style-fidelity-critique-pass): for every structurally-eligible cell (text-kind
+ * format, resolved pack), additionally runs the critique-and-rewrite pass and records it as a
+ * second, independently-labeled sample — so the enable/disable decision for that pass can be made
+ * from real paired evidence. Doubles eligible cells; see contentGeneration.bakeoff.ts.
  */
 import dns from 'dns';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -49,12 +55,18 @@ const main = async () => {
   const language = (parseFlag('--language') as LanguageStyle | undefined) ?? 'bangla';
   const seedFlag = parseFlag('--seed');
   const seed = seedFlag ? Number(seedFlag) : Date.now();
+  const critiqueFlag = parseFlag('--critique');
+  const critique = critiqueFlag === 'both' ? 'both' : 'off';
 
   if (!models || models.length === 0 || !packSlug) {
     console.error(
       'Usage: npm run verify:bangla-bakeoff -- --models <id,id,...> --pack <slug> ' +
-        '[--topics-file <path>] [--formats facebook_post,linkedin_post] [--language bangla] [--seed <n>]',
+        '[--topics-file <path>] [--formats facebook_post,linkedin_post] [--language bangla] [--seed <n>] [--critique both]',
     );
+    process.exit(1);
+  }
+  if (critiqueFlag && critique === 'off') {
+    console.error(`Unknown --critique value "${critiqueFlag}" — only "both" is supported (or omit the flag)`);
     process.exit(1);
   }
 
@@ -63,12 +75,14 @@ const main = async () => {
   await mongoose.connect(config.database_url as string);
 
   try {
+    const baseCells = models.length * topics.length * formats.length;
     console.log(
       `[banglaBakeoff] running ${models.length} model(s) x ${topics.length} topic(s) x ${formats.length} format(s) ` +
-        `= ${models.length * topics.length * formats.length} cells against pack "${packSlug}" (seed=${seed})`,
+        `= ${baseCells} base cell(s)${critique === 'both' ? ' (plus a critiqued twin per structurally-eligible cell)' : ''} ` +
+        `against pack "${packSlug}" (seed=${seed})`,
     );
 
-    const run = await runBakeoffMatrix({ models, topics, formats, packSlug, language, seed });
+    const run = await runBakeoffMatrix({ models, topics, formats, packSlug, language, seed, critique });
 
     const shuffledIndices = shuffleWithSeed(
       run.cells.map((_, i) => i),

@@ -1,8 +1,19 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { z } from 'zod';
+import { FormatId } from '../modules/ContentGeneration/contentGeneration.formats';
 
 dotenv.config({ path: path.join(process.cwd(), '.env') });
+
+// A 32-byte key is what AES-256-GCM requires. Accept base64 or hex so operators can paste the
+// output of either `openssl rand -base64 32` or `openssl rand -hex 32`.
+const decodeKey = (raw: string): Buffer | null => {
+  for (const encoding of ['base64', 'hex'] as const) {
+    const buf = Buffer.from(raw, encoding);
+    if (buf.length === 32) return buf;
+  }
+  return null;
+};
 
 const envSchema = z.object({
   NODE_ENV: z.string().default('development'),
@@ -12,7 +23,13 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
 
-  OPENROUTER_API_KEY: z.string().min(1, 'OPENROUTER_API_KEY is required'),
+  // Legacy/test-only bootstrap tier. Runtime LLM access is configured in-app (super admin →
+  // LLM providers: keys stored AES-256-GCM-encrypted in Mongo, models + task defaults picked in
+  // the UI — see modelResolution.ts). Leave OPENROUTER_API_KEY unset in real deployments; when
+  // unset, resolution that falls through every DB tier throws LlmNotConfiguredError instead of
+  // silently using env credentials. `.env.test` still sets these so the mocked Jest suite keeps
+  // a deterministic bootstrap path.
+  OPENROUTER_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
   LLM_MODEL_STANDARD: z.string().default('meta-llama/llama-3.1-8b-instruct'),
   LLM_MODEL_CONTENT: z.string().default('meta-llama/llama-3.1-8b-instruct'),
   LLM_MODEL_FALLBACK: z.string().default('google/gemma-2-9b-it:free'),
@@ -27,6 +44,10 @@ const envSchema = z.object({
     z.string().min(16, 'JWT_REFRESH_SECRET must be at least 16 characters').optional(),
   ),
   JWT_REFRESH_EXPIRES_IN: z.string().default('30d'),
+
+  CREDENTIAL_ENCRYPTION_KEY: z
+    .string()
+    .refine((v) => decodeKey(v) !== null, 'CREDENTIAL_ENCRYPTION_KEY must decode to exactly 32 bytes (openssl rand -base64 32)'),
 
   // Optional on purpose — if unset, the startup seed simply skips (see lib/seedSuperAdmin.ts).
   SUPER_ADMIN_EMAIL: z.string().email('SUPER_ADMIN_EMAIL must be a valid email').optional(),
@@ -43,7 +64,11 @@ const envSchema = z.object({
   NEWS_CONTENT_FETCH_ENABLED: z.string().default('true'),
   NEWS_CONTENT_FETCH_TIMEOUT_MS: z.string().default('10000'),
   NEWS_CONTENT_FETCH_CONCURRENCY: z.string().default('3'),
-  NEWS_INGESTION_MIN_RELEVANCE: z.string().default('4.0'),
+  // Floor for "is this item worth a full-content network fetch" — NOT a storage gate (see
+  // flexible-news-taxonomy-and-relevance; every deduped item is stored regardless of
+  // relevance_score, which is still computed and stored for ranking/opportunity-scoring only).
+  // Replaces the old NEWS_INGESTION_MIN_RELEVANCE, which gated storage itself; same 0-10 scale/default.
+  NEWS_CONTENT_FETCH_MIN_RELEVANCE: z.string().default('4.0'),
   NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD: z.string().default('0.88'),
   // Two-band dedup (D2): at/above this ceiling a candidate is a hard duplicate dropped without an
   // LLM call; between the semantic threshold and this ceiling it is adjudicated by the LLM judge.
@@ -76,9 +101,6 @@ const envSchema = z.object({
   // Comma-separated search topics (at most 3 used per run).
   NEWS_INGESTION_GNEWS_QUERIES: z.string().optional(),
 
-  // Content generation response cache (per team/topic/language/pack/format).
-  CONTENT_CACHE_TTL_SECONDS: z.string().default('86400'),
-
   // Auto-generation job
   AUTO_GENERATION_CRON: z.string().default('0 6 * * *'),
   AUTO_GENERATION_MAX_PER_RUN: z.string().default('10'),
@@ -87,6 +109,30 @@ const envSchema = z.object({
   // Content generation — facts-then-write fact-sheet extraction
   CONTENT_FACTS_MIN_CHARS: z.string().default('800'),
   CONTENT_FACTS_INPUT_MAX_CHARS: z.string().default('12000'),
+
+  // Content generation — optional critique-and-rewrite second pass. Off by default: enabling this
+  // is an evidence-based decision made via `npm run verify:bangla-bakeoff -- --critique both` and
+  // recorded in BANGLA-QUALITY-DECISION.md, not a default-on feature. See
+  // contentGeneration.critique.ts for the pass itself.
+  CONTENT_CRITIQUE_ENABLED: z.string().default('false'),
+  CONTENT_CRITIQUE_FORMATS: z.string().default('facebook_post,linkedin_post'),
+
+  // Style packs — optional topic-summary embedding strategy for StyleExample, a ready-but-inactive
+  // fallback for Gate G1 (Bangla style-example retrieval quality, unresolved — see
+  // 9-VISION-V7-V9-WRITER-STYLE-QUALITY-OPENSPEC-PLAN.md). Off by default; do not enable without a
+  // recorded G1 verdict justifying it.
+  STYLE_EXAMPLE_EMBED_BY_TOPIC_SUMMARY: z.string().default('false'),
+
+  // News feed — optional semantic "nearly relevant" tier (flexible-news-taxonomy-and-relevance),
+  // a ready-but-inactive fallback layered on top of the always-on exact/broad-group category
+  // match. Uses Atlas Vector Search ($vectorSearch) against `news_items_vector_index`, which is
+  // Atlas-only infrastructure — off by default; do not enable without first confirming that index
+  // actually exists on the target deployment's cluster (`npm run db:verify-indexes`), since a
+  // missing index would make every semantic-tier lookup fail (harmlessly, per its own try/catch,
+  // but pointless until confirmed). Threshold is on $vectorSearch's `vectorSearchScore` meta
+  // field's own normalized scale, not raw cosine similarity — tune against real data once enabled.
+  NEWS_FEED_SEMANTIC_MATCH_ENABLED: z.string().default('false'),
+  NEWS_FEED_SEMANTIC_MATCH_THRESHOLD: z.string().default('0.75'),
 
   // Engagement refresh job — re-polls stored items' engagement from sources that support cheap
   // per-item re-fetch (hackernews, reddit, devto). All optional so the server boots with none set.
@@ -110,6 +156,16 @@ const envSchema = z.object({
   NEWS_ARCHIVE_MIN_AGE_HOURS: z.string().default('36'),
   NEWS_ARCHIVE_TREND_FLOOR: z.string().default('2.0'),
   NEWS_DELETE_AFTER_DAYS: z.string().default('14'),
+
+  // Chat context retrieval — recency+lifecycle candidate pool for fetchNewsContext, ranked purely
+  // by semantic similarity (no trend-score pre-filter). See chat-retrieval-topical-coverage.
+  CHAT_CONTEXT_WINDOW_DAYS: z.string().default('7'),
+  // Hard cap on candidates fetched from Mongo before in-process cosine ranking — cost control,
+  // not a relevance pre-filter (raise if $vectorSearch replaces the in-memory fetch).
+  CHAT_CONTEXT_POOL_CAP: z.string().default('500'),
+  // Log-only annotation threshold: a top similarity below this is logged so a low-context answer
+  // is distinguishable from a model-ignoring-good-context one. Does not gate behavior.
+  CHAT_CONTEXT_LOW_RELEVANCE_THRESHOLD: z.string().default('0.3'),
 
   NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD: z.string().default('0.6'),
   NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE: z.string().default('0.4'),
@@ -191,6 +247,9 @@ if (!parsed.success) {
 
 const env = parsed.data;
 
+// Already validated to decode to exactly 32 bytes by the zod refine above — safe to assert non-null here.
+export const credentialEncryptionKey = decodeKey(env.CREDENTIAL_ENCRYPTION_KEY) as Buffer;
+
 export default {
   node_env: env.NODE_ENV,
   port: env.PORT,
@@ -224,9 +283,27 @@ export default {
   },
 
   content_generation: {
-    cache_ttl_seconds: Number(env.CONTENT_CACHE_TTL_SECONDS),
     facts_min_chars: Number(env.CONTENT_FACTS_MIN_CHARS),
     facts_input_max_chars: Number(env.CONTENT_FACTS_INPUT_MAX_CHARS),
+    critique_enabled: env.CONTENT_CRITIQUE_ENABLED === 'true',
+    critique_formats: env.CONTENT_CRITIQUE_FORMATS.split(',')
+      .map((f) => f.trim())
+      .filter(Boolean) as FormatId[],
+  },
+
+  style_packs: {
+    embed_examples_by_topic_summary: env.STYLE_EXAMPLE_EMBED_BY_TOPIC_SUMMARY === 'true',
+  },
+
+  news_feed: {
+    semantic_match_enabled: env.NEWS_FEED_SEMANTIC_MATCH_ENABLED === 'true',
+    semantic_match_threshold: Number(env.NEWS_FEED_SEMANTIC_MATCH_THRESHOLD),
+  },
+
+  chat: {
+    context_window_days: Number(env.CHAT_CONTEXT_WINDOW_DAYS),
+    context_pool_cap: Number(env.CHAT_CONTEXT_POOL_CAP),
+    context_low_relevance_threshold: Number(env.CHAT_CONTEXT_LOW_RELEVANCE_THRESHOLD),
   },
 
   news_ingestion: {
@@ -241,7 +318,7 @@ export default {
       timeout_ms: Number(env.NEWS_CONTENT_FETCH_TIMEOUT_MS),
       concurrency: Number(env.NEWS_CONTENT_FETCH_CONCURRENCY),
     },
-    min_relevance: Number(env.NEWS_INGESTION_MIN_RELEVANCE),
+    content_fetch_min_relevance: Number(env.NEWS_CONTENT_FETCH_MIN_RELEVANCE),
     semantic_dedup_threshold: Number(env.NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD),
     hard_dup_threshold: Number(env.NEWS_INGESTION_HARD_DUP_THRESHOLD),
     adjudication_max_batches: Number(env.NEWS_INGESTION_ADJUDICATION_MAX_BATCHES),

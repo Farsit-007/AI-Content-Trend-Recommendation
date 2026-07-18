@@ -117,4 +117,59 @@ describe('fetchReddit', () => {
     expect(items).toHaveLength(1);
     expect(items[0].title).toBe('programming post p1');
   });
+
+  it('resolves url to the real external link for a link-post, with the permalink as discussion_url', async () => {
+    config.news_ingestion.reddit_subreddits = ['programming'];
+    const fetchMock = jest.fn(async (url: string) => {
+      if (url.includes('access_token')) return tokenResponse();
+      return listingResponse('programming', ['p1'], { url: 'https://example.test/real-article', is_self: false });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchReddit();
+
+    expect(items[0].url).toBe('https://example.test/real-article');
+    expect(items[0].discussion_url).toBe('https://www.reddit.com/r/programming/p1');
+  });
+
+  it('resolves url and discussion_url to the same Reddit thread for a genuine self-post', async () => {
+    config.news_ingestion.reddit_subreddits = ['programming'];
+    const fetchMock = jest.fn(async (url: string) => {
+      if (url.includes('access_token')) return tokenResponse();
+      return listingResponse('programming', ['p1'], { is_self: true, url: 'https://www.reddit.com/r/programming/p1' });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchReddit();
+
+    expect(items[0].url).toBe('https://www.reddit.com/r/programming/p1');
+    expect(items[0].discussion_url).toBe('https://www.reddit.com/r/programming/p1');
+  });
+
+  it('captures a real thumbnail URL but filters out Reddit\'s non-URL sentinel values', async () => {
+    config.news_ingestion.reddit_subreddits = ['programming'];
+    const fetchMock = jest.fn(async (url: string) => {
+      if (url.includes('access_token')) return tokenResponse();
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            children: [
+              { data: { id: 'p1', title: 'has real thumb', permalink: '/r/programming/p1', thumbnail: 'https://b.thumbs.redditmedia.com/abc.jpg' } },
+              { data: { id: 'p2', title: 'self sentinel', permalink: '/r/programming/p2', thumbnail: 'self' } },
+              { data: { id: 'p3', title: 'no thumb', permalink: '/r/programming/p3', thumbnail: 'default' } },
+            ],
+          },
+        }),
+      } as Response;
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchReddit();
+
+    expect(items.find((i) => i.title === 'has real thumb')?.thumbnail_url).toBe('https://b.thumbs.redditmedia.com/abc.jpg');
+    expect(items.find((i) => i.title === 'self sentinel')?.thumbnail_url).toBeUndefined();
+    expect(items.find((i) => i.title === 'no thumb')?.thumbnail_url).toBeUndefined();
+  });
 });

@@ -1,5 +1,5 @@
 import config from '../../config';
-import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { chatCompletionForTask } from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
 import { redis } from '../../lib/redis';
 
@@ -42,19 +42,23 @@ const parseFactSheet = (raw: string): FactSheet | null => {
 };
 
 /** One cheap extraction call. Soft-fails to null on any LLM or parse/shape error — never throws. */
-export const extractFactSheet = async (title: string, content: string): Promise<FactSheet | null> => {
+export const extractFactSheet = async (
+  title: string,
+  content: string,
+  teamId?: string,
+): Promise<FactSheet | null> => {
   const cappedContent = content.slice(0, config.content_generation.facts_input_max_chars);
 
   let raw: string;
   try {
-    raw = await chatCompletion({
-      model: LLM_MODELS.standard,
-      temperature: 0.2,
-      messages: [
+    raw = await chatCompletionForTask(
+      'fact_extraction',
+      [
         { role: 'system', content: FACT_EXTRACTION_SYSTEM_PROMPT },
         { role: 'user', content: `Title: ${title}\n\nArticle:\n${cappedContent}` },
       ],
-    });
+      { teamId, temperature: 0.2 },
+    );
   } catch (err) {
     logger.warn({ err: err instanceof Error ? err.message : err }, '[ContentGeneration] Fact extraction LLM call failed');
     return null;
@@ -77,6 +81,7 @@ export const getOrExtractFactSheet = async (
   newsItemId: string,
   title: string,
   content: string,
+  teamId?: string,
 ): Promise<FactSheet | null> => {
   const key = factsCacheKey(newsItemId);
   const cached = await redis.get(key);
@@ -84,7 +89,7 @@ export const getOrExtractFactSheet = async (
     return JSON.parse(cached) as FactSheet;
   }
 
-  const factSheet = await extractFactSheet(title, content);
+  const factSheet = await extractFactSheet(title, content, teamId);
   if (factSheet) {
     await redis.setex(key, FACTS_CACHE_TTL_SECONDS, JSON.stringify(factSheet));
   }

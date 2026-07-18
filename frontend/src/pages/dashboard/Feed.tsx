@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { AlertTriangle, Inbox, Loader2, SearchX } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Inbox, Loader2, SearchX, Settings2 } from 'lucide-react';
 import { getNewsItems } from '@/lib/api/news';
 import { DEFAULT_FEED_SORT } from '@/lib/constants';
 import { useTeamId } from '@/lib/useTeamId';
@@ -64,6 +65,9 @@ export default function Feed() {
 
   const items = query.data?.pages.flatMap((p) => p.data) ?? [];
   const isFirstLoad = query.isLoading;
+  // team_ready is only ever sent when a team context resolved; absence means "not applicable"
+  // (unauthenticated/no-team caller), not "not ready" — only an explicit `false` triggers the banner.
+  const teamNotReady = query.data?.pages[0]?.team_ready === false;
 
   return (
     <div className="flex flex-col gap-4">
@@ -90,6 +94,20 @@ export default function Feed() {
           <p className="text-sm text-muted-foreground">Couldn't load the feed.</p>
           <Button variant="outline" size="sm" onClick={() => query.refetch()}>
             Retry
+          </Button>
+        </div>
+      ) : teamNotReady ? (
+        <div className="glass-card flex flex-col items-center gap-3 rounded-xl p-8 text-center">
+          <Settings2 className="size-6 text-violet-300" />
+          <p className="font-medium text-foreground">Complete your team setup</p>
+          <p className="max-w-md text-sm text-muted-foreground">
+            Subscribe to at least one category and add a brand-voice example in Team Settings so your feed can be
+            curated to what your team actually cares about.
+          </p>
+          <Button asChild size="sm" className="btn-glow gap-1.5 bg-violet-600 hover:bg-violet-500">
+            <Link to="/dashboard/settings/team">
+              Go to Team Settings <ArrowRight className="size-4" />
+            </Link>
           </Button>
         </div>
       ) : items.length === 0 ? (

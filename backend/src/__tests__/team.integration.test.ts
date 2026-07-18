@@ -1,7 +1,11 @@
 import request from 'supertest';
 import app from '../app';
+import { BrandVoiceExample } from '../app/modules/BrandVoiceExample/brandVoiceExample.model';
+import { NewsCategoryTaxonomy } from '../app/modules/NewsCategoryTaxonomy/newsCategoryTaxonomy.model';
+import { Team } from '../app/modules/Team/team.model';
+import { TeamService } from '../app/modules/Team/team.service';
 import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
-import { addTeamMember, createAuthToken, createTestTeam, createTestUser } from './support/fixtures';
+import { addTeamMember, createAuthToken, createTestTeam, createTestUser, testEmbedding } from './support/fixtures';
 
 beforeAll(connectTestDb);
 afterEach(clearTestDb);
@@ -177,5 +181,150 @@ describe('Team category subscriptions', () => {
       .get(`/api/v1/teams/${team._id}`)
       .set('Authorization', `Bearer ${adminToken}`);
     expect(getRes.body.data.team.subscribed_categories).toEqual([]);
+  });
+});
+
+describe('Team category subscriptions — global taxonomy (flexible-news-taxonomy-and-relevance)', () => {
+  it('lets a team subscribe to a category discovered during ingestion, not just the fixed six', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-subs-discovered@example.test' });
+    const adminToken = createAuthToken(admin);
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    await NewsCategoryTaxonomy.create({
+      name: 'LLM Tooling',
+      normalized_key: 'llm tooling',
+      broad_group: 'AI',
+      source: 'ingestion',
+    });
+
+    const res = await request(app)
+      .patch(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ subscribed_categories: ['LLM Tooling'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.subscribed_categories).toEqual(['LLM Tooling']);
+  });
+
+  it('still rejects a name that has never existed in the taxonomy at all', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-subs-nonexistent@example.test' });
+    const adminToken = createAuthToken(admin);
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+
+    const res = await request(app)
+      .patch(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ subscribed_categories: ['Completely Made Up Category'] });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /teams/:id/categories includes a discovered category alongside the fixed six", async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-subs-effective@example.test' });
+    const adminToken = createAuthToken(admin);
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+    await NewsCategoryTaxonomy.create({
+      name: 'LLM Tooling',
+      normalized_key: 'llm tooling',
+      broad_group: 'AI',
+      source: 'ingestion',
+    });
+
+    const res = await request(app)
+      .get(`/api/v1/teams/${team._id}/categories`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(expect.arrayContaining(['AI', 'Web Dev', 'Career', 'Security', 'DevOps', 'Other', 'LLM Tooling']));
+  });
+});
+
+describe('Team readiness', () => {
+  it('exposes team_ready: false on GET /teams/:id for a freshly created team', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-ready-fresh@example.test' });
+    const adminToken = createAuthToken(admin);
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+
+    const res = await request(app)
+      .get(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.team_ready).toBe(false);
+  });
+
+  it('exposes team_ready: false when categories are set but no brand-voice example exists', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-ready-categories@example.test' });
+    const adminToken = createAuthToken(admin);
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+
+    await request(app)
+      .patch(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ subscribed_categories: ['AI'] });
+
+    const res = await request(app)
+      .get(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.body.data.team_ready).toBe(false);
+  });
+
+  it('exposes team_ready: true once both categories and a brand-voice example exist', async () => {
+    const admin = await createTestUser({ role: 'admin', email: 'admin-ready-full@example.test' });
+    const adminToken = createAuthToken(admin);
+    const team = await createTestTeam({ createdBy: admin._id.toString() });
+
+    await request(app)
+      .patch(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ subscribed_categories: ['AI'] });
+    await BrandVoiceExample.create({
+      team_id: team._id.toString(),
+      platform: 'facebook',
+      content: 'Example brand voice post',
+      embedding: testEmbedding(),
+    });
+
+    const res = await request(app)
+      .get(`/api/v1/teams/${team._id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.body.data.team_ready).toBe(true);
+  });
+});
+
+describe('TeamService.isTeamReady', () => {
+  it('is false for a freshly created team (no categories, no brand voice)', async () => {
+    const team = await createTestTeam();
+    expect(await TeamService.isTeamReady(team._id.toString())).toBe(false);
+  });
+
+  it('is false with a subscribed category but zero brand-voice examples', async () => {
+    const team = await createTestTeam();
+    await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
+    expect(await TeamService.isTeamReady(team._id.toString())).toBe(false);
+  });
+
+  it('is false with a brand-voice example but empty subscribed_categories', async () => {
+    const team = await createTestTeam();
+    await BrandVoiceExample.create({
+      team_id: team._id.toString(),
+      platform: 'facebook',
+      content: 'Example brand voice post',
+      embedding: testEmbedding(),
+    });
+    expect(await TeamService.isTeamReady(team._id.toString())).toBe(false);
+  });
+
+  it('is true with at least one subscribed category and one brand-voice example', async () => {
+    const team = await createTestTeam();
+    await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
+    await BrandVoiceExample.create({
+      team_id: team._id.toString(),
+      platform: 'facebook',
+      content: 'Example brand voice post',
+      embedding: testEmbedding(),
+    });
+    expect(await TeamService.isTeamReady(team._id.toString())).toBe(true);
   });
 });

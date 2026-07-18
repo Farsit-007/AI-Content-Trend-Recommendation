@@ -7,6 +7,16 @@ export type LanguageStyle = 'bangla' | 'english' | 'banglish';
 /** Mirrors the backend's DEFAULT_FORMATS (contentGeneration.formats.ts) — sent explicitly when the user hasn't toggled anything. */
 export const DEFAULT_FORMATS: FormatId[] = ['facebook_post', 'linkedin_post'];
 
+/** Every format key the generate response can contain — used to tell format entries apart from
+ *  metadata keys (`topic`, `model_used`) when iterating the response object. */
+export const ALL_FORMATS: FormatId[] = [
+  'facebook_post',
+  'linkedin_post',
+  'facebook_reel_script',
+  'youtube_idea',
+  'caption',
+];
+
 export interface YoutubeIdea {
   title: string;
   hook: string;
@@ -24,10 +34,12 @@ export interface GenerateContentRequest {
   language?: LanguageStyle;
   style_pack_id?: string;
   formats?: FormatId[];
-  regenerate?: boolean;
+  /** Per-request override of the resolved content_generation model — an LlmModel _id. */
+  llm_model_id?: string;
 }
 
-export type GenerateContentResponse = { topic: string } & GeneratedFormats;
+/** Every request always generates fresh output, so model_used is always present. */
+export type GenerateContentResponse = { topic: string; model_used: string } & GeneratedFormats;
 
 export function generateContent(payload: GenerateContentRequest): Promise<GenerateContentResponse> {
   return apiPost<GenerateContentResponse>('/content/generate', payload);
@@ -41,6 +53,8 @@ export interface RefineContentRequest {
   instruction: string;
   language?: LanguageStyle;
   style_pack_id?: string;
+  /** Per-request override of the resolved content_generation model — an LlmModel _id. */
+  llm_model_id?: string;
 }
 
 export function refineContent(payload: RefineContentRequest): Promise<{ revised_text: string }> {

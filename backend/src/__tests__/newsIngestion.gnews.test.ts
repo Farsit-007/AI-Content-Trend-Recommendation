@@ -96,4 +96,22 @@ describe('fetchGNews', () => {
 
     await expect(fetchGNews()).rejects.toThrow('invalid api key');
   });
+
+  it('maps the article image into thumbnail_url when present', async () => {
+    const fetchMock = jest.fn(async () => searchResponse([article({ image: 'https://www.example-news.com/thumb.jpg' })]));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchGNews();
+
+    expect(items[0].thumbnail_url).toBe('https://www.example-news.com/thumb.jpg');
+  });
+
+  it('leaves thumbnail_url undefined when the article has no image', async () => {
+    const fetchMock = jest.fn(async () => searchResponse([article({ image: undefined })]));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const items = await fetchGNews();
+
+    expect(items[0].thumbnail_url).toBeUndefined();
+  });
 });

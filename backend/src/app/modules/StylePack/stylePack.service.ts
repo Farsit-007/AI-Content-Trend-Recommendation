@@ -1,8 +1,8 @@
 import AppError from '../../errors/AppError';
-import { embed, embedBatch } from '../../lib/embeddings';
-import { LLM_MODELS, chatCompletion } from '../../lib/llmClient';
+import { chatCompletionForTask } from '../../lib/modelResolution';
 import { httpStatus } from '../../utils/httpStatus';
 import { UserRole } from '../User/user.interface';
+import { resolveExampleEmbedding, resolveExamplesEmbeddingBatch } from './stylePack.embeddingStrategy';
 import { IStyleExample, IStylePack } from './stylePack.interface';
 import { StyleExample, StylePack } from './stylePack.model';
 
@@ -78,8 +78,10 @@ const addExample = async (packId: string, payload: Partial<IStyleExample>) => {
     throw new AppError(httpStatus.NOT_FOUND, 'Style pack not found');
   }
 
-  const embedding = payload.embedding ?? (await embed(payload.content as string));
-  const result = await StyleExample.create({ ...payload, style_pack_id: packId, embedding });
+  const resolved = payload.embedding
+    ? { embedding: payload.embedding, embedding_source: 'content' as const }
+    : await resolveExampleEmbedding(payload.content as string);
+  const result = await StyleExample.create({ ...payload, style_pack_id: packId, ...resolved });
   return result;
 };
 
@@ -121,14 +123,14 @@ const generateCardForPack = async (packId: string): Promise<string> => {
   const sampled = sampleWithinBudget(examples, MAX_CARD_INPUT_CHARS);
   const corpus = sampled.map((content, i) => `Example ${i + 1}:\n${content}`).join('\n\n');
 
-  const card = await chatCompletion({
-    model: LLM_MODELS.standard,
-    temperature: 0.3,
-    messages: [
+  const card = await chatCompletionForTask(
+    'style_card',
+    [
       { role: 'system', content: CARD_ANALYSIS_INSTRUCTION },
       { role: 'user', content: corpus },
     ],
-  });
+    { temperature: 0.3 },
+  );
 
   const trimmedCard = card.trim();
   await StylePack.findByIdAndUpdate(packId, {
@@ -178,9 +180,9 @@ const addExamplesBulk = async (
     return { created: 0, skipped, total: existing.length };
   }
 
-  const embeddings = await embedBatch(survivors.map((item) => item.content as string));
+  const resolved = await resolveExamplesEmbeddingBatch(survivors.map((item) => item.content as string));
   await StyleExample.insertMany(
-    survivors.map((item, i) => ({ ...item, style_pack_id: packId, embedding: embeddings[i] })),
+    survivors.map((item, i) => ({ ...item, style_pack_id: packId, ...resolved[i] })),
   );
 
   return { created: survivors.length, skipped, total: existing.length + survivors.length };

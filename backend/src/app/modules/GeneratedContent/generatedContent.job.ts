@@ -1,11 +1,10 @@
 import { logger } from '../../lib/logger';
 import config from '../../config';
-import { LLM_MODELS } from '../../lib/llmClient';
 import { IRequestUser } from '../User/user.interface';
-import { BrandVoiceExample } from '../BrandVoiceExample/brandVoiceExample.model';
 import { ContentGenerationService } from '../ContentGeneration/contentGeneration.service';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { Team } from '../Team/team.model';
+import { TeamService } from '../Team/team.service';
 import { IAutoGenerationSummary, IGeneratedContentFormats } from './generatedContent.interface';
 import { assertHasAtLeastOneFormat } from './generatedContent.utils';
 import { GeneratedContent } from './generatedContent.model';
@@ -32,9 +31,9 @@ export const runAutoGeneration = async (teamId?: string): Promise<IAutoGeneratio
     const tid = team._id.toString();
 
     try {
-      const hasExamples = await BrandVoiceExample.exists({ team_id: tid });
-      if (!hasExamples) {
-        logger.info(`[auto-gen] team "${team.name}" (${tid}): skipped — no brand voice examples`);
+      const ready = await TeamService.isTeamReady(tid);
+      if (!ready) {
+        logger.info(`[auto-gen] team "${team.name}" (${tid}): skipped — team not ready (needs subscribed categories + brand voice examples)`);
         summary.skipped += 1;
         continue;
       }
@@ -83,7 +82,7 @@ export const runAutoGeneration = async (teamId?: string): Promise<IAutoGeneratio
           formats,
           source: 'auto',
           status: 'draft',
-          model_used: LLM_MODELS.content,
+          model_used: result.model_used,
         });
 
         callsUsed += 1;
