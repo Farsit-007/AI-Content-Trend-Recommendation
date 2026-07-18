@@ -170,7 +170,8 @@ const clearTaskDefault = catchAsync(async (req: Request, res: Response) => {
 });
 
 const listActiveModels = catchAsync(async (req: Request, res: Response) => {
-  const result = await LlmProviderService.listActiveModels();
+  const capability = req.query.capability === 'embedding' ? 'embedding' : 'chat';
+  const result = await LlmProviderService.listActiveModels(capability);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,

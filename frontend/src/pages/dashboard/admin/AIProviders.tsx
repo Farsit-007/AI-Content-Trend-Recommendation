@@ -20,6 +20,7 @@ import {
   updateLlmModel,
   updateLlmProvider,
   updateLlmProviderKey,
+  type LlmModelActiveDto,
   type LlmModelCapability,
   type LlmModelDto,
   type LlmProviderDto,
@@ -399,10 +400,18 @@ function TaskDefaults() {
   const queryClient = useQueryClient();
 
   const defaultsQuery = useQuery({ queryKey: ['llm-task-defaults'], queryFn: listLlmTaskDefaults });
-  const activeModelsQuery = useQuery({ queryKey: ['llm-active-models'], queryFn: listActiveLlmModels });
+  // Each task needs models with the capability it actually calls the LLM for — the embedding
+  // task's picker must include embedding-only models, which never carry 'chat'.
+  const chatModelsQuery = useQuery({ queryKey: ['llm-active-models', 'chat'], queryFn: () => listActiveLlmModels('chat') });
+  const embeddingModelsQuery = useQuery({
+    queryKey: ['llm-active-models', 'embedding'],
+    queryFn: () => listActiveLlmModels('embedding'),
+  });
 
   const defaultsByTask = new Map((defaultsQuery.data ?? []).map((d) => [d.task, d]));
-  const activeModels = activeModelsQuery.data ?? [];
+  const chatModels = chatModelsQuery.data ?? [];
+  const embeddingModels = embeddingModelsQuery.data ?? [];
+  const modelsForTask = (task: LlmTask): LlmModelActiveDto[] => (task === 'embedding' ? embeddingModels : chatModels);
 
   const setMutation = useMutation({
     mutationFn: (payload: { task: LlmTask; llmModelId: string }) => setLlmTaskDefault(payload.task, payload.llmModelId),
@@ -432,13 +441,14 @@ function TaskDefaults() {
         The 3rd of 4 resolution tiers (request override &gt; team default &gt; <strong>global default</strong> &gt; .env
         bootstrap). Leave a task unset to keep using the .env-configured bootstrap model — nothing here is required.
       </p>
-      {activeModels.length === 0 ? (
+      {chatModels.length === 0 && embeddingModels.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          Add at least one active provider with an active chat-capable model above to set task defaults.
+          Add at least one active provider with an active model above to set task defaults.
         </p>
       ) : (
         <div className="glass-card flex flex-col divide-y divide-white/10 rounded-xl">
           {LLM_TASKS.map((task) => {
+            const taskModels = modelsForTask(task);
             const current = defaultsByTask.get(task);
             // llm_model_id is populated by the backend, but a dangling reference (its LlmModel was
             // deleted after this default was set) comes back as `null`, not a string or object —
@@ -480,7 +490,7 @@ function TaskDefaults() {
                   <option value="" className="bg-background text-foreground">
                     .env bootstrap (unset)
                   </option>
-                  {activeModels.map((m) => (
+                  {taskModels.map((m) => (
                     <option key={m._id} value={m._id} className="bg-background text-foreground">
                       {m.display_name} ({m.provider_name})
                     </option>

@@ -9,7 +9,6 @@ import { ENGAGEMENT_FETCHERS, REFRESHABLE_SOURCES } from './newsRefresh.fetchers
 
 const LOCK_KEY = 'lock:news_refresh';
 const LOCK_TTL_MS = 55 * 60 * 1000;
-const REDDIT_BATCH_SIZE = 100;
 const HISTORY_SLICE = -32;
 
 // Mongoose's `PushOperator` type can't express `$each` + `$slice` on an optional subdocument
@@ -26,30 +25,18 @@ export interface Candidate {
   engagement_history?: { at: Date; points: number; comments: number; stars_delta: number }[];
 }
 
-/**
- * Deterministic pre-call cost estimate used to decide which youngest-first candidates fit the
- * request budget: hackernews/devto cost 1 request/item; reddit costs 1 request per *started*
- * 100-item chunk (the 2nd-100th reddit item in a chunk is free). Actual request counts persisted
- * to `maintenance_runs` come from what each fetcher reports having issued, not this estimate.
- */
-const estimateCost = (source: string, redditCountSoFar: number): number => {
-  if (source !== 'reddit') return 1;
-  return redditCountSoFar % REDDIT_BATCH_SIZE === 0 ? 1 : 0;
-};
-
 /** Walks youngest-first candidates, stopping the instant the next item's cost would exceed the
- * remaining budget — older items past that point are simply not refreshed this run. Exported for
- * direct unit testing (see newsRefresh.service.test.ts). */
+ * remaining budget — older items past that point are simply not refreshed this run. Each
+ * candidate costs 1 request (hackernews/devto are 1 request/item). Actual request counts
+ * persisted to `maintenance_runs` come from what each fetcher reports having issued, not this
+ * estimate. Exported for direct unit testing (see newsRefresh.service.test.ts). */
 export const selectWithinBudget = (candidates: Candidate[], maxRequests: number): Record<string, Candidate[]> => {
   const selected: Record<string, Candidate[]> = {};
   let remaining = maxRequests;
-  let redditCountSoFar = 0;
 
   for (const candidate of candidates) {
-    const cost = estimateCost(candidate.source, redditCountSoFar);
-    if (cost > remaining) break;
-    remaining -= cost;
-    if (candidate.source === 'reddit') redditCountSoFar += 1;
+    if (remaining <= 0) break;
+    remaining -= 1;
     (selected[candidate.source] ??= []).push(candidate);
   }
   return selected;

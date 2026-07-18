@@ -24,7 +24,7 @@ export const scoreRelevance = (itemEmbedding: number[], pool: number[][]): numbe
 
 /**
  * Log-scaled because raw engagement magnitudes vary wildly across sources
- * (HN points vs GitHub stars vs Reddit upvotes) — this keeps them comparable
+ * (HN points vs GitHub stars vs comment counts) — this keeps them comparable
  * on a single 0-10 scale without an LLM round-trip.
  */
 export const scoreTrend = (points: number, comments: number, starsDelta: number): number => {

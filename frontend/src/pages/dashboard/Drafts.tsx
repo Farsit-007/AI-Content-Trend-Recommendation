@@ -114,7 +114,7 @@ function DraftRow({ draft }: { draft: GeneratedContentDto }) {
             <div key={format} className="flex items-start justify-between gap-2 rounded-lg bg-white/5 p-3">
               <div className="min-w-0 flex-1">
                 <p className="mb-1 text-xs font-medium text-muted-foreground">{FORMAT_LABELS[format]}</p>
-                <p className="line-clamp-3 text-sm text-foreground/90">{previewText(value)}</p>
+                <p className="whitespace-pre-wrap break-words text-sm text-foreground/90">{previewText(value)}</p>
               </div>
               <Button size="icon-sm" variant="ghost" onClick={() => copyFormat(value)}>
                 <Copy className="size-3.5" />

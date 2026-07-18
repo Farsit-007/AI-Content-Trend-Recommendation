@@ -35,7 +35,7 @@ export const NewsItem = {
     content_hash: { type: 'string' },
     title: { type: 'string' },
     url: { type: 'string', format: 'uri', description: 'The resource itself — a link post resolves this to the external site, not the aggregator discussion page.' },
-    discussion_url: { type: 'string', format: 'uri', description: 'The aggregator/source discussion page (e.g. the Reddit thread, HN item page, Product Hunt post) when distinct from url.' },
+    discussion_url: { type: 'string', format: 'uri', description: 'The aggregator/source discussion page (e.g. the HN item page, Product Hunt post) when distinct from url.' },
     thumbnail_url: { type: 'string', format: 'uri', description: 'Best-effort resource thumbnail from the source adapter, when available.' },
     snippet: { type: 'string' },
     content: { type: 'string', description: 'Fuller stored text when available (omitted from list responses; see content_status).' },

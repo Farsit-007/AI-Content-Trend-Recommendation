@@ -6,7 +6,7 @@ import { openrouter } from './openrouterClient';
  * Conservative char cap for embedding input. The model's actual limit is 8192 *tokens*; using
  * chars keeps this dependency-free, and 6000 chars stays well under 8192 tokens even for
  * pathologically token-dense text (e.g. dense non-Latin scripts, ~1 char/token worst case).
- * Some sources (RSS `contentSnippet` in particular) pass through full unbounded article text —
+ * Some sources pass through full unbounded article text —
  * without a cap, one oversized item throws the whole request (single call) or the whole batch
  * (`embedBatch`) rather than just failing to embed that one item well.
  */

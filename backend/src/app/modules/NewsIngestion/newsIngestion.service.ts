@@ -67,10 +67,10 @@ const countBySource = (items: { source: string }[]): Record<string, number> => {
 };
 
 /**
- * Adapters may emit items under more source labels than their own adapter name (e.g. the RSS
- * adapter labels items `rss:<hostname>` per feed). The summary must cover both the adapter names
- * (so a source that errored or fetched nothing still gets a zero-count row) and every label that
- * actually appeared on an item, in that order.
+ * Adapters may emit items under more source labels than their own adapter name (e.g. a per-feed
+ * or per-instance sub-label). The summary must cover both the adapter names (so a source that
+ * errored or fetched nothing still gets a zero-count row) and every label that actually appeared
+ * on an item, in that order.
  */
 export const unionSourceKeys = (adapterSources: string[], itemSourceKeys: string[]): string[] => {
   const seen = new Set(adapterSources);

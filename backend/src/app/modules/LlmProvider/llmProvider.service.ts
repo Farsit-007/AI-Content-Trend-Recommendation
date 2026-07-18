@@ -172,14 +172,16 @@ const clearTaskDefault = async (task: LlmTask) => {
   return deleted;
 };
 
-/** Active, chat-capable models across all active providers — the flat shape the frontend picker needs. */
-const listActiveModels = async () => {
+/** Active models with the given capability (default `chat`) across all active providers — the
+ *  flat shape the frontend picker needs. Callers pass `embedding` for the embedding task's
+ *  picker so embedding-only models (no `chat` capability) are selectable there too. */
+const listActiveModels = async (capability: LlmModelCapability = 'chat') => {
   const activeProviders = await LlmProvider.find({ is_active: true }).select('_id provider_type name');
   const providerIds = activeProviders.map((p) => p._id);
   const models = await LlmModel.find({
     provider_id: { $in: providerIds },
     is_active: true,
-    capabilities: 'chat',
+    capabilities: capability,
   }).sort('display_name');
 
   const providerById = new Map(activeProviders.map((p) => [p._id.toString(), p]));

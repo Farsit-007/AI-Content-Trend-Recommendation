@@ -65,7 +65,7 @@ export default function Generate() {
 
   const activeModelsQuery = useQuery({
     queryKey: ['llm-active-models'],
-    queryFn: listActiveLlmModels,
+    queryFn: () => listActiveLlmModels(),
     retry: false,
   });
 
@@ -75,37 +75,18 @@ export default function Generate() {
   const stylePacks = stylePacksQuery.data ?? [];
   const activeModels = activeModelsQuery.data ?? [];
 
-  // Auto-saves a fresh generation as a durable draft immediately, so the work isn't lost if the
-  // user navigates away before manually clicking "Save draft" (background-task-continuity) — a
-  // separate mutation instance from the explicit `saveMutation` below so the two can carry
-  // different success messaging without one silently overwriting the other's toast.
-  const autoSaveMutation = useMutation({
-    mutationFn: saveDraft,
-    onSuccess: () => {
-      toast.success('Generated — auto-saved as a draft', {
-        action: { label: 'View drafts', onClick: () => navigate('/dashboard/drafts') },
-      });
-    },
-    onError: (err: Error) => toast.error(err.message || 'Auto-save failed — the generated text is only in this editor until you save it manually'),
-  });
-
   const generateMutation = useMutation({
     mutationKey: ['content-generation'],
     mutationFn: generateContent,
     onSuccess: (response) => {
       const next: Partial<Record<FormatId, EditorEntry>> = {};
-      const formats: GeneratedFormats = {};
       for (const [key, value] of Object.entries(response)) {
         // The response also carries metadata keys (`topic`, `model_used`) — only real format
         // entries may become editor cards.
         if (!ALL_FORMATS.includes(key as FormatId) || value === undefined) continue;
         next[key as FormatId] = { text: value as string | YoutubeIdea };
-        formats[key as FormatId] = value as string | YoutubeIdea;
       }
       setEditor(next);
-      if (teamId && Object.keys(formats).length > 0) {
-        autoSaveMutation.mutate({ team_id: teamId, news_item_id: newsItemId, topic, formats });
-      }
     },
     onError: (err: Error) => toast.error(err.message || 'Generation failed'),
   });

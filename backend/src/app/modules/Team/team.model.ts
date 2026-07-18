@@ -29,7 +29,9 @@ export const Team = model<ITeam>('Team', teamSchema, 'teams');
 
 const teamMembershipSchema = new Schema<ITeamMembership>({
   team_id: { type: String, required: true },
-  user_id: { type: String, required: true },
+  // ObjectId + ref so `.populate('user_id', 'name email role')` (getTeamById) can actually
+  // resolve the User document — a plain String field can't be populated.
+  user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   created_at: { type: Date, default: Date.now },
 });
 

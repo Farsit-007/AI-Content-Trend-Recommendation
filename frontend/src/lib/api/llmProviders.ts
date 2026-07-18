@@ -154,6 +154,6 @@ export function clearLlmTaskDefault(task: LlmTask): Promise<LlmTaskDefaultDto> {
 
 // --- Active models (any authenticated user — the Generate page picker) -------
 
-export function listActiveLlmModels(): Promise<LlmModelActiveDto[]> {
-  return apiGet<LlmModelActiveDto[]>('/llm-providers/models/active');
+export function listActiveLlmModels(capability?: LlmModelCapability): Promise<LlmModelActiveDto[]> {
+  return apiGet<LlmModelActiveDto[]>('/llm-providers/models/active', { params: capability ? { capability } : undefined });
 }

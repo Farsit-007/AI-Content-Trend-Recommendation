@@ -31,18 +31,6 @@ describe('selectWithinBudget', () => {
     expect(selected.devto.map((c) => c.source_id)).toEqual(['d0', 'd1', 'd2']);
   });
 
-  it('charges reddit 1 request per started 100-item chunk, not 1 per item', () => {
-    const candidates = Array.from({ length: 150 }, (_, i) => candidate('reddit', `r${i}`, i));
-
-    // Budget of 2 covers two full chunks (200 items worth), so all 150 reddit items fit.
-    const selectedAll = selectWithinBudget(candidates, 2);
-    expect(selectedAll.reddit).toHaveLength(150);
-
-    // Budget of 1 covers only the first 100-item chunk; the 101st item would start a 2nd chunk.
-    const selectedOneChunk = selectWithinBudget(candidates, 1);
-    expect(selectedOneChunk.reddit).toHaveLength(100);
-  });
-
   it('returns an empty selection when the budget is exhausted before any item fits', () => {
     const candidates = [candidate('hackernews', 'a', 1)];
 

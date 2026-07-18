@@ -3,7 +3,7 @@ export interface RawNewsItem {
   source_id: string;
   title: string;
   url: string;
-  /** The aggregator's own comment/discussion thread, when distinct from `url` (e.g. HN item page, Reddit permalink, Product Hunt post page). */
+  /** The aggregator's own comment/discussion thread, when distinct from `url` (e.g. HN item page, Product Hunt post page). */
   discussion_url?: string;
   /** A source-native preview image (cover image, social image, thumbnail field) — never scraped/derived. */
   thumbnail_url?: string;

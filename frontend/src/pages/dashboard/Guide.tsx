@@ -88,8 +88,8 @@ export default function Guide() {
         </h1>
         <p className="max-w-3xl text-muted-foreground">
           Growth Studio is an AI content & trend intelligence platform. It watches trending tech
-          news across nine sources (Hacker News, dev.to, GitHub Trending, Reddit, RSS feeds,
-          GNews, Mastodon, Product Hunt, Stack Overflow), scores every story for how relevant and
+          news across seven sources (Hacker News, dev.to, GitHub Trending, Lobsters, Mastodon,
+          Product Hunt, Stack Overflow), scores every story for how relevant and
           "opportunity-worthy" it is to your team, and then turns any story you pick into ready-to-post
           content — in your team's own voice, in Bangla, English, or Banglish — in seconds.
         </p>

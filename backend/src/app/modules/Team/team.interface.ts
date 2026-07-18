@@ -1,3 +1,5 @@
+import { Types } from 'mongoose';
+
 export type LanguageStyle = 'bangla' | 'english' | 'banglish';
 
 /**
@@ -28,9 +30,11 @@ export interface ITeam {
   created_at: Date;
 }
 
-/** Join row for the many-to-many User<->Team relationship. */
+/** Join row for the many-to-many User<->Team relationship. `user_id` is `ref: 'User'` so
+ *  `.populate('user_id', ...)` (getTeamById) resolves it to a full `User` document at runtime —
+ *  same populate-typing convention as `ILlmTaskDefault.llm_model_id`. */
 export interface ITeamMembership {
   team_id: string;
-  user_id: string;
+  user_id: Types.ObjectId;
   created_at: Date;
 }

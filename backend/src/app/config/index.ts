@@ -55,8 +55,7 @@ const envSchema = z.object({
   SUPER_ADMIN_NAME: z.string().optional(),
 
   // News ingestion pipeline — all optional so the server boots fine before an operator
-  // has configured RSS feeds or tuned the scoring thresholds.
-  NEWS_INGESTION_RSS_FEEDS: z.string().optional(),
+  // has tuned the scoring thresholds.
   NEWS_INGESTION_MAX_AGE_HOURS: z.string().default('72'),
   NEWS_CONTENT_MAX_CHARS: z.string().default('20000'),
   // Kill switch + tuning for the link-page content-enrichment layer (dev.to/GitHub APIs +
@@ -76,12 +75,6 @@ const envSchema = z.object({
   NEWS_INGESTION_HARD_DUP_THRESHOLD: z.string().default('0.9443'),
   NEWS_INGESTION_ADJUDICATION_MAX_BATCHES: z.string().default('5'),
   NEWS_INGESTION_CRON: z.string().default('0 */3 * * *'),
-  REDDIT_SUBREDDITS: z.string().default('programming,technology,artificial'),
-  // Reddit blocks unauthenticated scripted access with HTTP 403 — these are optional so the
-  // server boots without them; when unset, the Reddit adapter no-ops instead of throwing.
-  REDDIT_CLIENT_ID: z.string().optional(),
-  REDDIT_CLIENT_SECRET: z.string().optional(),
-  REDDIT_USER_AGENT: z.string().default('web:growth-studio-news:v1.0'),
   // Raises the GitHub Search API's unauthenticated rate limit (10/min, 60/hr) — optional, the
   // adapter works fine without it at this pipeline's call volume.
   GITHUB_TOKEN: z.string().optional(),
@@ -95,11 +88,6 @@ const envSchema = z.object({
   // Raises the Stack Exchange API's unauthenticated rate limit (300/day -> 10k/day) —
   // optional, the adapter works fine without it at this pipeline's call volume.
   STACKEXCHANGE_KEY: z.string().optional(),
-  // GNews.io (https://gnews.io) — third-party news-search API, real publisher URLs, no
-  // redirect resolution needed. Both optional: unset, the adapter reports itself unconfigured.
-  GNEWS_API_KEY: z.string().optional(),
-  // Comma-separated search topics (at most 3 used per run).
-  NEWS_INGESTION_GNEWS_QUERIES: z.string().optional(),
 
   // Auto-generation job
   AUTO_GENERATION_CRON: z.string().default('0 6 * * *'),
@@ -135,7 +123,7 @@ const envSchema = z.object({
   NEWS_FEED_SEMANTIC_MATCH_THRESHOLD: z.string().default('0.75'),
 
   // Engagement refresh job — re-polls stored items' engagement from sources that support cheap
-  // per-item re-fetch (hackernews, reddit, devto). All optional so the server boots with none set.
+  // per-item re-fetch (hackernews, devto). All optional so the server boots with none set.
   NEWS_REFRESH_CRON: z.string().default('30 * * * *'),
   NEWS_REFRESH_WINDOW_HOURS: z.string().default('96'),
   NEWS_REFRESH_MAX_REQUESTS: z.string().default('200'),
@@ -307,10 +295,6 @@ export default {
   },
 
   news_ingestion: {
-    rss_feeds: (env.NEWS_INGESTION_RSS_FEEDS ?? '')
-      .split(',')
-      .map((url) => url.trim())
-      .filter(Boolean),
     max_age_hours: Number(env.NEWS_INGESTION_MAX_AGE_HOURS),
     content_max_chars: Number(env.NEWS_CONTENT_MAX_CHARS),
     content_fetch: {
@@ -323,14 +307,6 @@ export default {
     hard_dup_threshold: Number(env.NEWS_INGESTION_HARD_DUP_THRESHOLD),
     adjudication_max_batches: Number(env.NEWS_INGESTION_ADJUDICATION_MAX_BATCHES),
     cron: env.NEWS_INGESTION_CRON,
-    reddit_subreddits: env.REDDIT_SUBREDDITS.split(',')
-      .map((sub) => sub.trim())
-      .filter(Boolean),
-    reddit: {
-      client_id: env.REDDIT_CLIENT_ID,
-      client_secret: env.REDDIT_CLIENT_SECRET,
-      user_agent: env.REDDIT_USER_AGENT,
-    },
     github_token: env.GITHUB_TOKEN,
     mastodon_instances: env.NEWS_INGESTION_MASTODON_INSTANCES.split(',')
       .map((instance) => instance.trim())
@@ -340,13 +316,6 @@ export default {
       client_secret: env.PRODUCTHUNT_CLIENT_SECRET,
     },
     stackexchange_key: env.STACKEXCHANGE_KEY,
-    gnews: {
-      api_key: env.GNEWS_API_KEY,
-      queries: (env.NEWS_INGESTION_GNEWS_QUERIES ?? '')
-        .split(',')
-        .map((topic) => topic.trim())
-        .filter(Boolean),
-    },
     category_confidence_threshold: Number(env.NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD),
     opportunity_weight_relevance: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE),
     opportunity_weight_trend: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_TREND),

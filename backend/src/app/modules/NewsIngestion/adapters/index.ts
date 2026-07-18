@@ -4,24 +4,18 @@ import { fetchDevTo } from './devto';
 import { fetchGithubTrending } from './githubTrending';
 import { fetchHackerNews } from './hackerNews';
 import { fetchLobsters } from './lobsters';
-import { fetchGNews } from './gnews';
 import { fetchMastodon } from './mastodon';
 import { fetchProductHunt } from './producthunt';
-import { fetchReddit } from './reddit';
-import { fetchRss } from './rss';
 import { fetchStackOverflow } from './stackoverflow';
 
 const ADAPTERS: { source: string; fetch: () => Promise<Awaited<ReturnType<typeof fetchHackerNews>>> }[] = [
   { source: 'hackernews', fetch: fetchHackerNews },
   { source: 'devto', fetch: fetchDevTo },
   { source: 'github_trending', fetch: fetchGithubTrending },
-  { source: 'reddit', fetch: fetchReddit },
-  { source: 'rss', fetch: fetchRss },
   { source: 'lobsters', fetch: fetchLobsters },
   { source: 'mastodon', fetch: fetchMastodon },
   { source: 'producthunt', fetch: fetchProductHunt },
   { source: 'stackoverflow', fetch: fetchStackOverflow },
-  { source: 'gnews', fetch: fetchGNews },
 ];
 
 export const runAllAdapters = async (): Promise<AdapterResult[]> => {

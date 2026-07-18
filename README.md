@@ -37,7 +37,7 @@ Growth Studio is a content-intelligence platform that does three things:
 
 | # | Capability | What it does |
 |---|-----------|--------------|
-| 1 | **Monitor** | Pulls tech trends 24/7 from HackerNews, Dev.to, GitHub, Reddit, RSS |
+| 1 | **Monitor** | Pulls tech trends 24/7 from HackerNews, Dev.to, GitHub, and more |
 | 2 | **Rank** | Scores content ideas by trend momentum and category fit |
 | 3 | **Generate** | One click → FB post, Reel script, LinkedIn post, YouTube idea, caption — in your brand voice, grounded in your team's own real posts |
 
@@ -51,7 +51,6 @@ Growth Studio is a **monorepo** with two logical planes: an unattended backgroun
 flowchart TB
     subgraph Sources["External Sources (free)"]
         HN[HackerNews]; DEV[Dev.to]; GH[GitHub / OSS Insight]
-        RD[Reddit]; RSS[RSS Feeds]
     end
 
     subgraph Ingest["News Ingestion Pipeline · every 3h (cron) or on demand (admin)"]
@@ -79,7 +78,7 @@ flowchart TB
         ASK[Chat UI]
     end
 
-    HN & DEV & GH & RD & RSS --> FETCH
+    HN & DEV & GH --> FETCH
     F4 --> MONGO
     F1 <-. content_hash lookup .-> MONGO
     F2 -. brand_voice_examples pool .-> MONGO
@@ -98,7 +97,7 @@ flowchart TB
 ## Subsystems
 
 ### 1. News Ingestion Pipeline (every 3h via cron, or on demand via admin trigger)
-Fetches from 5 free sources (HackerNews, Dev.to, GitHub Trending, Reddit, RSS — each isolated so one failing source never kills the run), then runs a **4-layer pipeline**:
+Fetches from several free sources (HackerNews, Dev.to, GitHub Trending, and more — each isolated so one failing source never kills the run), then runs a **4-layer pipeline**:
 
 | Layer | Check | Cost |
 |------|-------|------|

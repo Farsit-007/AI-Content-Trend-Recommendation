@@ -34,7 +34,10 @@ describe('Team CRUD', () => {
       .get(`/api/v1/teams/${teamId}`)
       .set('Authorization', `Bearer ${adminToken}`);
     expect(getRes.status).toBe(200);
-    expect(getRes.body.data.members).toContain(member._id.toString());
+    // members are populated User documents (name/email/role), not bare id strings.
+    expect(getRes.body.data.members).toContainEqual(
+      expect.objectContaining({ _id: member._id.toString(), email: member.email }),
+    );
 
     const removeRes = await request(app)
       .delete(`/api/v1/teams/${teamId}/members/${member._id.toString()}`)
