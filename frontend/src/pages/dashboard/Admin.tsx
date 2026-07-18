@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
 import { getIngestionRuns } from '@/lib/api/ingestionRuns';
-import type { IngestionRun, IngestionRunSourceCount } from '@/lib/api/types';
+import { getMaintenanceRuns } from '@/lib/api/maintenanceRuns';
+import type { IngestionRun, IngestionRunSourceCount, MaintenanceRun, RetentionCounts } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 
 const formatTimestamp = (iso: string) =>
@@ -57,10 +58,51 @@ function RunRow({ run }: { run: IngestionRun }) {
   );
 }
 
+const RETENTION_REASON_STYLES: Record<keyof RetentionCounts['archived'], string> = {
+  max_age: 'border-white/10 bg-white/5 text-muted-foreground',
+  trend_floor: 'border-amber-400/40 bg-amber-400/10 text-amber-400',
+  source_removed: 'border-red-400/40 bg-red-400/10 text-red-400',
+};
+
+function RetentionRunRow({ run }: { run: MaintenanceRun }) {
+  const counts = run.counts as RetentionCounts;
+  return (
+    <tr className="border-b border-white/5 last:border-0">
+      <td className="py-3 pr-4 align-top whitespace-nowrap text-sm">{formatTimestamp(run.started_at)}</td>
+      <td className="py-3 pr-4 align-top whitespace-nowrap text-sm text-muted-foreground">{run.duration_ms}ms</td>
+      <td className="py-3 pr-4 align-top">
+        <div className="flex flex-wrap gap-1.5">
+          {(Object.keys(counts.archived) as (keyof RetentionCounts['archived'])[]).map((reason) => (
+            <span
+              key={reason}
+              className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs whitespace-nowrap', RETENTION_REASON_STYLES[reason])}
+            >
+              {reason}: {counts.archived[reason]}
+            </span>
+          ))}
+        </div>
+      </td>
+      <td className="py-3 pr-4 align-top text-sm text-muted-foreground whitespace-nowrap">{counts.deleted} deleted</td>
+      <td className="py-3 align-top text-sm text-amber-400">{run.error}</td>
+    </tr>
+  );
+}
+
 export default function Admin() {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['ingestion-runs'],
     queryFn: () => getIngestionRuns(20),
+  });
+
+  const {
+    data: retentionData,
+    isLoading: isRetentionLoading,
+    isError: isRetentionError,
+    refetch: refetchRetention,
+    isFetching: isRetentionFetching,
+  } = useQuery({
+    queryKey: ['maintenance-runs', 'retention'],
+    queryFn: () => getMaintenanceRuns(20, 'retention'),
   });
 
   const alerting = data?.sourceHealth.filter((s) => s.alert) ?? [];
@@ -71,10 +113,13 @@ export default function Admin() {
         <h1 className="text-2xl font-semibold">Admin</h1>
         <button
           type="button"
-          onClick={() => refetch()}
+          onClick={() => {
+            refetch();
+            refetchRetention();
+          }}
           className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-sm text-muted-foreground transition hover:text-foreground"
         >
-          <RefreshCw className={cn('size-3.5', isFetching && 'animate-spin')} />
+          <RefreshCw className={cn('size-3.5', (isFetching || isRetentionFetching) && 'animate-spin')} />
           Refresh
         </button>
       </div>
@@ -139,6 +184,42 @@ export default function Admin() {
               <tbody>
                 {data?.runs.map((run) => (
                   <RunRow key={run._id} run={run} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="glass-card flex flex-col gap-4 rounded-xl p-4 sm:p-6">
+        <div>
+          <h2 className="text-lg font-semibold">Recent retention runs</h2>
+          <p className="text-sm text-muted-foreground">Last {retentionData?.runs.length ?? 0} runs, newest first.</p>
+        </div>
+
+        {isRetentionLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Loading runs…
+          </div>
+        ) : isRetentionError ? (
+          <p className="text-sm text-red-400">Couldn't load retention run history.</p>
+        ) : retentionData && retentionData.runs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No retention runs yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-white/10 text-xs text-muted-foreground uppercase">
+                  <th className="py-2 pr-4 font-medium">Started</th>
+                  <th className="py-2 pr-4 font-medium">Duration</th>
+                  <th className="py-2 pr-4 font-medium">Archived by reason</th>
+                  <th className="py-2 pr-4 font-medium">Deleted</th>
+                  <th className="py-2 font-medium">Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {retentionData?.runs.map((run) => (
+                  <RetentionRunRow key={run._id} run={run} />
                 ))}
               </tbody>
             </table>

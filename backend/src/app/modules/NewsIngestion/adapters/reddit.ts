@@ -48,7 +48,7 @@ const requestAppToken = async (): Promise<RedditTokenResponse> => {
 };
 
 /** Caches the app-only bearer token in Redis so repeated pipeline runs (cron or manual) reuse one token. */
-const getAppToken = async (): Promise<string> => {
+export const getAppToken = async (): Promise<string> => {
   const cached = await redis.get(TOKEN_CACHE_KEY);
   if (cached) return cached;
 

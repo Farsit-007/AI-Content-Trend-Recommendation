@@ -45,6 +45,11 @@ const envSchema = z.object({
   NEWS_CONTENT_FETCH_CONCURRENCY: z.string().default('3'),
   NEWS_INGESTION_MIN_RELEVANCE: z.string().default('4.0'),
   NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD: z.string().default('0.88'),
+  // Two-band dedup (D2): at/above this ceiling a candidate is a hard duplicate dropped without an
+  // LLM call; between the semantic threshold and this ceiling it is adjudicated by the LLM judge.
+  // Calibrated — re-run the D1 harness (`npm run verify:dedup-calibrate`) before changing.
+  NEWS_INGESTION_HARD_DUP_THRESHOLD: z.string().default('0.9443'),
+  NEWS_INGESTION_ADJUDICATION_MAX_BATCHES: z.string().default('5'),
   NEWS_INGESTION_CRON: z.string().default('0 */3 * * *'),
   REDDIT_SUBREDDITS: z.string().default('programming,technology,artificial'),
   // Reddit blocks unauthenticated scripted access with HTTP 403 — these are optional so the
@@ -83,6 +88,29 @@ const envSchema = z.object({
   CONTENT_FACTS_MIN_CHARS: z.string().default('800'),
   CONTENT_FACTS_INPUT_MAX_CHARS: z.string().default('12000'),
 
+  // Engagement refresh job — re-polls stored items' engagement from sources that support cheap
+  // per-item re-fetch (hackernews, reddit, devto). All optional so the server boots with none set.
+  NEWS_REFRESH_CRON: z.string().default('30 * * * *'),
+  NEWS_REFRESH_WINDOW_HOURS: z.string().default('96'),
+  NEWS_REFRESH_MAX_REQUESTS: z.string().default('200'),
+
+  // Trend decay scoring — decayed live trend score recomputed at ingest and on every
+  // engagement-refresh touch. Both optional so the server boots with neither set.
+  NEWS_TREND_DECAY_TAU_HOURS: z.string().default('36'),
+  NEWS_TREND_VELOCITY_BONUS: z.string().default('2'),
+
+  // Dedup tombstone ledger — how long a deleted item's content_hash keeps blocking
+  // re-ingestion of the same URL. Optional so the server boots with it unset.
+  NEWS_DEDUP_LEDGER_TTL_DAYS: z.string().default('30'),
+
+  // News retention lifecycle — archive (reversible) then hard-delete (after cooling-off) old or
+  // out-of-trend items. All optional so the server boots with none of these set.
+  NEWS_RETENTION_CRON: z.string().default('15 */6 * * *'),
+  NEWS_ARCHIVE_MAX_AGE_HOURS: z.string().default('96'),
+  NEWS_ARCHIVE_MIN_AGE_HOURS: z.string().default('36'),
+  NEWS_ARCHIVE_TREND_FLOOR: z.string().default('2.0'),
+  NEWS_DELETE_AFTER_DAYS: z.string().default('14'),
+
   NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD: z.string().default('0.6'),
   NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE: z.string().default('0.4'),
   NEWS_INGESTION_OPPORTUNITY_WEIGHT_TREND: z.string().default('0.3'),
@@ -98,6 +126,58 @@ const envSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ['NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE'],
       message: `NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE + _TREND + _FIT must sum to 1 (got ${weightSum})`,
+    });
+  }
+
+  const minAgeHours = Number(data.NEWS_ARCHIVE_MIN_AGE_HOURS);
+  const maxAgeHours = Number(data.NEWS_ARCHIVE_MAX_AGE_HOURS);
+  if (minAgeHours >= maxAgeHours) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEWS_ARCHIVE_MIN_AGE_HOURS'],
+      message: `NEWS_ARCHIVE_MIN_AGE_HOURS (${minAgeHours}) must be less than NEWS_ARCHIVE_MAX_AGE_HOURS (${maxAgeHours})`,
+    });
+  }
+
+  const deleteAfterDays = Number(data.NEWS_DELETE_AFTER_DAYS);
+  if (deleteAfterDays < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEWS_DELETE_AFTER_DAYS'],
+      message: `NEWS_DELETE_AFTER_DAYS must be >= 1 (got ${deleteAfterDays})`,
+    });
+  }
+
+  const trendFloor = Number(data.NEWS_ARCHIVE_TREND_FLOOR);
+  if (trendFloor < 0 || trendFloor > 10) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEWS_ARCHIVE_TREND_FLOOR'],
+      message: `NEWS_ARCHIVE_TREND_FLOOR must be in [0, 10] (got ${trendFloor})`,
+    });
+  }
+
+  const semanticThreshold = Number(data.NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD);
+  const hardDupThreshold = Number(data.NEWS_INGESTION_HARD_DUP_THRESHOLD);
+  if (!(semanticThreshold > 0 && semanticThreshold <= 1)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD'],
+      message: `NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD must be in (0, 1] (got ${semanticThreshold})`,
+    });
+  }
+  if (!(hardDupThreshold > 0 && hardDupThreshold <= 1)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEWS_INGESTION_HARD_DUP_THRESHOLD'],
+      message: `NEWS_INGESTION_HARD_DUP_THRESHOLD must be in (0, 1] (got ${hardDupThreshold})`,
+    });
+  }
+  if (hardDupThreshold <= semanticThreshold) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEWS_INGESTION_HARD_DUP_THRESHOLD'],
+      message: `NEWS_INGESTION_HARD_DUP_THRESHOLD (${hardDupThreshold}) must be greater than NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD (${semanticThreshold})`,
     });
   }
 });
@@ -163,6 +243,8 @@ export default {
     },
     min_relevance: Number(env.NEWS_INGESTION_MIN_RELEVANCE),
     semantic_dedup_threshold: Number(env.NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD),
+    hard_dup_threshold: Number(env.NEWS_INGESTION_HARD_DUP_THRESHOLD),
+    adjudication_max_batches: Number(env.NEWS_INGESTION_ADJUDICATION_MAX_BATCHES),
     cron: env.NEWS_INGESTION_CRON,
     reddit_subreddits: env.REDDIT_SUBREDDITS.split(',')
       .map((sub) => sub.trim())
@@ -193,5 +275,22 @@ export default {
     opportunity_weight_trend: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_TREND),
     opportunity_weight_fit: Number(env.NEWS_INGESTION_OPPORTUNITY_WEIGHT_FIT),
     opportunity_fallback_relevance: Number(env.NEWS_INGESTION_OPPORTUNITY_FALLBACK_RELEVANCE),
+    refresh: {
+      cron: env.NEWS_REFRESH_CRON,
+      window_hours: Number(env.NEWS_REFRESH_WINDOW_HOURS),
+      max_requests: Number(env.NEWS_REFRESH_MAX_REQUESTS),
+    },
+    trend_decay: {
+      tau_hours: Number(env.NEWS_TREND_DECAY_TAU_HOURS),
+      velocity_bonus: Number(env.NEWS_TREND_VELOCITY_BONUS),
+    },
+    dedup_ledger_ttl_days: Number(env.NEWS_DEDUP_LEDGER_TTL_DAYS),
+    retention: {
+      cron: env.NEWS_RETENTION_CRON,
+      max_age_hours: Number(env.NEWS_ARCHIVE_MAX_AGE_HOURS),
+      min_age_hours: Number(env.NEWS_ARCHIVE_MIN_AGE_HOURS),
+      trend_floor: Number(env.NEWS_ARCHIVE_TREND_FLOOR),
+      delete_after_days: Number(env.NEWS_DELETE_AFTER_DAYS),
+    },
   },
 };

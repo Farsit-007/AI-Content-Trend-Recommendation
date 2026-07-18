@@ -25,3 +25,40 @@ export function refreshToken(): Promise<AuthTokens> {
 export function logout(): Promise<null> {
   return apiPost<null>('/auth/logout', {});
 }
+
+/**
+ * POST /auth/change-password — for the authenticated user. The backend
+ * invalidates prior tokens and returns a rotated pair (and sets a fresh refresh
+ * cookie); the caller adopts the new access `token` so the session survives.
+ */
+export function changePassword(payload: {
+  old_password: string;
+  new_password: string;
+}): Promise<{ token: string; refresh_token?: string }> {
+  return apiPost<{ token: string; refresh_token?: string }>(
+    '/auth/change-password',
+    payload,
+  );
+}
+
+/**
+ * POST /auth/forgot-password — always resolves with the same non-enumerating
+ * message regardless of whether the email has an account. Outside production the
+ * backend may include a `reset_token` in the body for development; in production
+ * `data` is `null`.
+ */
+export function forgotPassword(
+  email: string,
+): Promise<{ reset_token?: string } | null> {
+  return apiPost<{ reset_token?: string } | null>('/auth/forgot-password', {
+    email,
+  });
+}
+
+/** POST /auth/reset-password — set a new password using a single-use reset token. */
+export function resetPassword(payload: {
+  token: string;
+  new_password: string;
+}): Promise<null> {
+  return apiPost<null>('/auth/reset-password', payload);
+}

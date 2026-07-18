@@ -21,6 +21,10 @@ export interface ScoredNewsItem extends RawNewsItem {
   embedding: number[];
   relevance_score?: number;
   trend_score: number;
+  /** In-run-absorbed duplicate engagement carried through to the stored payload (D2). */
+  corroborations?: { source: string; points: number; comments: number; url: string; at: Date }[];
+  /** Set when adjudication kept the item via a low-confidence or fallback verdict (D2). */
+  needs_review_adjudication?: boolean;
 }
 
 export interface CategorizedNewsItem extends ScoredNewsItem {

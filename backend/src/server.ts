@@ -1,13 +1,13 @@
 import dns from 'dns';
+import { Server } from 'http';
 import mongoose from 'mongoose';
-import config from './app/config';
 import app from './app';
+import config from './app/config';
 import { logger } from './app/lib/logger';
 import { redis } from './app/lib/redis';
-import { verifyConnections } from './app/lib/verifyConnections';
+import { startAutoGenerationScheduler, startEngagementRefreshScheduler, startNewsIngestionScheduler, startNewsRetentionScheduler } from './app/lib/scheduler';
 import { seedSuperAdminIfMissing } from './app/lib/seedSuperAdmin';
-import { startAutoGenerationScheduler, startNewsIngestionScheduler } from './app/lib/scheduler';
-import { Server } from 'http';
+import { verifyConnections } from './app/lib/verifyConnections';
 
 // Node's default resolver can fail `mongodb+srv://` SRV/TXT lookups on networks where the
 // router doesn't proxy those record types correctly, even though the OS resolver handles them
@@ -47,6 +47,8 @@ async function main() {
     }
     startNewsIngestionScheduler();
     startAutoGenerationScheduler();
+    startEngagementRefreshScheduler();
+    startNewsRetentionScheduler();
     server = app.listen(config.port, () => {
       logger.info(`Server is running on port ${config.port}`);
     });
