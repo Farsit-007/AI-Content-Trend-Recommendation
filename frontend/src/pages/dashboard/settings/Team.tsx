@@ -1,18 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/auth-context';
+import { useTour } from '@/context/tour-context';
 import { useTeamId } from '@/lib/useTeamId';
 import { getTeam, getTeamCategories, updateTeam, type TeamVoiceProfile, type UpdateTeamPayload } from '@/lib/api/teams';
 import { listStylePacks } from '@/lib/api/stylePacks';
+import { PAGE_TOURS } from '@/lib/tours';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VoiceProfileSection } from '@/components/team/VoiceProfileSection';
 import { CategorySubscriptionsSection } from '@/components/team/CategorySubscriptionsSection';
 import { StylePackSection } from '@/components/team/StylePackSection';
 import { BrandVoiceSection } from '@/components/team/BrandVoiceSection';
+import { CustomCategoriesSection } from '@/components/team/CustomCategoriesSection';
+import { PageHelp } from '@/components/dashboard/PageHelp';
 
 export default function Team() {
   const { user } = useAuth();
   const teamId = useTeamId();
+  const { startTour } = useTour();
   const queryClient = useQueryClient();
   // PATCH /teams/:id is gated by the user's global role server-side, not team membership —
   // mirroring that here keeps the UI honest about what a save will actually be allowed to do.
@@ -34,7 +39,7 @@ export default function Team() {
   // deployed yet, so the section below hides instead of erroring.
   const stylePacksQuery = useQuery({
     queryKey: ['style-packs'],
-    queryFn: listStylePacks,
+    queryFn: () => listStylePacks(),
     retry: false,
   });
 
@@ -87,20 +92,25 @@ export default function Team() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">
-          <span className="gradient-text">Team</span> Settings
-        </h1>
-        <p className="text-sm text-muted-foreground">{team.name}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold">
+            <span className="gradient-text">Team</span> Settings
+          </h1>
+          <p className="text-sm text-muted-foreground">{team.name}</p>
+        </div>
+        <PageHelp guideKey="team" onStartTour={() => startTour(PAGE_TOURS.team)} />
       </div>
 
-      <VoiceProfileSection
-        key={`${team.voice_profile?.default_language ?? 'bangla'}:${team.voice_profile?.custom_instructions ?? ''}`}
-        voiceProfile={team.voice_profile}
-        isAdmin={isAdmin}
-        isSaving={updateMutation.isPending}
-        onSave={(voice_profile: TeamVoiceProfile) => updateMutation.mutate({ voice_profile })}
-      />
+      <div data-tour="team-voice">
+        <VoiceProfileSection
+          key={`${team.voice_profile?.default_language ?? 'bangla'}:${team.voice_profile?.custom_instructions ?? ''}`}
+          voiceProfile={team.voice_profile}
+          isAdmin={isAdmin}
+          isSaving={updateMutation.isPending}
+          onSave={(voice_profile: TeamVoiceProfile) => updateMutation.mutate({ voice_profile })}
+        />
+      </div>
 
       {subscriptionsAvailable && (
         <CategorySubscriptionsSection
@@ -123,7 +133,11 @@ export default function Team() {
         />
       )}
 
-      <BrandVoiceSection teamId={teamId} isAdmin={isAdmin} categories={categoriesQuery.data ?? []} />
+      <CustomCategoriesSection key={`custom:${team.custom_categories.join(',')}`} teamId={teamId} customCategories={team.custom_categories} />
+
+      <div data-tour="team-brand-voice">
+        <BrandVoiceSection teamId={teamId} isAdmin={isAdmin} categories={categoriesQuery.data ?? []} />
+      </div>
     </div>
   );
 }

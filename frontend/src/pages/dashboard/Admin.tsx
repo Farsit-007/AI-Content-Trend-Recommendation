@@ -1,9 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { AlertTriangle, Loader2, PlayCircle, RefreshCw, Sparkles, Zap } from 'lucide-react';
 import { getIngestionRuns } from '@/lib/api/ingestionRuns';
 import { getMaintenanceRuns } from '@/lib/api/maintenanceRuns';
+import { triggerIngestion } from '@/lib/api/news';
+import { triggerAutoGeneration } from '@/lib/api/content';
+import { listTeams } from '@/lib/api/teams';
+import { useTour } from '@/context/tour-context';
+import { PAGE_TOURS } from '@/lib/tours';
 import type { IngestionRun, IngestionRunSourceCount, MaintenanceRun, RetentionCounts } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { PageHelp } from '@/components/dashboard/PageHelp';
 
 const formatTimestamp = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
@@ -89,9 +98,36 @@ function RetentionRunRow({ run }: { run: MaintenanceRun }) {
 }
 
 export default function Admin() {
+  const queryClient = useQueryClient();
+  const { startTour } = useTour();
+  const [autoGenTeamId, setAutoGenTeamId] = useState('');
+
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['ingestion-runs'],
     queryFn: () => getIngestionRuns(20),
+  });
+
+  const teamsQuery = useQuery({ queryKey: ['teams', 'all'], queryFn: listTeams });
+
+  const ingestMutation = useMutation({
+    mutationFn: triggerIngestion,
+    onSuccess: (summary) => {
+      toast.success(`Ingestion complete — ${summary.totalStored} new items stored`);
+      queryClient.invalidateQueries({ queryKey: ['ingestion-runs'] });
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+    },
+    onError: (err: Error) => toast.error(err.message || 'Ingestion run failed'),
+  });
+
+  const autoGenMutation = useMutation({
+    mutationFn: () => triggerAutoGeneration(autoGenTeamId || undefined),
+    onSuccess: (summary) => {
+      toast.success(
+        `Auto-generation complete — ${summary.drafts_created} drafts created across ${summary.teams_processed} team(s)`,
+      );
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+    },
+    onError: (err: Error) => toast.error(err.message || 'Auto-generation run failed'),
   });
 
   const {
@@ -110,21 +146,96 @@ export default function Admin() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Admin</h1>
-        <button
-          type="button"
-          onClick={() => {
-            refetch();
-            refetchRetention();
-          }}
-          className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-sm text-muted-foreground transition hover:text-foreground"
-        >
-          <RefreshCw className={cn('size-3.5', (isFetching || isRetentionFetching) && 'animate-spin')} />
-          Refresh
-        </button>
+        <div>
+          <h1 className="text-2xl font-semibold">Pipeline</h1>
+          <p className="text-sm text-muted-foreground">Monitor and manually run the news ingestion + auto-generation jobs.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              refetch();
+              refetchRetention();
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-sm text-muted-foreground transition hover:text-foreground"
+          >
+            <RefreshCw className={cn('size-3.5', (isFetching || isRetentionFetching) && 'animate-spin')} />
+            Refresh
+          </button>
+          <PageHelp guideKey="pipeline" onStartTour={() => startTour(PAGE_TOURS.pipeline)} />
+        </div>
       </div>
 
-      <section className="glass-card flex flex-col gap-4 rounded-xl p-4 sm:p-6">
+      <section data-tour="pipeline-run" className="glass-card flex flex-col gap-4 rounded-xl p-4 sm:p-6">
+        <div>
+          <h2 className="text-lg font-semibold">Run on demand</h2>
+          <p className="text-sm text-muted-foreground">
+            A scheduler already runs both jobs automatically — use these to force a run right now (e.g. right
+            before a demo).
+          </p>
+        </div>
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <div className="flex flex-1 flex-col gap-2 rounded-lg border border-white/10 p-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Zap className="size-4 text-amber-400" /> Ingestion pipeline
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Fetches every source now, dedupes, scores, and stores fresh items. Heavy — one embedding + LLM
+              call per surviving item.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-fit gap-1.5"
+              disabled={ingestMutation.isPending}
+              onClick={() => ingestMutation.mutate()}
+            >
+              {ingestMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <PlayCircle className="size-3.5" />}
+              Run ingestion now
+            </Button>
+          </div>
+
+          <div className="flex flex-1 flex-col gap-2 rounded-lg border border-white/10 p-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Sparkles className="size-4 text-violet-300" /> Auto-generation job
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Drafts content for each team's top news items. Skips teams with zero brand-voice examples, and
+              skips items already drafted.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={autoGenTeamId}
+                onChange={(e) => setAutoGenTeamId(e.target.value)}
+                className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+              >
+                <option value="" className="bg-background text-foreground">
+                  Every team
+                </option>
+                {(teamsQuery.data ?? []).map((team) => (
+                  <option key={team._id} value={team._id} className="bg-background text-foreground">
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-fit gap-1.5"
+                disabled={autoGenMutation.isPending}
+                onClick={() => autoGenMutation.mutate()}
+              >
+                {autoGenMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <PlayCircle className="size-3.5" />}
+                Run auto-generation now
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section data-tour="pipeline-health" className="glass-card flex flex-col gap-4 rounded-xl p-4 sm:p-6">
         <div>
           <h2 className="text-lg font-semibold">Source health</h2>
           <p className="text-sm text-muted-foreground">

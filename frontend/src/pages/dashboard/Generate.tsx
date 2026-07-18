@@ -15,11 +15,14 @@ import {
 import { listStylePacks } from '@/lib/api/stylePacks';
 import { getTeam } from '@/lib/api/teams';
 import { useTeamId } from '@/lib/useTeamId';
+import { useTour } from '@/context/tour-context';
+import { PAGE_TOURS } from '@/lib/tours';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GenerateControls } from '@/components/generate/GenerateControls';
 import { FormatCard } from '@/components/generate/FormatCard';
 import { YoutubeIdeaCard } from '@/components/generate/YoutubeIdeaCard';
+import { PageHelp } from '@/components/dashboard/PageHelp';
 
 interface LocationState {
   newsItemId?: string;
@@ -35,6 +38,7 @@ export default function Generate() {
   const location = useLocation();
   const navigate = useNavigate();
   const teamId = useTeamId();
+  const { startTour } = useTour();
   const state = (location.state ?? {}) as LocationState;
   const newsItemId = state.newsItemId;
 
@@ -52,7 +56,7 @@ export default function Generate() {
 
   const stylePacksQuery = useQuery({
     queryKey: ['style-packs'],
-    queryFn: listStylePacks,
+    queryFn: () => listStylePacks(),
     retry: false,
   });
 
@@ -190,8 +194,12 @@ export default function Generate() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Generate</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Generate</h1>
+        <PageHelp guideKey="generate" onStartTour={() => startTour(PAGE_TOURS.generate)} />
+      </div>
 
+      <div data-tour="generate-controls">
       <GenerateControls
         newsItemContext={newsItemId ? { title: state.topic ?? 'Selected item' } : undefined}
         topic={manualTopic}
@@ -206,6 +214,7 @@ export default function Generate() {
         onGenerate={handleGenerate}
         isGenerating={generateMutation.isPending}
       />
+      </div>
 
       {generateMutation.isPending && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

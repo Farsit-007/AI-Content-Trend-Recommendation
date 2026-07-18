@@ -6,6 +6,8 @@ import { ScoreMeter } from './ScoreMeter';
 interface NewsCardProps {
   item: NewsItemDto;
   onClick: () => void;
+  /** Tour-target marker (see `lib/tours.ts`'s `feed` tour) — set on the first rendered card. */
+  tourTarget?: string;
 }
 
 /** Small, dependency-free "3 hours ago" / "2 days ago" formatter. */
@@ -21,13 +23,14 @@ function formatRelativeAge(iso: string): string {
   return rtf.format(-deltaDays, 'day');
 }
 
-export function NewsCard({ item, onClick }: NewsCardProps) {
+export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
   const age = formatRelativeAge(item.published_at ?? item.created_at);
 
   return (
     <button
       type="button"
       onClick={onClick}
+      data-tour={tourTarget}
       className={cn(
         'glass-card flex h-full flex-col gap-3 rounded-xl p-4 text-left transition hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
         item.high_opportunity && 'border-emerald-400/50 bg-emerald-400/5 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]',

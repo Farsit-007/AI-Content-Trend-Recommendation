@@ -4,11 +4,14 @@ import { AlertTriangle, Inbox, Loader2, SearchX } from 'lucide-react';
 import { getNewsItems } from '@/lib/api/news';
 import { DEFAULT_FEED_SORT } from '@/lib/constants';
 import { useTeamId } from '@/lib/useTeamId';
+import { useTour } from '@/context/tour-context';
+import { PAGE_TOURS } from '@/lib/tours';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FeedControls } from '@/components/feed/FeedControls';
 import { NewsCard } from '@/components/feed/NewsCard';
 import { NewsItemDrawer } from '@/components/feed/NewsItemDrawer';
+import { PageHelp } from '@/components/dashboard/PageHelp';
 
 const PAGE_SIZE = 15;
 
@@ -30,6 +33,7 @@ function SkeletonGrid() {
 
 export default function Feed() {
   const teamId = useTeamId();
+  const { startTour } = useTour();
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [sort, setSort] = useState(DEFAULT_FEED_SORT);
   const [searchTerm, setSearchTerm] = useState('');
@@ -63,15 +67,20 @@ export default function Feed() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Feed</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Feed</h1>
+        <PageHelp guideKey="feed" onStartTour={() => startTour(PAGE_TOURS.feed)} />
+      </div>
 
-      <FeedControls
-        category={category}
-        onCategoryChange={setCategory}
-        sort={sort}
-        onSortChange={setSort}
-        onSearchChange={setSearchTerm}
-      />
+      <div data-tour="feed-controls">
+        <FeedControls
+          category={category}
+          onCategoryChange={setCategory}
+          sort={sort}
+          onSortChange={setSort}
+          onSearchChange={setSearchTerm}
+        />
+      </div>
 
       {isFirstLoad ? (
         <SkeletonGrid />
@@ -110,8 +119,13 @@ export default function Feed() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => (
-              <NewsCard key={item._id} item={item} onClick={() => setSelectedItemId(item._id)} />
+            {items.map((item, i) => (
+              <NewsCard
+                key={item._id}
+                item={item}
+                onClick={() => setSelectedItemId(item._id)}
+                tourTarget={i === 0 ? 'feed-card' : undefined}
+              />
             ))}
           </div>
 

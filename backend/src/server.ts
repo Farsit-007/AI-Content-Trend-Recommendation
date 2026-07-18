@@ -7,6 +7,7 @@ import { logger } from './app/lib/logger';
 import { redis } from './app/lib/redis';
 import { startAutoGenerationScheduler, startEngagementRefreshScheduler, startNewsIngestionScheduler, startNewsRetentionScheduler } from './app/lib/scheduler';
 import { seedSuperAdminIfMissing } from './app/lib/seedSuperAdmin';
+import { seedDemoAccountsIfMissing } from './app/lib/seedDemoAccounts';
 import { verifyConnections } from './app/lib/verifyConnections';
 
 // Node's default resolver can fail `mongodb+srv://` SRV/TXT lookups on networks where the
@@ -37,6 +38,7 @@ async function main() {
   try {
     await mongoose.connect(config.database_url as string);
     await seedSuperAdminIfMissing();
+    await seedDemoAccountsIfMissing();
     try {
       // Bounded independently of any per-call SDK timeout — verifyConnections is a
       // diagnostic check (failure here is already non-fatal), so it must never be able

@@ -94,3 +94,15 @@ export function updateDraftStatus(
 ): Promise<GeneratedContentDto> {
   return apiPatch<GeneratedContentDto>(`/generated-content/${id}`, { status });
 }
+
+export interface AutoGenerationSummary {
+  teams_processed: number;
+  drafts_created: number;
+  skipped: number;
+}
+
+/** POST /generated-content/run (admin-only) — the same job the daily scheduler runs, forced
+ *  right now. Omit `teamId` to run it for every team. */
+export function triggerAutoGeneration(teamId?: string): Promise<AutoGenerationSummary> {
+  return apiPost<AutoGenerationSummary>('/generated-content/run', teamId ? { team_id: teamId } : {});
+}

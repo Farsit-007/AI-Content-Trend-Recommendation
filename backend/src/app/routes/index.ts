@@ -6,6 +6,7 @@ import { ChatRoutes } from '../modules/Chat/chat.route';
 import { ContentGenerationRoutes } from '../modules/ContentGeneration/contentGeneration.route';
 import { NewsItemRoutes } from '../modules/NewsItem/newsItem.route';
 import { StylePackRoutes } from '../modules/StylePack/stylePack.route';
+import { StatsRoutes } from '../modules/Stats/stats.route';
 import { TeamRoutes } from '../modules/Team/team.route';
 import { AuthRoutes, UserRoutes } from '../modules/User/user.route';
 import { openApiDocument } from '../docs/openapi';
@@ -28,6 +29,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: '/chat', route: ChatRoutes },
   { path: '/generated-content', route: GeneratedContentRoutes },
   { path: '/style-packs', route: StylePackRoutes },
+  { path: '/stats', route: StatsRoutes },
 ];
 
 moduleRoutes.forEach((route) => {

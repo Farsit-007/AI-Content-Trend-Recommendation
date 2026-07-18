@@ -11,8 +11,11 @@ import {
   type GeneratedContentStatus,
 } from '@/lib/api/content';
 import { useTeamId } from '@/lib/useTeamId';
+import { useTour } from '@/context/tour-context';
+import { PAGE_TOURS } from '@/lib/tours';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { PageHelp } from '@/components/dashboard/PageHelp';
 
 const STATUS_FILTERS: { value: GeneratedContentStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -126,6 +129,7 @@ function DraftRow({ draft }: { draft: GeneratedContentDto }) {
 
 export default function Drafts() {
   const teamId = useTeamId();
+  const { startTour } = useTour();
   const [status, setStatus] = useState<GeneratedContentStatus | 'all'>('all');
   const [source, setSource] = useState<GeneratedContentSource | 'all'>('all');
 
@@ -153,9 +157,12 @@ export default function Drafts() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Drafts</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Drafts</h1>
+        <PageHelp guideKey="drafts" onStartTour={() => startTour(PAGE_TOURS.drafts)} />
+      </div>
 
-      <div className="glass-card flex flex-wrap items-center gap-4 rounded-xl p-3">
+      <div data-tour="drafts-filters" className="glass-card flex flex-wrap items-center gap-4 rounded-xl p-3">
         <div className="flex flex-wrap gap-1.5">
           {STATUS_FILTERS.map((option) => (
             <button
@@ -186,25 +193,27 @@ export default function Drafts() {
         </select>
       </div>
 
-      {query.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : query.isError ? (
-        <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
-          <AlertTriangle className="size-6 text-red-400" />
-          <p className="text-sm text-muted-foreground">Couldn't load drafts.</p>
-        </div>
-      ) : drafts.length === 0 ? (
-        <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
-          <Inbox className="size-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No drafts yet.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {drafts.map((draft) => (
-            <DraftRow key={draft._id} draft={draft} />
-          ))}
-        </div>
-      )}
+      <div data-tour="drafts-list">
+        {query.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : query.isError ? (
+          <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
+            <AlertTriangle className="size-6 text-red-400" />
+            <p className="text-sm text-muted-foreground">Couldn't load drafts.</p>
+          </div>
+        ) : drafts.length === 0 ? (
+          <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
+            <Inbox className="size-6 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">No drafts yet.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {drafts.map((draft) => (
+              <DraftRow key={draft._id} draft={draft} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -125,6 +125,25 @@
     font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+
+  /*
+   * Browsers don't give <button> a pointer cursor by default (only <a href> gets one) — every
+   * clickable control in this app is a real <button>/<a>/<select>, so this one rule covers the
+   * whole app instead of sprinkling `cursor-pointer` on every className.
+   */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  a[href],
+  select,
+  summary,
+  label:has(> input[type='checkbox']),
+  label:has(> input[type='radio']) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role='button'][aria-disabled='true'] {
+    cursor: not-allowed;
+  }
 }
 
 /* Design token utilities from CLAUDE.md */

@@ -67,7 +67,12 @@ export function AppSidebar() {
                       isActive={isActive}
                       tooltip={item.label}
                     >
-                      <NavLink to={item.to} end={item.end} onClick={() => setOpenMobile(false)}>
+                      <NavLink
+                        to={item.to}
+                        end={item.end}
+                        onClick={() => setOpenMobile(false)}
+                        data-tour={`nav-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`}
+                      >
                         {Icon && <Icon />}
                         <span>{item.label}</span>
                       </NavLink>

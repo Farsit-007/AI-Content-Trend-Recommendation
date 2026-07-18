@@ -1,8 +1,12 @@
-import { Check, ChevronsUpDown, LogOut } from "lucide-react";
+import { Check, ChevronsUpDown, Compass, LogOut } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 
 import { useAuth } from "@/context/auth-context";
 import { useTeamContext } from "@/context/team-context";
+import { useTour } from "@/context/tour-context";
+import { getDashboardPaths } from "@/routes";
+import { sidebarItemsGenerator } from "@/utils/sidebarItemsGenerator";
+import { buildSidebarTour } from "@/lib/tours";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "./ThemeToggle";
@@ -54,6 +58,12 @@ function TeamSwitcher() {
  *  `SidebarTrigger` collapses it on desktop and opens it on mobile. */
 export function Navbar() {
   const { user, logout } = useAuth();
+  const { startTour } = useTour();
+
+  const handleTakeTour = () => {
+    const items = sidebarItemsGenerator(getDashboardPaths(user?.role));
+    startTour(buildSidebarTour(items));
+  };
 
   return (
     <header className="glass-card sticky top-0 z-40 rounded-none border-x-0 border-t-0">
@@ -64,6 +74,10 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={handleTakeTour} className="gap-1.5">
+            <Compass className="size-4" />
+            <span className="hidden sm:inline">Take a tour</span>
+          </Button>
           {user && (
             <div className="hidden text-right leading-tight sm:block">
               <div className="text-sm font-medium">{user.name}</div>
