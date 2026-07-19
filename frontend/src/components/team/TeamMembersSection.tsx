@@ -40,7 +40,7 @@ export function TeamMembersSection({ teamId, members, canManageTeam }: TeamMembe
   return (
     <section className="glass-card flex flex-col gap-4 rounded-xl p-6">
       <div className="flex items-center gap-2">
-        <Users className="size-4 text-violet-300" />
+        <Users className="size-4 text-violet-700 dark:text-violet-300" />
         <div>
           <h2 className="text-lg font-semibold">Team members</h2>
           <p className="text-sm text-muted-foreground">Everyone with access to this team.</p>
@@ -55,13 +55,13 @@ export function TeamMembersSection({ teamId, members, canManageTeam }: TeamMembe
           return (
             <li
               key={member._id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm"
+              className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
             >
               <span className="flex min-w-0 flex-col">
                 <span className="flex items-center gap-1.5 truncate font-medium text-foreground">
                   {member.name}
                   {isTeamAdmin && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-violet-400/30 bg-violet-400/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-violet-400/30 bg-violet-400/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300">
                       <ShieldCheck className="size-2.5" /> Team admin
                     </span>
                   )}
@@ -74,7 +74,7 @@ export function TeamMembersSection({ teamId, members, canManageTeam }: TeamMembe
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className={cn('text-xs', isTeamAdmin ? 'text-muted-foreground' : 'text-violet-300')}
+                    className={cn('text-xs', isTeamAdmin ? 'text-muted-foreground' : 'text-violet-700 dark:text-violet-300')}
                     disabled={roleBusy}
                     onClick={() =>
                       roleMutation.mutate({ userId: member._id, role: isTeamAdmin ? 'member' : 'team_admin' })

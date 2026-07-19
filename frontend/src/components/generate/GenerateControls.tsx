@@ -66,14 +66,14 @@ export function GenerateControls({
     <div className="glass-card flex flex-col gap-4 rounded-xl p-4">
       {newsItemContext ? (
         <div className="rounded-lg border border-violet-400/30 bg-violet-400/10 p-3">
-          <p className="mb-1 text-xs font-medium text-violet-300">Generating from your feed</p>
+          <p className="mb-1 text-xs font-medium text-violet-700 dark:text-violet-300">Generating from your feed</p>
           <p className="text-sm font-medium text-foreground">{newsItemContext.title}</p>
           {newsItemContext.url && (
             <a
               href={newsItemContext.url}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 inline-flex items-center gap-1 text-xs text-violet-300 hover:underline"
+              className="mt-1 inline-flex items-center gap-1 text-xs text-violet-700 dark:text-violet-300 hover:underline"
             >
               Source <ExternalLink className="size-3" />
             </a>
@@ -95,7 +95,7 @@ export function GenerateControls({
 
       <div className="flex flex-col gap-1.5">
         <span className="text-xs font-medium text-muted-foreground">Language</span>
-        <div className="inline-flex w-fit rounded-md border border-white/10 p-0.5">
+        <div className="inline-flex w-fit rounded-md border border-border p-0.5">
           {LANGUAGE_OPTIONS.map((option) => (
             <button
               key={option.value}
@@ -171,8 +171,8 @@ export function GenerateControls({
                 className={cn(
                   'rounded-full border px-3 py-1 text-xs font-medium transition',
                   active
-                    ? 'border-violet-400/50 bg-violet-400/15 text-violet-200'
-                    : 'border-white/10 text-muted-foreground hover:text-foreground',
+                    ? 'border-violet-500/60 bg-violet-500/15 text-violet-700 dark:border-violet-400/50 dark:bg-violet-400/15 dark:text-violet-200'
+                    : 'border-border text-muted-foreground hover:border-violet-500/40 hover:text-foreground',
                 )}
               >
                 {option.label}
@@ -182,7 +182,7 @@ export function GenerateControls({
         </div>
       </div>
 
-      <Button onClick={onGenerate} disabled={!canGenerate} className="btn-glow gap-2 bg-violet-600 hover:bg-violet-500">
+      <Button onClick={onGenerate} disabled={!canGenerate} className="btn-glow gap-2">
         {isGenerating ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
         Generate
       </Button>

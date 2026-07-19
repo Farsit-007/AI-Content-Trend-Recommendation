@@ -1,10 +1,23 @@
 import { useState } from 'react';
-import { Briefcase, Code2, ExternalLink, MessageCircle, Newspaper, PenLine, Server, Shield, Sparkles, Star, ThumbsUp } from 'lucide-react';
+import {
+  Briefcase,
+  Code2,
+  ExternalLink,
+  Flame,
+  MessageCircle,
+  Newspaper,
+  PenLine,
+  Server,
+  Shield,
+  Sparkles,
+  Star,
+  Target,
+  ThumbsUp,
+} from 'lucide-react';
 import type { NewsItemDto } from '@/lib/api/news';
 import { splitNewsTitle } from '@/lib/newsTitle';
-import { sourceLogoFor } from '@/lib/sourceLogos';
+import { isSourceLogoUrl, sourceLogoFor } from '@/lib/sourceLogos';
 import { cn } from '@/lib/utils';
-import { ScoreMeter } from './ScoreMeter';
 
 interface NewsCardProps {
   item: NewsItemDto;
@@ -12,6 +25,10 @@ interface NewsCardProps {
   /** Tour-target marker (see `lib/tours.ts`'s `feed` tour) — set on the first rendered card. */
   tourTarget?: string;
 }
+
+/** Anything narrower than this is a mark (favicon, sprite, tracking pixel) rather than a photo —
+ *  a real cover image from any source we ingest is comfortably wider. */
+const MIN_COVER_WIDTH = 240;
 
 /** Category-keyed fallback icon for items with no thumbnail_url (design.md decision 7). */
 const CATEGORY_ICONS: Record<string, typeof Sparkles> = {
@@ -35,46 +52,180 @@ function formatRelativeAge(iso: string): string {
   return rtf.format(-deltaDays, 'day');
 }
 
+/** Compact 0-10 score pill for the metadata line. Full labelled meters live in the drawer. */
+function ScorePill({
+  icon: Icon,
+  label,
+  value,
+  variant,
+}: {
+  icon: typeof Flame;
+  label: string;
+  value: number;
+  variant: 'amber' | 'emerald';
+}) {
+  const clamped = Math.max(0, Math.min(10, value));
+  return (
+    // No `title` tooltip: the metadata row is pointer-events-none so clicks reach the card's
+    // overlay button, which also means a native tooltip could never fire. The sr-only text is
+    // what carries the meaning for assistive tech.
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 font-semibold tabular-nums',
+        variant === 'amber' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400',
+      )}
+    >
+      <Icon className="size-3.5" aria-hidden="true" />
+      {clamped.toFixed(1)}
+      <span className="sr-only">{label} score out of 10</span>
+    </span>
+  );
+}
+
+/** A single engagement stat — rendered only when non-zero, so GitHub-only stars and
+ *  HN-only comments don't leave a row of meaningless "0"s on every other source's cards. */
+function Stat({ icon: Icon, value, label }: { icon: typeof Star; value: number; label: string }) {
+  if (!value) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5 tabular-nums">
+      <Icon className="size-4" aria-hidden="true" />
+      {value}
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
 export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
   const age = formatRelativeAge(item.published_at ?? item.created_at);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
-  const showThumbnail = Boolean(item.thumbnail_url) && !thumbnailFailed;
-  const logoFallback = sourceLogoFor(item.source);
+  // Set when the loaded image turns out to be too small to be cover art — see `isCoverArt`.
+  const [thumbnailIsTiny, setThumbnailIsTiny] = useState(false);
+  const logo = sourceLogoFor(item.source);
   const CategoryIcon = (item.category && CATEGORY_ICONS[item.category]) || Newspaper;
   const { heading, handle } = splitNewsTitle(item.title);
-  const bodyText = item.description ?? item.snippet;
-  // A split title (GitHub Trending / Product Hunt) already puts the description text in the
-  // heading itself — showing it again below would just repeat the same sentence twice.
-  const description = handle ? undefined : bodyText;
+
+  const hasThumbnail = Boolean(item.thumbnail_url) && !thumbnailFailed;
+  // metaEnrichment backfills `thumbnail_url` with the source favicon when it can't find a real
+  // image, so plenty of items carry a 16px .ico in the field the cover would otherwise stretch
+  // edge-to-edge as a blurry smear. Only genuine photos get `object-cover`.
+  const isCoverArt = hasThumbnail && !isSourceLogoUrl(item.thumbnail_url) && !thumbnailIsTiny;
+  const badgeLogo = hasThumbnail ? item.thumbnail_url : logo;
+
+  const { points, comments, stars_delta: starsDelta } = item.engagement;
+  const hasEngagement = Boolean(points || comments || starsDelta);
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    // Structure mirrors daily.dev's ArticleGrid card (dailydotdev/apps,
+    // packages/shared/src/components/cards/article/ArticleGrid.tsx): the root carries no padding,
+    // text rows are inset by mx-4, and the cover image is near-full-bleed at mx-1. A flex-1
+    // spacer (their CardSpace) pins the image and action bar to the bottom so titles of
+    // different lengths still line up across a row.
+    //
+    // The card can't be a <button> — it contains its own links, and nesting interactive elements
+    // is invalid HTML. Instead an overlay button sits behind the content (their CardOverlay);
+    // content is pointer-events-none so clicks fall through to it, and the bits that need their
+    // own click re-enable it.
+    <article
       data-tour={tourTarget}
       className={cn(
-        'glass-card flex h-full flex-col gap-3 rounded-xl p-4 text-left transition hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
-        item.high_opportunity && 'border-emerald-400/50 bg-emerald-400/5 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]',
+        'glass-card group relative flex h-full flex-col rounded-2xl p-0 transition duration-200',
+        'hover:border-violet-500/40 hover:shadow-lg hover:shadow-violet-500/5 dark:hover:border-violet-400/40',
+        'focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/40',
+        item.high_opportunity && 'border-emerald-500/50 bg-emerald-500/[0.06] dark:border-emerald-400/50',
       )}
     >
-      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-white/5">
-        {showThumbnail ? (
+      <button
+        type="button"
+        onClick={onClick}
+        className="absolute inset-0 z-0 rounded-2xl focus:outline-none"
+        aria-label={`Open ${heading}`}
+      />
+
+      {/* Header — avatar only, no source name, matching PostCardHeader. */}
+      <div className="pointer-events-none relative z-10 mx-4 mt-4 flex items-center gap-2">
+        <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-border">
+          {logo ? (
+            <img src={logo} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-4.5 object-contain" />
+          ) : (
+            <CategoryIcon className="size-4 text-neutral-500" aria-hidden="true" />
+          )}
+        </span>
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={(e) => e.stopPropagation()}
+          title={item.url}
+          className="pointer-events-auto ml-auto shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none group-hover:opacity-100"
+        >
+          <ExternalLink className="size-4" />
+          <span className="sr-only">Open original article</span>
+        </a>
+      </div>
+
+      {/* Title — their CardTitle: mt-2, font-bold, typo-title3 (~17px), line-clamp-3. */}
+      <h3 className="pointer-events-none relative z-10 mx-4 mt-2 line-clamp-3 text-[17px] leading-snug font-bold break-words text-foreground">
+        {heading}
+      </h3>
+      {handle && (
+        <p className="pointer-events-none relative z-10 mx-4 mt-0.5 truncate text-xs text-muted-foreground">{handle}</p>
+      )}
+
+      {/* Tags row — their PostTags renders #hashtags. */}
+      {item.category && (
+        <div className="pointer-events-none relative z-10 mx-4 mt-2 flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300">
+          <span>#{item.category.replace(/\s+/g, '')}</span>
+          {item.is_overridden && <PenLine className="size-3" aria-label="Category manually overridden" />}
+        </div>
+      )}
+
+      {/* Metadata — their PostMetadata (mx-4), age plus this product's scores. */}
+      <div className="pointer-events-none relative z-10 mx-4 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <span>{age}</span>
+        <span aria-hidden="true">·</span>
+        <ScorePill icon={Flame} label="Trend" value={item.trend_score} variant="amber" />
+        {typeof item.opportunity_score === 'number' && (
+          <ScorePill icon={Target} label="Opportunity" value={item.opportunity_score} variant="emerald" />
+        )}
+      </div>
+
+      {/* CardSpace — pushes cover + actions to the bottom edge. */}
+      <div className="flex-1" />
+
+      {/* Cover — near-full-bleed (mx-1), unlike the mx-4 text rows above. */}
+      <div className="pointer-events-none relative z-10 mx-1 mt-3 aspect-video overflow-hidden rounded-xl bg-muted">
+        {isCoverArt ? (
           <img
             src={item.thumbnail_url}
             alt=""
             loading="lazy"
+            decoding="async"
+            // Some publisher CDNs 403 hotlinked requests that carry a Referer, which surfaces as
+            // a broken image rather than an error we could fall back from.
+            referrerPolicy="no-referrer"
             onError={() => setThumbnailFailed(true)}
-            className="h-full w-full object-cover"
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth && img.naturalWidth < MIN_COVER_WIDTH) setThumbnailIsTiny(true);
+            }}
+            className="size-full object-cover transition duration-300 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            {/* A source logo is a small mark, never a photo — shown as a centered badge, never
-                stretched full-bleed (a tiny favicon blown up to cover the card just reads as a
-                blurry blank block). */}
-            {logoFallback ? (
-              <div className="flex size-11 items-center justify-center rounded-md bg-white p-2 shadow-sm">
-                <img src={logoFallback} alt="" loading="lazy" className="size-full object-contain" />
-              </div>
+          // Badge treatment: tinted canvas with the mark centered and object-contain, so it keeps
+          // its own aspect ratio at a legible size instead of being blown up to fill.
+          <div className="flex size-full items-center justify-center bg-gradient-to-br from-violet-500/10 via-transparent to-cyan-500/10">
+            {badgeLogo ? (
+              <span className="flex size-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-black/5">
+                <img
+                  src={badgeLogo}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  onError={() => setThumbnailFailed(true)}
+                  className="size-7 object-contain"
+                />
+              </span>
             ) : (
               <CategoryIcon className="size-8 text-muted-foreground/40" aria-hidden="true" />
             )}
@@ -82,62 +233,18 @@ export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        {/* The whole card is a <button> (opens the drawer), so this can't be a nested <a> —
-            window.open + stopPropagation gives the same "open original" affordance validly. */}
-        <span
-          role="link"
-          tabIndex={0}
-          title={item.url}
-          onClick={(e) => {
-            e.stopPropagation();
-            window.open(item.url, '_blank', 'noopener');
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.stopPropagation();
-              window.open(item.url, '_blank', 'noopener');
-            }
-          }}
-          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-medium capitalize hover:border-violet-400/40 hover:text-foreground"
-        >
-          {item.source.replace(/_/g, ' ')} <ExternalLink className="size-3" aria-label="Open original article" />
-        </span>
-        <span>{age}</span>
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        <h3 className="line-clamp-2 text-sm font-semibold text-foreground">{heading}</h3>
-        {handle && <p className="truncate text-xs text-muted-foreground">{handle}</p>}
-      </div>
-
-      {item.category && (
-        <span className="inline-flex w-fit items-center gap-1 rounded-full border border-violet-400/30 bg-violet-400/10 px-2 py-0.5 text-xs text-violet-300">
-          {item.category}
-          {item.is_overridden && <PenLine className="size-3" aria-label="Category manually overridden" />}
-        </span>
-      )}
-
-      {description && <p className="line-clamp-3 text-sm text-muted-foreground">{description}</p>}
-
-      <div className="mt-auto flex flex-col gap-1.5 pt-1">
-        <ScoreMeter label="Trend" value={item.trend_score} variant="amber" />
-        {typeof item.opportunity_score === 'number' && (
-          <ScoreMeter label="Opportunity" value={item.opportunity_score} variant="emerald" />
+      {/* Action bar. These are read-only source metrics (HN points, GitHub stars), not actions
+          this app can perform, so they render as stats rather than faking clickable
+          upvote/bookmark buttons that would do nothing. */}
+      <div className="pointer-events-none relative z-10 mx-4 flex h-11 items-center gap-4 text-xs text-muted-foreground">
+        {hasEngagement && (
+          <>
+            <Stat icon={ThumbsUp} value={points} label="points" />
+            <Stat icon={MessageCircle} value={comments} label="comments" />
+            <Stat icon={Star} value={starsDelta} label="new stars" />
+          </>
         )}
       </div>
-
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <ThumbsUp className="size-3.5" /> {item.engagement.points}
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <MessageCircle className="size-3.5" /> {item.engagement.comments}
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Star className="size-3.5" /> {item.engagement.stars_delta}
-        </span>
-      </div>
-    </button>
+    </article>
   );
 }

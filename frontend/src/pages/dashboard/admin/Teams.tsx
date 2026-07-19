@@ -14,8 +14,6 @@ import {
   type TeamMemberRole,
 } from '@/lib/api/teams';
 import { listUsers, type UserDto } from '@/lib/api/users';
-import { useTour } from '@/context/tour-context';
-import { PAGE_TOURS } from '@/lib/tours';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -112,7 +110,7 @@ function TeamRow({ team, allUsers }: { team: TeamDto; allUsers: UserDto[] }) {
       </div>
 
       {expanded && (
-        <div className="flex flex-col gap-3 border-t border-white/10 p-4">
+        <div className="flex flex-col gap-3 border-t border-border p-4">
           {detailQuery.isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> Loading roster…
@@ -127,12 +125,12 @@ function TeamRow({ team, allUsers }: { team: TeamDto; allUsers: UserDto[] }) {
                   return (
                     <li
                       key={m._id}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm"
+                      className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
                     >
                       <span>
                         {m.name} <span className="text-xs text-muted-foreground">{m.email}</span>
                         {isTeamAdmin && (
-                          <span className="ml-1.5 rounded-full border border-violet-400/30 bg-violet-400/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
+                          <span className="ml-1.5 rounded-full border border-violet-400/30 bg-violet-400/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300">
                             Team admin
                           </span>
                         )}
@@ -201,7 +199,6 @@ function TeamRow({ team, allUsers }: { team: TeamDto; allUsers: UserDto[] }) {
 
 export default function AdminTeams() {
   const queryClient = useQueryClient();
-  const { startTour } = useTour();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [memberIds, setMemberIds] = useState<string[]>([]);
@@ -259,12 +256,12 @@ export default function AdminTeams() {
             don't personally belong to.
           </p>
         </div>
-        <PageHelp guideKey="teams" onStartTour={() => startTour(PAGE_TOURS.teams)} />
+        <PageHelp guideKey="teams" />
       </div>
 
       <section data-tour="teams-create" className="glass-card flex flex-col gap-4 rounded-xl p-5">
         <div className="flex items-center gap-2">
-          <Plus className="size-4 text-violet-300" />
+          <Plus className="size-4 text-violet-700 dark:text-violet-300" />
           <h2 className="font-semibold">Create a team</h2>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -285,8 +282,8 @@ export default function AdminTeams() {
                     className={cn(
                       'rounded-full border px-3 py-1 text-xs font-medium transition',
                       active
-                        ? 'border-violet-400/50 bg-violet-400/15 text-violet-200'
-                        : 'border-white/10 text-muted-foreground hover:text-foreground',
+                        ? 'border-violet-400/50 bg-violet-400/15 text-violet-800 dark:text-violet-200'
+                        : 'border-border text-muted-foreground hover:text-foreground',
                     )}
                   >
                     {u.name}
@@ -314,7 +311,7 @@ export default function AdminTeams() {
                       'rounded-full border px-3 py-1 text-xs font-medium transition',
                       active
                         ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-300'
-                        : 'border-white/10 text-muted-foreground hover:text-foreground',
+                        : 'border-border text-muted-foreground hover:text-foreground',
                     )}
                   >
                     {person.name}
@@ -328,7 +325,7 @@ export default function AdminTeams() {
           type="button"
           onClick={handleCreate}
           disabled={createMutation.isPending}
-          className="btn-glow w-fit gap-2 bg-violet-600 hover:bg-violet-500"
+          className="btn-glow w-fit gap-2"
         >
           {createMutation.isPending && <Loader2 className="size-4 animate-spin" />}
           Create team
@@ -337,7 +334,7 @@ export default function AdminTeams() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <Building2 className="size-4 text-violet-300" />
+          <Building2 className="size-4 text-violet-700 dark:text-violet-300" />
           <h2 className="font-semibold">All teams</h2>
         </div>
         {teamsQuery.isLoading ? (

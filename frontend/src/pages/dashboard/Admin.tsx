@@ -7,8 +7,6 @@ import { getMaintenanceRuns } from '@/lib/api/maintenanceRuns';
 import { triggerIngestion } from '@/lib/api/news';
 import { triggerAutoGeneration } from '@/lib/api/content';
 import { listTeams } from '@/lib/api/teams';
-import { useTour } from '@/context/tour-context';
-import { PAGE_TOURS } from '@/lib/tours';
 import type { IngestionRun, IngestionRunSourceCount, MaintenanceRun, RetentionCounts } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,7 +27,7 @@ function SourceChip({ count }: { count: IngestionRunSourceCount }) {
       title={count.error}
       className={cn(
         'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs whitespace-nowrap',
-        isDead ? 'border-amber-400/40 bg-amber-400/10 text-amber-400' : 'border-white/10 bg-white/5 text-muted-foreground',
+        isDead ? 'border-amber-400/40 bg-amber-400/10 text-amber-700 dark:text-amber-400' : 'border-border bg-muted text-muted-foreground',
       )}
     >
       <span className="font-medium text-foreground">{count.source}</span>
@@ -48,7 +46,7 @@ function RunRow({ run }: { run: IngestionRun }) {
         <span
           className={cn(
             'rounded-full border px-2 py-0.5 text-xs capitalize',
-            run.trigger === 'manual' ? 'border-violet-400/40 text-violet-400' : 'border-white/10 text-muted-foreground',
+            run.trigger === 'manual' ? 'border-violet-400/40 text-violet-600 dark:text-violet-400' : 'border-border text-muted-foreground',
           )}
         >
           {run.trigger}
@@ -62,15 +60,15 @@ function RunRow({ run }: { run: IngestionRun }) {
           ))}
         </div>
       </td>
-      <td className="py-3 align-top text-sm text-amber-400">{run.error}</td>
+      <td className="py-3 align-top text-sm text-amber-700 dark:text-amber-400">{run.error}</td>
     </tr>
   );
 }
 
 const RETENTION_REASON_STYLES: Record<keyof RetentionCounts['archived'], string> = {
-  max_age: 'border-white/10 bg-white/5 text-muted-foreground',
-  trend_floor: 'border-amber-400/40 bg-amber-400/10 text-amber-400',
-  source_removed: 'border-red-400/40 bg-red-400/10 text-red-400',
+  max_age: 'border-border bg-muted text-muted-foreground',
+  trend_floor: 'border-amber-400/40 bg-amber-400/10 text-amber-700 dark:text-amber-400',
+  source_removed: 'border-red-400/40 bg-red-400/10 text-red-500 dark:text-red-400',
 };
 
 function RetentionRunRow({ run }: { run: MaintenanceRun }) {
@@ -92,14 +90,13 @@ function RetentionRunRow({ run }: { run: MaintenanceRun }) {
         </div>
       </td>
       <td className="py-3 pr-4 align-top text-sm text-muted-foreground whitespace-nowrap">{counts.deleted} deleted</td>
-      <td className="py-3 align-top text-sm text-amber-400">{run.error}</td>
+      <td className="py-3 align-top text-sm text-amber-700 dark:text-amber-400">{run.error}</td>
     </tr>
   );
 }
 
 export default function Admin() {
   const queryClient = useQueryClient();
-  const { startTour } = useTour();
   const [autoGenTeamId, setAutoGenTeamId] = useState('');
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -158,12 +155,12 @@ export default function Admin() {
               refetch();
               refetchRetention();
             }}
-            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-sm text-muted-foreground transition hover:text-foreground"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition hover:text-foreground"
           >
             <RefreshCw className={cn('size-3.5', (isFetching || isRetentionFetching) && 'animate-spin')} />
             Refresh
           </button>
-          <PageHelp guideKey="pipeline" onStartTour={() => startTour(PAGE_TOURS.pipeline)} />
+          <PageHelp guideKey="pipeline" />
         </div>
       </div>
 
@@ -176,9 +173,9 @@ export default function Admin() {
           </p>
         </div>
         <div className="flex flex-col gap-4 sm:flex-row">
-          <div className="flex flex-1 flex-col gap-2 rounded-lg border border-white/10 p-3">
+          <div className="flex flex-1 flex-col gap-2 rounded-lg border border-border p-3">
             <div className="flex items-center gap-2 text-sm font-medium">
-              <Zap className="size-4 text-amber-400" /> Ingestion pipeline
+              <Zap className="size-4 text-amber-700 dark:text-amber-400" /> Ingestion pipeline
             </div>
             <p className="text-xs text-muted-foreground">
               Fetches every source now, dedupes, scores, and stores fresh items. Heavy — one embedding + LLM
@@ -197,9 +194,9 @@ export default function Admin() {
             </Button>
           </div>
 
-          <div className="flex flex-1 flex-col gap-2 rounded-lg border border-white/10 p-3">
+          <div className="flex flex-1 flex-col gap-2 rounded-lg border border-border p-3">
             <div className="flex items-center gap-2 text-sm font-medium">
-              <Sparkles className="size-4 text-violet-300" /> Auto-generation job
+              <Sparkles className="size-4 text-violet-700 dark:text-violet-300" /> Auto-generation job
             </div>
             <p className="text-xs text-muted-foreground">
               Drafts content for each team's top news items. Skips teams with zero brand-voice examples, and
@@ -249,15 +246,15 @@ export default function Admin() {
             <Loader2 className="size-4 animate-spin" /> Loading source health…
           </div>
         ) : isError ? (
-          <p className="text-sm text-red-400">Couldn't load ingestion run history.</p>
+          <p className="text-sm text-red-500 dark:text-red-400">Couldn't load ingestion run history.</p>
         ) : alerting.length === 0 ? (
-          <p className="text-sm text-emerald-400">All sources are healthy.</p>
+          <p className="text-sm text-emerald-700 dark:text-emerald-400">All sources are healthy.</p>
         ) : (
           <ul className="flex flex-wrap gap-2">
             {alerting.map((s) => (
               <li
                 key={s.source}
-                className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-sm text-amber-400"
+                className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-sm text-amber-700 dark:text-amber-400"
               >
                 <AlertTriangle className="size-3.5" />
                 {s.source} — {s.zero_streak} runs with 0 fetched
@@ -278,14 +275,14 @@ export default function Admin() {
             <Loader2 className="size-4 animate-spin" /> Loading runs…
           </div>
         ) : isError ? (
-          <p className="text-sm text-red-400">Couldn't load ingestion run history.</p>
+          <p className="text-sm text-red-500 dark:text-red-400">Couldn't load ingestion run history.</p>
         ) : data && data.runs.length === 0 ? (
           <p className="text-sm text-muted-foreground">No ingestion runs yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse text-left">
               <thead>
-                <tr className="border-b border-white/10 text-xs text-muted-foreground uppercase">
+                <tr className="border-b border-border text-xs text-muted-foreground uppercase">
                   <th className="py-2 pr-4 font-medium">Started</th>
                   <th className="py-2 pr-4 font-medium">Trigger</th>
                   <th className="py-2 pr-4 font-medium">Stored</th>
@@ -314,14 +311,14 @@ export default function Admin() {
             <Loader2 className="size-4 animate-spin" /> Loading runs…
           </div>
         ) : isRetentionError ? (
-          <p className="text-sm text-red-400">Couldn't load retention run history.</p>
+          <p className="text-sm text-red-500 dark:text-red-400">Couldn't load retention run history.</p>
         ) : retentionData && retentionData.runs.length === 0 ? (
           <p className="text-sm text-muted-foreground">No retention runs yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse text-left">
               <thead>
-                <tr className="border-b border-white/10 text-xs text-muted-foreground uppercase">
+                <tr className="border-b border-border text-xs text-muted-foreground uppercase">
                   <th className="py-2 pr-4 font-medium">Started</th>
                   <th className="py-2 pr-4 font-medium">Duration</th>
                   <th className="py-2 pr-4 font-medium">Archived by reason</th>

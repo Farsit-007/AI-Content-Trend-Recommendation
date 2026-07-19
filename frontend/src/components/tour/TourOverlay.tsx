@@ -115,7 +115,7 @@ export function TourOverlay() {
         style={{ top: tooltipTop, left: tooltipLeft, width: TOOLTIP_WIDTH }}
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-violet-300">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-violet-700 dark:text-violet-300">
             <Compass className="size-3.5" />
             Step {stepIndex + 1} of {steps.length}
           </div>
@@ -141,7 +141,7 @@ export function TourOverlay() {
               type="button"
               size="sm"
               onClick={next}
-              className="gap-1 bg-violet-600 hover:bg-violet-500"
+              className="gap-1"
             >
               {stepIndex + 1 === steps.length ? 'Finish' : 'Next'}
               {stepIndex + 1 !== steps.length && <ArrowRight className="size-3.5" />}

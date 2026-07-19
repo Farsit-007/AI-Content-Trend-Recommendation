@@ -17,10 +17,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
-import { useTour } from '@/context/tour-context';
 import { useTeamId } from '@/lib/useTeamId';
 import { getOverviewStats } from '@/lib/api/stats';
-import { PAGE_TOURS } from '@/lib/tours';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -33,9 +31,10 @@ const roleLabel: Record<string, string> = {
 };
 
 const STATUS_CHIP: Record<string, string> = {
-  draft: 'border-amber-400/40 bg-amber-400/10 text-amber-400',
-  approved: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400',
-  dismissed: 'border-white/10 bg-white/5 text-muted-foreground',
+  draft: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-400',
+  approved:
+    'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-400',
+  dismissed: 'border-border bg-muted text-muted-foreground',
 };
 
 function timeAgo(iso: string): string {
@@ -52,7 +51,6 @@ function timeAgo(iso: string): string {
 export default function Overview() {
   const { user } = useAuth();
   const teamId = useTeamId();
-  const { startTour } = useTour();
   const isElevated = user?.role === 'super_admin';
 
   const query = useQuery({
@@ -71,7 +69,7 @@ export default function Overview() {
           </h1>
           <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
             {user?.email}
-            <span className="rounded-full border border-white/10 px-2 py-0.5 text-xs">
+            <span className="rounded-full border border-border px-2 py-0.5 text-xs">
               {roleLabel[user?.role ?? ''] ?? user?.role}
             </span>
           </p>
@@ -79,11 +77,11 @@ export default function Overview() {
         <div className="flex items-center gap-2">
           <Link
             to="/dashboard/guide"
-            className="inline-flex items-center gap-1.5 rounded-md border border-violet-400/30 bg-violet-400/5 px-3 py-1.5 text-sm text-violet-300 transition hover:bg-violet-400/10"
+            className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-sm text-violet-700 transition hover:bg-violet-500/10 dark:border-violet-400/30 dark:bg-violet-400/5 dark:text-violet-300 dark:hover:bg-violet-400/10"
           >
             <Sparkles className="size-3.5" /> How Growth Studio works
           </Link>
-          <PageHelp guideKey="overview" onStartTour={() => startTour(PAGE_TOURS.overview)} />
+          <PageHelp guideKey="overview" />
         </div>
       </div>
 
@@ -97,7 +95,7 @@ export default function Overview() {
 
       {query.isError && (
         <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
-          <AlertTriangle className="size-6 text-red-400" />
+          <AlertTriangle className="size-6 text-red-500 dark:text-red-400" />
           <p className="text-sm text-muted-foreground">Couldn't load your stats. Try refreshing the page.</p>
         </div>
       )}
@@ -121,7 +119,7 @@ export default function Overview() {
           {stats.system.alerting_sources_count > 0 && (
             <Link
               to="/dashboard/admin/pipeline"
-              className="flex items-center justify-between gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300 transition hover:bg-amber-400/15"
+              className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 transition hover:bg-amber-500/15 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300 dark:hover:bg-amber-400/15"
             >
               <span className="flex items-center gap-2">
                 <AlertTriangle className="size-4" />
@@ -167,7 +165,7 @@ export default function Overview() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="glass-card flex items-center gap-3 rounded-xl p-4">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/5 text-muted-foreground">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 <Clock className="size-4.5" />
               </div>
               <div className="min-w-0">
@@ -188,7 +186,7 @@ export default function Overview() {
 
             {user?.role === 'super_admin' && (
               <div className="glass-card flex items-center gap-3 rounded-xl p-4">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/5 text-muted-foreground">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                   <Palette className="size-4.5" />
                 </div>
                 <div className="min-w-0">
@@ -216,7 +214,7 @@ export default function Overview() {
           {stats.team.is_cold_start && (
             <Link
               to="/dashboard/settings/team"
-              className="flex items-center justify-between gap-2 rounded-xl border border-violet-400/30 bg-violet-400/10 px-4 py-3 text-sm text-violet-200 transition hover:bg-violet-400/15"
+              className="flex items-center justify-between gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-3 text-sm text-violet-800 transition hover:bg-violet-500/15 dark:border-violet-400/30 dark:bg-violet-400/10 dark:text-violet-200 dark:hover:bg-violet-400/15"
             >
               <span className="flex items-center gap-2">
                 <Mic className="size-4" />
@@ -267,7 +265,7 @@ export default function Overview() {
               <h3 className="font-medium text-foreground">Recent drafts</h3>
               <Link
                 to="/dashboard/drafts"
-                className="inline-flex items-center gap-1 text-xs font-medium text-violet-300 hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 hover:underline dark:text-violet-300"
               >
                 View all <ArrowRight className="size-3" />
               </Link>
@@ -278,7 +276,7 @@ export default function Overview() {
                 <Inbox className="size-5 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
                   Nothing generated yet.{' '}
-                  <Link to="/dashboard/generate" className="text-violet-300 hover:underline">
+                  <Link to="/dashboard/generate" className="text-violet-700 hover:underline dark:text-violet-300">
                     Generate your first draft
                   </Link>
                   .
@@ -289,7 +287,7 @@ export default function Overview() {
                 {stats.team.recent_drafts.map((draft) => (
                   <li
                     key={draft._id}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-white/10 px-3 py-2"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
                   >
                     <span className="min-w-0 truncate text-sm text-foreground/90">{draft.topic}</span>
                     <div className="flex shrink-0 items-center gap-2">
@@ -340,7 +338,7 @@ export default function Overview() {
       </section>
 
       {query.isFetching && !query.isLoading && (
-        <div className="fixed right-4 bottom-4 flex items-center gap-1.5 rounded-full border border-white/10 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur">
+        <div className="fixed right-4 bottom-4 flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur">
           <Loader2 className="size-3 animate-spin" /> Refreshing…
         </div>
       )}
@@ -362,16 +360,16 @@ function QuickAction({
   return (
     <Link
       to={to}
-      className="glass-card group flex items-center gap-3 rounded-xl p-4 transition hover:border-violet-400/30"
+      className="glass-card group flex items-center gap-3 rounded-xl p-4 transition hover:border-violet-500/40 dark:hover:border-violet-400/30"
     >
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-400/10 text-violet-300">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-700 dark:bg-violet-400/10 dark:text-violet-300">
         <Icon className="size-5" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-medium text-foreground">{title}</p>
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
-      <ArrowRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-violet-300" />
+      <ArrowRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-violet-600 dark:group-hover:text-violet-300" />
     </Link>
   );
 }

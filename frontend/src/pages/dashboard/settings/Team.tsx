@@ -1,11 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/auth-context';
-import { useTour } from '@/context/tour-context';
 import { useTeamId } from '@/lib/useTeamId';
 import { getTeam, getTeamCategories, updateTeam, type TeamVoiceProfile, type UpdateTeamPayload } from '@/lib/api/teams';
 import { listStylePacks } from '@/lib/api/stylePacks';
-import { PAGE_TOURS } from '@/lib/tours';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VoiceProfileSection } from '@/components/team/VoiceProfileSection';
 import { CategorySubscriptionsSection } from '@/components/team/CategorySubscriptionsSection';
@@ -18,7 +16,6 @@ import { PageHelp } from '@/components/dashboard/PageHelp';
 export default function Team() {
   const { user } = useAuth();
   const teamId = useTeamId();
-  const { startTour } = useTour();
   const queryClient = useQueryClient();
 
   const teamQuery = useQuery({
@@ -101,7 +98,7 @@ export default function Team() {
           </h1>
           <p className="text-sm text-muted-foreground">{team.name}</p>
         </div>
-        <PageHelp guideKey="team" onStartTour={() => startTour(PAGE_TOURS.team)} />
+        <PageHelp guideKey="team" />
       </div>
 
       <TeamMembersSection teamId={teamId} members={members} canManageTeam={canManageTeam} />

@@ -57,7 +57,7 @@ export function VoiceProfileSection({ voiceProfile, canManageTeam, isSaving, onS
               <FormItem>
                 <FormLabel>Default language</FormLabel>
                 <FormControl>
-                  <div className="inline-flex w-fit rounded-md border border-white/10 p-0.5">
+                  <div className="inline-flex w-fit rounded-md border border-border p-0.5">
                     {LANGUAGE_OPTIONS.map((option) => (
                       <button
                         key={option.value}
@@ -105,7 +105,7 @@ export function VoiceProfileSection({ voiceProfile, canManageTeam, isSaving, onS
             <Button
               type="submit"
               disabled={isSaving}
-              className="btn-glow w-fit bg-violet-600 hover:bg-violet-500"
+              className="btn-glow w-fit"
             >
               {isSaving ? 'Saving…' : 'Save voice profile'}
             </Button>

@@ -1,9 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
+import { ChevronsUpDown, Search } from 'lucide-react';
 import { FEED_SORT_OPTIONS, NEWS_CATEGORIES } from '@/lib/constants';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const ALL_TAB = 'All';
 
@@ -18,6 +27,7 @@ interface FeedControlsProps {
 export function FeedControls({ category, onCategoryChange, sort, onSortChange, onSearchChange }: FeedControlsProps) {
   const [rawSearch, setRawSearch] = useState('');
   const debouncedSearch = useDebouncedValue(rawSearch, 300);
+  const activeSort = FEED_SORT_OPTIONS.find((option) => option.value === sort);
 
   useEffect(() => {
     onSearchChange(debouncedSearch.trim());
@@ -37,8 +47,8 @@ export function FeedControls({ category, onCategoryChange, sort, onSortChange, o
               className={cn(
                 'rounded-full border px-3 py-1 text-xs font-medium transition',
                 isActive
-                  ? 'border-violet-400/50 bg-violet-400/15 text-violet-200'
-                  : 'border-white/10 text-muted-foreground hover:text-foreground',
+                  ? 'border-violet-500/60 bg-violet-500/15 text-violet-700 dark:border-violet-400/50 dark:bg-violet-400/15 dark:text-violet-200'
+                  : 'border-border text-muted-foreground hover:border-violet-500/40 hover:text-foreground',
               )}
             >
               {tab}
@@ -58,17 +68,24 @@ export function FeedControls({ category, onCategoryChange, sort, onSortChange, o
           />
         </div>
 
-        <select
-          value={sort}
-          onChange={(e) => onSortChange(e.target.value)}
-          className="h-9 rounded-md border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
-        >
-          {FEED_SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value} className="bg-background text-foreground">
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-36 justify-between gap-1.5 font-normal">
+              <span className="truncate">{activeSort?.label ?? 'Sort'}</span>
+              <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-36">
+            <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={sort} onValueChange={onSortChange}>
+              {FEED_SORT_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

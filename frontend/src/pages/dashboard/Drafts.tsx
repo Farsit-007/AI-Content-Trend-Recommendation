@@ -11,8 +11,6 @@ import {
   type GeneratedContentStatus,
 } from '@/lib/api/content';
 import { useTeamId } from '@/lib/useTeamId';
-import { useTour } from '@/context/tour-context';
-import { PAGE_TOURS } from '@/lib/tours';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { PageHelp } from '@/components/dashboard/PageHelp';
@@ -39,9 +37,9 @@ const FORMAT_LABELS: Record<FormatId, string> = {
 };
 
 const STATUS_CHIP: Record<GeneratedContentStatus, string> = {
-  draft: 'border-amber-400/40 bg-amber-400/10 text-amber-400',
-  approved: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400',
-  dismissed: 'border-white/10 bg-white/5 text-muted-foreground',
+  draft: 'border-amber-400/40 bg-amber-400/10 text-amber-700 dark:text-amber-400',
+  approved: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-400',
+  dismissed: 'border-border bg-muted text-muted-foreground',
 };
 
 const previewText = (value: string | { title: string }): string =>
@@ -76,7 +74,7 @@ function DraftRow({ draft }: { draft: GeneratedContentDto }) {
             <span className={cn('rounded-full border px-2 py-0.5 capitalize', STATUS_CHIP[draft.status])}>
               {draft.status}
             </span>
-            <span className="rounded-full border border-white/10 px-2 py-0.5 text-muted-foreground capitalize">
+            <span className="rounded-full border border-border px-2 py-0.5 text-muted-foreground capitalize">
               {draft.source}
             </span>
             <span className="text-muted-foreground">{new Date(draft.created_at).toLocaleDateString()}</span>
@@ -117,9 +115,9 @@ function DraftRow({ draft }: { draft: GeneratedContentDto }) {
       </div>
 
       {expanded && (
-        <div className="flex flex-col gap-2 border-t border-white/10 pt-3">
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
           {formatEntries.map(([format, value]) => (
-            <div key={format} className="flex items-start justify-between gap-2 rounded-lg bg-white/5 p-3">
+            <div key={format} className="flex items-start justify-between gap-2 rounded-lg bg-muted p-3">
               <div className="min-w-0 flex-1">
                 <p className="mb-1 text-xs font-medium text-muted-foreground">{FORMAT_LABELS[format]}</p>
                 <p className="whitespace-pre-wrap break-words text-sm text-foreground/90">{previewText(value)}</p>
@@ -137,7 +135,6 @@ function DraftRow({ draft }: { draft: GeneratedContentDto }) {
 
 export default function Drafts() {
   const teamId = useTeamId();
-  const { startTour } = useTour();
   const [status, setStatus] = useState<GeneratedContentStatus | 'all'>('all');
   const [source, setSource] = useState<GeneratedContentSource | 'all'>('all');
 
@@ -167,7 +164,7 @@ export default function Drafts() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Drafts</h1>
-        <PageHelp guideKey="drafts" onStartTour={() => startTour(PAGE_TOURS.drafts)} />
+        <PageHelp guideKey="drafts" />
       </div>
 
       <div data-tour="drafts-filters" className="glass-card flex flex-wrap items-center gap-4 rounded-xl p-3">
@@ -180,8 +177,8 @@ export default function Drafts() {
               className={cn(
                 'rounded-full border px-3 py-1 text-xs font-medium transition',
                 status === option.value
-                  ? 'border-violet-400/50 bg-violet-400/15 text-violet-200'
-                  : 'border-white/10 text-muted-foreground hover:text-foreground',
+                  ? 'border-violet-400/50 bg-violet-400/15 text-violet-800 dark:text-violet-200'
+                  : 'border-border text-muted-foreground hover:text-foreground',
               )}
             >
               {option.label}
@@ -206,7 +203,7 @@ export default function Drafts() {
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : query.isError ? (
           <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
-            <AlertTriangle className="size-6 text-red-400" />
+            <AlertTriangle className="size-6 text-red-500 dark:text-red-400" />
             <p className="text-sm text-muted-foreground">Couldn't load drafts.</p>
           </div>
         ) : drafts.length === 0 ? (

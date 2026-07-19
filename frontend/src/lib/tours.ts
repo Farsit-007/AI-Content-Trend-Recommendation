@@ -22,6 +22,10 @@ const NAV_DESCRIPTIONS: Record<string, string> = {
 
 const slug = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
+/** Completion-tracking id for the whole-system sidebar tour (the navbar's "Take a tour").
+ *  Page tours use their `PAGE_TOURS` key as their id. */
+export const SIDEBAR_TOUR_ID = 'sidebar';
+
 /** Builds the "whole system" tour from the current role's actual sidebar items, so a member,
  *  an admin, and a super admin each get a tour that matches what they can really see. */
 export function buildSidebarTour(items: TSidebarItem[]): TourStep[] {

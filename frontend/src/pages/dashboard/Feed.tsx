@@ -5,27 +5,29 @@ import { AlertTriangle, ArrowRight, Inbox, Loader2, SearchX, Settings2 } from 'l
 import { getNewsItems } from '@/lib/api/news';
 import { DEFAULT_FEED_SORT } from '@/lib/constants';
 import { useTeamId } from '@/lib/useTeamId';
-import { useTour } from '@/context/tour-context';
-import { PAGE_TOURS } from '@/lib/tours';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FeedControls } from '@/components/feed/FeedControls';
 import { NewsCard } from '@/components/feed/NewsCard';
-import { NewsItemDrawer } from '@/components/feed/NewsItemDrawer';
+import { NewsItemDialog } from '@/components/feed/NewsItemDialog';
 import { PageHelp } from '@/components/dashboard/PageHelp';
 
 const PAGE_SIZE = 15;
 
 function SkeletonGrid() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="glass-card flex flex-col gap-3 rounded-xl p-4">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-5 w-full" />
-          <Skeleton className="h-5 w-3/4" />
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-3 w-full" />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="glass-card flex flex-col rounded-2xl p-0">
+          <Skeleton className="mx-4 mt-4 size-8 rounded-full" />
+          <Skeleton className="mx-4 mt-2 h-4 w-11/12" />
+          <Skeleton className="mx-4 mt-1.5 h-4 w-3/5" />
+          <Skeleton className="mx-4 mt-2 h-3 w-16" />
+          <Skeleton className="mx-4 mt-1 h-3 w-28" />
+          <Skeleton className="mx-1 mt-3 aspect-video rounded-xl" />
+          <div className="mx-4 flex h-11 items-center">
+            <Skeleton className="h-3 w-24" />
+          </div>
         </div>
       ))}
     </div>
@@ -34,7 +36,6 @@ function SkeletonGrid() {
 
 export default function Feed() {
   const teamId = useTeamId();
-  const { startTour } = useTour();
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [sort, setSort] = useState(DEFAULT_FEED_SORT);
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,7 +74,7 @@ export default function Feed() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Feed</h1>
-        <PageHelp guideKey="feed" onStartTour={() => startTour(PAGE_TOURS.feed)} />
+        <PageHelp guideKey="feed" />
       </div>
 
       <div data-tour="feed-controls">
@@ -90,7 +91,7 @@ export default function Feed() {
         <SkeletonGrid />
       ) : query.isError ? (
         <div className="glass-card flex flex-col items-center gap-3 rounded-xl p-8 text-center">
-          <AlertTriangle className="size-6 text-red-400" />
+          <AlertTriangle className="size-6 text-red-500 dark:text-red-400" />
           <p className="text-sm text-muted-foreground">Couldn't load the feed.</p>
           <Button variant="outline" size="sm" onClick={() => query.refetch()}>
             Retry
@@ -98,13 +99,13 @@ export default function Feed() {
         </div>
       ) : teamNotReady ? (
         <div className="glass-card flex flex-col items-center gap-3 rounded-xl p-8 text-center">
-          <Settings2 className="size-6 text-violet-300" />
+          <Settings2 className="size-6 text-violet-700 dark:text-violet-300" />
           <p className="font-medium text-foreground">Complete your team setup</p>
           <p className="max-w-md text-sm text-muted-foreground">
             Subscribe to at least one category and add a brand-voice example in Team Settings so your feed can be
             curated to what your team actually cares about.
           </p>
-          <Button asChild size="sm" className="btn-glow gap-1.5 bg-violet-600 hover:bg-violet-500">
+          <Button asChild size="sm" className="btn-glow gap-1.5">
             <Link to="/dashboard/settings/team">
               Go to Team Settings <ArrowRight className="size-4" />
             </Link>
@@ -136,7 +137,7 @@ export default function Feed() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((item, i) => (
               <NewsCard
                 key={item._id}
@@ -163,7 +164,7 @@ export default function Feed() {
         </>
       )}
 
-      <NewsItemDrawer newsItemId={selectedItemId} onOpenChange={(open) => !open && setSelectedItemId(null)} />
+      <NewsItemDialog newsItemId={selectedItemId} onOpenChange={(open) => !open && setSelectedItemId(null)} />
     </div>
   );
 }

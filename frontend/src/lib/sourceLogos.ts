@@ -15,3 +15,21 @@ export const SOURCE_LOGOS: Record<string, string> = {
 };
 
 export const sourceLogoFor = (source: string): string | undefined => SOURCE_LOGOS[source];
+
+const LOGO_URLS = new Set(Object.values(SOURCE_LOGOS));
+
+/**
+ * True when a `thumbnail_url` is really just a source mark rather than a photo.
+ *
+ * Because metaEnrichment backfills `thumbnail_url` with the source logo above when a real image
+ * can't be found, plenty of items arrive carrying a 16x16 favicon in the field the UI otherwise
+ * treats as cover art. Stretching one of those `object-cover` across a card-width canvas produces
+ * a blurry smear, so callers use this to render it as a centered badge instead.
+ *
+ * This only catches logos we can recognise from the URL — a small image from an unknown host still
+ * needs the intrinsic-size check at render time.
+ */
+export const isSourceLogoUrl = (url?: string): boolean => {
+  if (!url) return false;
+  return LOGO_URLS.has(url) || /\/favicon\.\w+(\?|$)/i.test(url);
+};

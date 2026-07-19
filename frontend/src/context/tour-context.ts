@@ -10,12 +10,16 @@ export interface TourStep {
 export interface TourContextValue {
   steps: TourStep[] | null;
   stepIndex: number;
-  startTour: (steps: TourStep[]) => void;
+  /** `tourId` opts the tour into completion tracking — once it ends, `isTourCompleted(tourId)`
+   *  reports true and its entry points stop advertising themselves. */
+  startTour: (steps: TourStep[], tourId?: string) => void;
   stopTour: () => void;
   next: () => void;
   prev: () => void;
   hasSeenWelcome: boolean;
   markWelcomeSeen: () => void;
+  /** True once the user has run this tour to the end or dismissed it. Persisted per user. */
+  isTourCompleted: (tourId: string) => boolean;
 }
 
 export const TourContext = createContext<TourContextValue | undefined>(undefined);

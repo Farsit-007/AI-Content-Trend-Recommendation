@@ -117,6 +117,25 @@
      */
     scrollbar-gutter: stable;
   }
+
+  /*
+   * Radix modals (Dialog/Sheet) lock scrolling via react-remove-scroll, which measures
+   * `window.innerWidth - documentElement.clientWidth` and adds that much `margin-right` to <body>
+   * to compensate for the scrollbar it is about to remove.
+   *
+   * That measurement still reports a non-zero gap under `scrollbar-gutter: stable` above — but the
+   * gutter is reserved permanently and never collapses, so the compensation is pure surplus: every
+   * modal open shifted the page ~15px and snapped back on close.
+   *
+   * `html body[...]` outranks the library's own `body[...] { ... !important }` rule on specificity,
+   * so it wins regardless of stylesheet order (theirs is injected into <head> at runtime).
+   * The scroll lock itself (overflow: hidden) is left untouched.
+   */
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+  }
+
   body {
     margin: 0;
     min-height: 100svh;

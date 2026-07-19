@@ -72,7 +72,7 @@ export function CategorySubscriptionsSection({
           <label
             key={category}
             className={cn(
-              'flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-sm',
+              'flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm',
               !canManageTeam && 'opacity-60',
             )}
           >

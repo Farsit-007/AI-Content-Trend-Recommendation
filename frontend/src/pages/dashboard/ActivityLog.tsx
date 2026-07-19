@@ -41,7 +41,7 @@ function ActivityRow({ entry }: { entry: ActivityLogEntryDto }) {
   return (
     <div className="glass-card flex items-start gap-3 rounded-xl p-4">
       <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-violet-400/30 bg-violet-400/10">
-        <Icon className="size-4 text-violet-300" />
+        <Icon className="size-4 text-violet-700 dark:text-violet-300" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm text-foreground">{entry.summary}</p>
@@ -93,8 +93,8 @@ export default function ActivityLog() {
             className={cn(
               'rounded-full border px-3 py-1 text-xs font-medium transition',
               category === option.value
-                ? 'border-violet-400/50 bg-violet-400/15 text-violet-200'
-                : 'border-white/10 text-muted-foreground hover:text-foreground',
+                ? 'border-violet-400/50 bg-violet-400/15 text-violet-800 dark:text-violet-200'
+                : 'border-border text-muted-foreground hover:text-foreground',
             )}
           >
             {option.label}
@@ -106,7 +106,7 @@ export default function ActivityLog() {
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : query.isError ? (
         <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
-          <AlertTriangle className="size-6 text-red-400" />
+          <AlertTriangle className="size-6 text-red-500 dark:text-red-400" />
           <p className="text-sm text-muted-foreground">Couldn't load the activity log.</p>
         </div>
       ) : entries.length === 0 ? (

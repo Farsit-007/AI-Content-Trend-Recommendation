@@ -13,8 +13,8 @@ const VARIANT_FILL: Record<ScoreMeterProps['variant'], string> = {
 };
 
 const VARIANT_TEXT: Record<ScoreMeterProps['variant'], string> = {
-  amber: 'text-amber-400',
-  emerald: 'text-emerald-400',
+  amber: 'text-amber-600 dark:text-amber-400',
+  emerald: 'text-emerald-600 dark:text-emerald-400',
 };
 
 /** A tiny inline 0-10 meter — track + colored fill + numeric value. No chart library needed. */
@@ -25,7 +25,7 @@ export function ScoreMeter({ label, value, variant }: ScoreMeterProps) {
   return (
     <div className="flex items-center gap-2 text-xs">
       <span className="text-muted-foreground w-16 shrink-0">{label}</span>
-      <div className="h-1.5 w-full min-w-0 overflow-hidden rounded-full bg-white/10">
+      <div className="h-1.5 w-full min-w-0 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
         <div
           className={cn('h-full rounded-full', VARIANT_FILL[variant])}
           style={{ width: `${percent}%` }}

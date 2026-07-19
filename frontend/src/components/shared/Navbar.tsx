@@ -6,7 +6,7 @@ import { useTeamContext } from "@/context/team-context";
 import { useTour } from "@/context/tour-context";
 import { getDashboardPaths } from "@/routes";
 import { sidebarItemsGenerator } from "@/utils/sidebarItemsGenerator";
-import { buildSidebarTour } from "@/lib/tours";
+import { buildSidebarTour, SIDEBAR_TOUR_ID } from "@/lib/tours";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ActiveTasksIndicator } from "./ActiveTasksIndicator";
@@ -37,7 +37,7 @@ function TeamSwitcher() {
       <DropdownMenuPrimitive.Portal>
         <DropdownMenuPrimitive.Content
           align="start"
-          className="z-50 min-w-48 rounded-md border border-white/10 bg-popover p-1 text-popover-foreground shadow-md"
+          className="z-50 min-w-48 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
         >
           {teams.map((team) => (
             <DropdownMenuPrimitive.Item
@@ -46,7 +46,7 @@ function TeamSwitcher() {
               className="flex cursor-pointer items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
             >
               <span className="truncate">{team.name}</span>
-              {team._id === teamId && <Check className="size-3.5 shrink-0 text-violet-400" />}
+              {team._id === teamId && <Check className="size-3.5 shrink-0 text-violet-600 dark:text-violet-400" />}
             </DropdownMenuPrimitive.Item>
           ))}
         </DropdownMenuPrimitive.Content>
@@ -59,11 +59,14 @@ function TeamSwitcher() {
  *  `SidebarTrigger` collapses it on desktop and opens it on mobile. */
 export function Navbar() {
   const { user } = useAuth();
-  const { startTour } = useTour();
+  const { startTour, isTourCompleted } = useTour();
+  // Once the whole-system tour has been run or dismissed, this stops occupying prime topbar real
+  // estate. It remains reachable from the Guide page and from each page's help dialog.
+  const showTakeTour = !isTourCompleted(SIDEBAR_TOUR_ID);
 
   const handleTakeTour = () => {
     const items = sidebarItemsGenerator(getDashboardPaths(user?.role));
-    startTour(buildSidebarTour(items));
+    startTour(buildSidebarTour(items), SIDEBAR_TOUR_ID);
   };
 
   return (
@@ -76,10 +79,12 @@ export function Navbar() {
 
         <div className="flex items-center gap-3">
           <ActiveTasksIndicator />
-          <Button variant="outline" size="sm" onClick={handleTakeTour} className="gap-1.5">
-            <Compass className="size-4" />
-            <span className="hidden sm:inline">Take a tour</span>
-          </Button>
+          {showTakeTour && (
+            <Button variant="outline" size="sm" onClick={handleTakeTour} className="gap-1.5">
+              <Compass className="size-4" />
+              <span className="hidden sm:inline">Take a tour</span>
+            </Button>
+          )}
           {user && (
             <div className="hidden text-right leading-tight sm:block">
               <div className="text-sm font-medium">{user.name}</div>

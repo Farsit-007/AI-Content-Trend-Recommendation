@@ -10,8 +10,6 @@ import {
   type NewsItemDto,
 } from '@/lib/api/news';
 import { NEWS_CATEGORIES } from '@/lib/constants';
-import { useTour } from '@/context/tour-context';
-import { PAGE_TOURS } from '@/lib/tours';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,8 +63,8 @@ function EditRow({ item }: { item: NewsItemDto }) {
         >
           <p className="truncate font-medium text-foreground">{item.title}</p>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="rounded-full border border-white/10 px-2 py-0.5">{item.source}</span>
-            {item.category && <span className="rounded-full border border-violet-400/30 px-2 py-0.5 text-violet-300">{item.category}</span>}
+            <span className="rounded-full border border-border px-2 py-0.5">{item.source}</span>
+            {item.category && <span className="rounded-full border border-violet-400/30 px-2 py-0.5 text-violet-700 dark:text-violet-300">{item.category}</span>}
             <span>trend {item.trend_score?.toFixed(1)}</span>
             {typeof item.opportunity_score === 'number' && <span>opportunity {item.opportunity_score.toFixed(1)}</span>}
           </div>
@@ -90,7 +88,7 @@ function EditRow({ item }: { item: NewsItemDto }) {
       </div>
 
       {expanded && (
-        <div className="flex flex-col gap-3 border-t border-white/10 p-4">
+        <div className="flex flex-col gap-3 border-t border-border p-4">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
           <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="URL" />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -142,7 +140,6 @@ function EditRow({ item }: { item: NewsItemDto }) {
 
 export default function AdminCatalog() {
   const queryClient = useQueryClient();
-  const { startTour } = useTour();
   const [search, setSearch] = useState('');
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
@@ -197,12 +194,12 @@ export default function AdminCatalog() {
             changes here are global, not per-team (that's what an override on the Feed does instead).
           </p>
         </div>
-        <PageHelp guideKey="catalog" onStartTour={() => startTour(PAGE_TOURS.catalog)} />
+        <PageHelp guideKey="catalog" />
       </div>
 
       <section data-tour="catalog-create" className="glass-card flex flex-col gap-4 rounded-xl p-5">
         <div className="flex items-center gap-2">
-          <Plus className="size-4 text-violet-300" />
+          <Plus className="size-4 text-violet-700 dark:text-violet-300" />
           <h2 className="font-semibold">Backfill a story</h2>
         </div>
         <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
@@ -232,7 +229,7 @@ export default function AdminCatalog() {
           type="button"
           onClick={handleCreate}
           disabled={createMutation.isPending}
-          className="btn-glow w-fit gap-2 bg-violet-600 hover:bg-violet-500"
+          className="btn-glow w-fit gap-2"
         >
           {createMutation.isPending && <Loader2 className="size-4 animate-spin" />}
           Add to catalog
@@ -242,7 +239,7 @@ export default function AdminCatalog() {
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Database className="size-4 text-violet-300" />
+            <Database className="size-4 text-violet-700 dark:text-violet-300" />
             <h2 className="font-semibold">Recent items</h2>
           </div>
           <Input

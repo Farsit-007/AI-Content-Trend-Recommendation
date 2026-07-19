@@ -61,7 +61,7 @@ export function CustomCategoriesSection({ teamId, customCategories }: CustomCate
         {customCategories.map((category) => (
           <span
             key={category}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs"
           >
             {category}
             <button

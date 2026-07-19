@@ -17,8 +17,6 @@ import { listStylePacks } from '@/lib/api/stylePacks';
 import { listActiveLlmModels } from '@/lib/api/llmProviders';
 import { getTeam } from '@/lib/api/teams';
 import { useTeamId } from '@/lib/useTeamId';
-import { useTour } from '@/context/tour-context';
-import { PAGE_TOURS } from '@/lib/tours';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GenerateControls } from '@/components/generate/GenerateControls';
@@ -40,7 +38,6 @@ export default function Generate() {
   const location = useLocation();
   const navigate = useNavigate();
   const teamId = useTeamId();
-  const { startTour } = useTour();
   const state = (location.state ?? {}) as LocationState;
   const newsItemId = state.newsItemId;
 
@@ -212,7 +209,7 @@ export default function Generate() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Generate</h1>
-        <PageHelp guideKey="generate" onStartTour={() => startTour(PAGE_TOURS.generate)} />
+        <PageHelp guideKey="generate" />
       </div>
 
       <div data-tour="generate-controls">

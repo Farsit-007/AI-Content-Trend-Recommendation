@@ -1,5 +1,5 @@
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { LogOut, Sparkles } from 'lucide-react';
+import { Home, LogOut, Sparkles } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { getDashboardPaths } from '@/routes';
 import { sidebarItemsGenerator } from '@/utils/sidebarItemsGenerator';
@@ -102,6 +102,16 @@ export function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
+          {/* Grouped with Log out: both leave the dashboard, and unlike the header's brand link
+              (which goes to /dashboard) this exits to the public landing page. */}
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Return home">
+              <Link to="/" onClick={() => setOpenMobile(false)}>
+                <Home />
+                <span>Return home</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={() => void logout()} tooltip="Log out">
               <LogOut />

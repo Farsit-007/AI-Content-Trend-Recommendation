@@ -80,7 +80,7 @@ export function BrandVoiceSection({ teamId, canManageTeam, categories }: BrandVo
       </div>
 
       {canManageTeam && (
-        <div className="flex flex-col gap-2 rounded-lg border border-white/10 p-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
           <ExpandableTextarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -125,7 +125,7 @@ export function BrandVoiceSection({ teamId, canManageTeam, categories }: BrandVo
             type="button"
             onClick={handleAdd}
             disabled={!content.trim() || createMutation.isPending}
-            className="btn-glow w-fit bg-violet-600 hover:bg-violet-500"
+            className="btn-glow w-fit"
           >
             {createMutation.isPending ? 'Adding…' : 'Add example'}
           </Button>
@@ -145,14 +145,14 @@ export function BrandVoiceSection({ teamId, canManageTeam, categories }: BrandVo
           {examples.map((example) => (
             <li
               key={example._id}
-              className="flex items-start justify-between gap-3 rounded-lg border border-white/10 p-3"
+              className="flex items-start justify-between gap-3 rounded-lg border border-border p-3"
             >
               <div className="flex flex-col gap-1">
                 <p className="line-clamp-2 text-sm">{example.content}</p>
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span className="rounded-full border border-white/10 px-2 py-0.5">{example.platform}</span>
+                  <span className="rounded-full border border-border px-2 py-0.5">{example.platform}</span>
                   {example.category && (
-                    <span className="rounded-full border border-white/10 px-2 py-0.5">{example.category}</span>
+                    <span className="rounded-full border border-border px-2 py-0.5">{example.category}</span>
                   )}
                 </div>
               </div>

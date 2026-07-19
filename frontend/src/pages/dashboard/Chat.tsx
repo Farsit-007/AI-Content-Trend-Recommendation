@@ -7,8 +7,6 @@ import { askChat, getConversationMessages, listConversations } from '@/lib/api/c
 import { getTeam } from '@/lib/api/teams';
 import type { LanguageStyle } from '@/lib/api/content';
 import { useTeamId } from '@/lib/useTeamId';
-import { useTour } from '@/context/tour-context';
-import { PAGE_TOURS } from '@/lib/tours';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +30,6 @@ interface ChatTurn {
 
 export default function Chat() {
   const teamId = useTeamId();
-  const { startTour } = useTour();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
@@ -131,7 +128,7 @@ export default function Chat() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="inline-flex w-fit rounded-md border border-white/10 p-0.5">
+          <div className="inline-flex w-fit rounded-md border border-border p-0.5">
             {LANGUAGE_OPTIONS.map((option) => (
               <button
                 key={option.value}
@@ -156,7 +153,7 @@ export default function Chat() {
             <DropdownMenuPrimitive.Portal>
               <DropdownMenuPrimitive.Content
                 align="end"
-                className="z-50 max-h-80 min-w-64 overflow-y-auto rounded-md border border-white/10 bg-popover p-1 text-popover-foreground shadow-md"
+                className="z-50 max-h-80 min-w-64 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
               >
                 {(conversationsQuery.data ?? []).length === 0 ? (
                   <p className="px-2 py-1.5 text-xs text-muted-foreground">No past conversations yet.</p>
@@ -167,7 +164,7 @@ export default function Chat() {
                       onSelect={() => void loadConversation(conv.conversation_id)}
                       className={cn(
                         'flex cursor-pointer flex-col gap-0.5 rounded-sm px-2 py-1.5 text-xs outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground',
-                        conv.conversation_id === conversationId && 'bg-white/5',
+                        conv.conversation_id === conversationId && 'bg-muted',
                       )}
                     >
                       <span className="truncate text-foreground">{conv.last_message_preview}</span>
@@ -185,7 +182,7 @@ export default function Chat() {
             <Plus className="size-3.5" />
             <span className="hidden sm:inline">New chat</span>
           </Button>
-          <PageHelp guideKey="chat" onStartTour={() => startTour(PAGE_TOURS.chat)} />
+          <PageHelp guideKey="chat" />
         </div>
       </div>
 
@@ -193,7 +190,7 @@ export default function Chat() {
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
             <div className="flex size-12 items-center justify-center rounded-full bg-violet-400/10">
-              <MessageSquare className="size-6 text-violet-300" />
+              <MessageSquare className="size-6 text-violet-700 dark:text-violet-300" />
             </div>
             <div>
               <p className="font-medium text-foreground">Ask anything about your feed</p>
@@ -207,7 +204,7 @@ export default function Chat() {
                   key={prompt}
                   type="button"
                   onClick={() => send(prompt)}
-                  className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-violet-400/40 hover:text-foreground"
+                  className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-violet-400/40 hover:text-foreground"
                 >
                   {prompt}
                 </button>
@@ -226,7 +223,7 @@ export default function Chat() {
                     'max-w-[85%] rounded-xl px-4 py-2.5 text-sm whitespace-pre-wrap',
                     turn.role === 'user'
                       ? 'bg-violet-600 text-white'
-                      : 'border border-white/10 bg-white/5 text-foreground/90',
+                      : 'border border-border bg-muted text-foreground/90',
                   )}
                 >
                   {turn.content}
@@ -235,7 +232,7 @@ export default function Chat() {
             ))}
             {chatMutation.isPending && (
               <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin" /> Thinking…
                 </div>
               </div>
@@ -258,7 +255,7 @@ export default function Chat() {
           placeholder="Ask about trends, categories, or a specific story…"
           className="flex-1"
         />
-        <Button type="submit" disabled={!input.trim() || chatMutation.isPending} className="btn-glow gap-2 bg-violet-600 hover:bg-violet-500">
+        <Button type="submit" disabled={!input.trim() || chatMutation.isPending} className="btn-glow gap-2">
           {chatMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
           <span className="hidden sm:inline">Send</span>
         </Button>

@@ -56,7 +56,7 @@ const TASK_LABELS: Record<LlmTask, string> = {
 function badgeClass(active: boolean) {
   return cn(
     'rounded-full border px-2 py-0.5 text-xs',
-    active ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400' : 'border-white/10 bg-white/5 text-muted-foreground',
+    active ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-400' : 'border-border bg-muted text-muted-foreground',
   );
 }
 
@@ -109,13 +109,13 @@ function ProviderKeys({ provider }: { provider: LlmProviderDto }) {
       {provider.keys.length > 0 && (
         <ul className="flex flex-col gap-1.5">
           {provider.keys.map((k) => (
-            <li key={k._id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 p-2.5">
+            <li key={k._id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-2.5">
               <div className="flex flex-col">
                 <span className="font-mono text-sm text-foreground/90">
                   ••••{k.key_last4} {k.label && <span className="text-muted-foreground">({k.label})</span>}
                 </span>
                 {revealed[k._id] && (
-                  <span className="mt-0.5 select-all break-all font-mono text-xs text-amber-300">{revealed[k._id]}</span>
+                  <span className="mt-0.5 select-all break-all font-mono text-xs text-amber-800 dark:text-amber-300">{revealed[k._id]}</span>
                 )}
               </div>
               <div className="flex items-center gap-1">
@@ -231,7 +231,7 @@ function ProviderModels({ providerId }: { providerId: string }) {
   };
 
   return (
-    <div className="flex flex-col gap-2 border-t border-white/10 pt-3">
+    <div className="flex flex-col gap-2 border-t border-border pt-3">
       <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <Sliders className="size-3.5" /> Model catalog — the literal model id string sent to this provider's API
       </p>
@@ -242,7 +242,7 @@ function ProviderModels({ providerId }: { providerId: string }) {
       ) : models.length > 0 ? (
         <ul className="flex flex-col gap-1.5">
           {models.map((m) => (
-            <li key={m._id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 p-2.5">
+            <li key={m._id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-2.5">
               <div className="flex flex-col">
                 <span className="text-sm text-foreground/90">{m.display_name}</span>
                 <span className="font-mono text-xs text-muted-foreground">
@@ -293,8 +293,8 @@ function ProviderModels({ providerId }: { providerId: string }) {
               className={cn(
                 'rounded-full border px-2.5 py-1 text-xs font-medium transition',
                 capabilities.includes(opt.value)
-                  ? 'border-violet-400/50 bg-violet-400/15 text-violet-200'
-                  : 'border-white/10 text-muted-foreground hover:text-foreground',
+                  ? 'border-violet-400/50 bg-violet-400/15 text-violet-800 dark:text-violet-200'
+                  : 'border-border text-muted-foreground hover:text-foreground',
               )}
             >
               {opt.label}
@@ -377,7 +377,7 @@ function ProviderRow({ provider }: { provider: LlmProviderDto }) {
       </div>
 
       {expanded && (
-        <div className="flex flex-col gap-4 border-t border-white/10 p-4">
+        <div className="flex flex-col gap-4 border-t border-border p-4">
           <Button
             type="button"
             variant="outline"
@@ -434,7 +434,7 @@ function TaskDefaults() {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <Sliders className="size-4 text-violet-300" />
+        <Sliders className="size-4 text-violet-700 dark:text-violet-300" />
         <h2 className="font-semibold">Global task defaults</h2>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -468,7 +468,7 @@ function TaskDefaults() {
                   <span className="text-xs text-muted-foreground">
                     {task}
                     {isDangling && (
-                      <span className="ml-1.5 text-amber-400">
+                      <span className="ml-1.5 text-amber-700 dark:text-amber-400">
                         — the model this pointed at was deleted; resolution falls back to the next tier
                       </span>
                     )}
@@ -539,7 +539,7 @@ export default function AIProviders() {
 
       <section className="glass-card flex flex-col gap-4 rounded-xl p-5">
         <div className="flex items-center gap-2">
-          <Plus className="size-4 text-violet-300" />
+          <Plus className="size-4 text-violet-700 dark:text-violet-300" />
           <h2 className="font-semibold">Add a provider</h2>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -564,7 +564,7 @@ export default function AIProviders() {
             type="button"
             onClick={() => createMutation.mutate()}
             disabled={!name.trim() || createMutation.isPending}
-            className="btn-glow gap-2 bg-violet-600 hover:bg-violet-500"
+            className="btn-glow gap-2"
           >
             {createMutation.isPending && <Loader2 className="size-4 animate-spin" />}
             Add provider
@@ -574,7 +574,7 @@ export default function AIProviders() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <Server className="size-4 text-violet-300" />
+          <Server className="size-4 text-violet-700 dark:text-violet-300" />
           <h2 className="font-semibold">All providers</h2>
         </div>
         {providersQuery.isLoading ? (

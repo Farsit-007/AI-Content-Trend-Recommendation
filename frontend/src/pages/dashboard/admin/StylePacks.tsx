@@ -17,8 +17,6 @@ import {
   type StylePackDto,
 } from '@/lib/api/stylePacks';
 import type { LanguageStyle } from '@/lib/api/content';
-import { useTour } from '@/context/tour-context';
-import { PAGE_TOURS } from '@/lib/tours';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ExpandableTextarea } from '@/components/ui/expandable-textarea';
@@ -127,7 +125,7 @@ function PackExamples({ packId }: { packId: string }) {
   const exampleCount = examplesQuery.data?.meta?.total ?? examples.length;
 
   return (
-    <div className="flex flex-col gap-2 border-t border-white/10 pt-3">
+    <div className="flex flex-col gap-2 border-t border-border pt-3">
       <p className="text-xs font-medium text-muted-foreground">
         Examples ({examplesQuery.isLoading ? '…' : exampleCount}) — teaches this style with real posts, same
         few-shot mechanism as team brand-voice examples, shared platform-wide.
@@ -152,7 +150,7 @@ function PackExamples({ packId }: { packId: string }) {
         </Button>
       </div>
 
-      <details className="rounded-md border border-white/10 p-2.5">
+      <details className="rounded-md border border-border p-2.5">
         <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Upload className="size-3.5" /> Bulk import (paste a JSON array, up to 100 items)
         </summary>
@@ -183,7 +181,7 @@ function PackExamples({ packId }: { packId: string }) {
       {examples.length > 0 && (
         <ul className="flex flex-col gap-1.5">
           {examples.map((ex) => (
-            <li key={ex._id} className="flex items-start justify-between gap-2 rounded-lg border border-white/10 p-2.5">
+            <li key={ex._id} className="flex items-start justify-between gap-2 rounded-lg border border-border p-2.5">
               <p className="line-clamp-2 text-sm text-foreground/90">{ex.content}</p>
               <Button
                 type="button"
@@ -229,13 +227,13 @@ function StyleCardPanel({ pack }: { pack: StylePackDto }) {
   const neverGenerated = !pack.style_card;
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-white/10 p-3">
+    <div className="flex flex-col gap-2 rounded-md border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Sparkles className="size-3.5 text-violet-300" />
+          <Sparkles className="size-3.5 text-violet-700 dark:text-violet-300" />
           <p className="text-xs font-medium text-muted-foreground">Style card</p>
           {(isStale || neverGenerated) && (
-            <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-400">
+            <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400">
               {neverGenerated ? 'Never generated' : 'Stale'}
             </span>
           )}
@@ -305,8 +303,8 @@ function PackRow({ pack }: { pack: StylePackDto }) {
               className={cn(
                 'rounded-full border px-2 py-0.5 text-xs',
                 pack.is_active
-                  ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400'
-                  : 'border-white/10 bg-white/5 text-muted-foreground',
+                  ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-400'
+                  : 'border-border bg-muted text-muted-foreground',
               )}
             >
               {pack.is_active ? 'Active' : 'Retired'}
@@ -337,7 +335,7 @@ function PackRow({ pack }: { pack: StylePackDto }) {
       </div>
 
       {expanded && (
-        <div className="flex flex-col gap-3 border-t border-white/10 p-4">
+        <div className="flex flex-col gap-3 border-t border-border p-4">
           {pack.description && <p className="text-sm text-muted-foreground">{pack.description}</p>}
           <Button
             type="button"
@@ -359,7 +357,6 @@ function PackRow({ pack }: { pack: StylePackDto }) {
 
 export default function StylePacks() {
   const queryClient = useQueryClient();
-  const { startTour } = useTour();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
@@ -419,12 +416,12 @@ export default function StylePacks() {
             brand-voice examples. Super-admin exclusive.
           </p>
         </div>
-        <PageHelp guideKey="stylePacks" onStartTour={() => startTour(PAGE_TOURS.stylePacks)} />
+        <PageHelp guideKey="stylePacks" />
       </div>
 
       <section data-tour="style-packs-create" className="glass-card flex flex-col gap-4 rounded-xl p-5">
         <div className="flex items-center gap-2">
-          <Plus className="size-4 text-violet-300" />
+          <Plus className="size-4 text-violet-700 dark:text-violet-300" />
           <h2 className="font-semibold">Create a style pack</h2>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -468,7 +465,7 @@ export default function StylePacks() {
           type="button"
           onClick={handleCreate}
           disabled={createMutation.isPending}
-          className="btn-glow w-fit gap-2 bg-violet-600 hover:bg-violet-500"
+          className="btn-glow w-fit gap-2"
         >
           {createMutation.isPending && <Loader2 className="size-4 animate-spin" />}
           Create style pack
@@ -477,7 +474,7 @@ export default function StylePacks() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <Palette className="size-4 text-violet-300" />
+          <Palette className="size-4 text-violet-700 dark:text-violet-300" />
           <h2 className="font-semibold">All packs, including retired</h2>
         </div>
         {packsQuery.isLoading ? (

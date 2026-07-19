@@ -5,8 +5,6 @@ import { Loader2, UserPlus, Users as UsersIcon } from 'lucide-react';
 import { createUser, listUsers, type UserDto } from '@/lib/api/users';
 import { listTeams } from '@/lib/api/teams';
 import { useAuth } from '@/context/auth-context';
-import { useTour } from '@/context/tour-context';
-import { PAGE_TOURS } from '@/lib/tours';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +13,8 @@ import { PageHelp } from '@/components/dashboard/PageHelp';
 type RoleOption = 'user' | 'super_admin';
 
 const ROLE_CHIP: Record<string, string> = {
-  super_admin: 'border-amber-400/40 bg-amber-400/10 text-amber-400',
-  user: 'border-white/10 bg-white/5 text-muted-foreground',
+  super_admin: 'border-amber-400/40 bg-amber-400/10 text-amber-700 dark:text-amber-400',
+  user: 'border-border bg-muted text-muted-foreground',
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -26,7 +24,6 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default function AdminUsers() {
   const { user } = useAuth();
-  const { startTour } = useTour();
   const isSuperAdmin = user?.role === 'super_admin';
   const queryClient = useQueryClient();
 
@@ -91,12 +88,12 @@ export default function AdminUsers() {
             There's no self-registration in Growth Studio — every account is created deliberately, here.
           </p>
         </div>
-        <PageHelp guideKey="users" onStartTour={() => startTour(PAGE_TOURS.users)} />
+        <PageHelp guideKey="users" />
       </div>
 
       <section data-tour="users-create" className="glass-card flex flex-col gap-4 rounded-xl p-5">
         <div className="flex items-center gap-2">
-          <UserPlus className="size-4 text-violet-300" />
+          <UserPlus className="size-4 text-violet-700 dark:text-violet-300" />
           <h2 className="font-semibold">Create an account</h2>
         </div>
 
@@ -146,8 +143,8 @@ export default function AdminUsers() {
                     className={cn(
                       'rounded-full border px-3 py-1 text-xs font-medium transition',
                       active
-                        ? 'border-violet-400/50 bg-violet-400/15 text-violet-200'
-                        : 'border-white/10 text-muted-foreground hover:text-foreground',
+                        ? 'border-violet-400/50 bg-violet-400/15 text-violet-800 dark:text-violet-200'
+                        : 'border-border text-muted-foreground hover:text-foreground',
                     )}
                   >
                     {team.name}
@@ -162,7 +159,7 @@ export default function AdminUsers() {
           type="button"
           onClick={handleCreate}
           disabled={createMutation.isPending}
-          className="btn-glow w-fit gap-2 bg-violet-600 hover:bg-violet-500"
+          className="btn-glow w-fit gap-2"
         >
           {createMutation.isPending && <Loader2 className="size-4 animate-spin" />}
           Create account
@@ -172,7 +169,7 @@ export default function AdminUsers() {
       <section className="glass-card flex flex-col gap-4 rounded-xl p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <UsersIcon className="size-4 text-violet-300" />
+            <UsersIcon className="size-4 text-violet-700 dark:text-violet-300" />
             <h2 className="font-semibold">All accounts</h2>
           </div>
           <select
@@ -201,7 +198,7 @@ export default function AdminUsers() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] border-collapse text-left">
               <thead>
-                <tr className="border-b border-white/10 text-xs text-muted-foreground uppercase">
+                <tr className="border-b border-border text-xs text-muted-foreground uppercase">
                   <th className="py-2 pr-4 font-medium">Name</th>
                   <th className="py-2 pr-4 font-medium">Email</th>
                   <th className="py-2 pr-4 font-medium">Role</th>
