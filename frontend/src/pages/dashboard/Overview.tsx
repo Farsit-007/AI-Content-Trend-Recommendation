@@ -53,7 +53,7 @@ export default function Overview() {
   const { user } = useAuth();
   const teamId = useTeamId();
   const { startTour } = useTour();
-  const isElevated = user?.role === 'admin' || user?.role === 'super_admin';
+  const isElevated = user?.role === 'super_admin';
 
   const query = useQuery({
     queryKey: ['stats-overview', teamId],

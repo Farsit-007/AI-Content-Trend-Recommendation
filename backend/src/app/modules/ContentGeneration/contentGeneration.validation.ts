@@ -10,7 +10,7 @@ const generateContentValidation = z.object({
     team_id: objectId,
     topic: z.string({ required_error: 'topic is required' }).min(1, 'topic is required'),
     news_item_id: objectId.optional(),
-    language: z.enum(['bangla', 'english', 'banglish']).optional(),
+    language: z.enum(['bangla', 'english']).optional(),
     style_pack_id: objectId.optional(),
     formats: z
       .array(formatEnum)
@@ -29,7 +29,7 @@ const refineContentValidation = z.object({
     format: textFormatEnum,
     current_text: z.string({ required_error: 'current_text is required' }).min(1).max(6000),
     instruction: z.string({ required_error: 'instruction is required' }).min(1).max(300),
-    language: z.enum(['bangla', 'english', 'banglish']).optional(),
+    language: z.enum(['bangla', 'english']).optional(),
     style_pack_id: objectId.optional(),
     llm_model_id: objectId.optional(),
   }),

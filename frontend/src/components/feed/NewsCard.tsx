@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Briefcase, Code2, ExternalLink, MessageCircle, Newspaper, PenLine, Server, Shield, Sparkles, Star, ThumbsUp } from 'lucide-react';
 import type { NewsItemDto } from '@/lib/api/news';
+import { splitNewsTitle } from '@/lib/newsTitle';
+import { sourceLogoFor } from '@/lib/sourceLogos';
 import { cn } from '@/lib/utils';
 import { ScoreMeter } from './ScoreMeter';
 
@@ -37,7 +39,13 @@ export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
   const age = formatRelativeAge(item.published_at ?? item.created_at);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const showThumbnail = Boolean(item.thumbnail_url) && !thumbnailFailed;
+  const logoFallback = sourceLogoFor(item.source);
   const CategoryIcon = (item.category && CATEGORY_ICONS[item.category]) || Newspaper;
+  const { heading, handle } = splitNewsTitle(item.title);
+  const bodyText = item.description ?? item.snippet;
+  // A split title (GitHub Trending / Product Hunt) already puts the description text in the
+  // heading itself — showing it again below would just repeat the same sentence twice.
+  const description = handle ? undefined : bodyText;
 
   return (
     <button
@@ -60,7 +68,16 @@ export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <CategoryIcon className="size-8 text-muted-foreground/40" aria-hidden="true" />
+            {/* A source logo is a small mark, never a photo — shown as a centered badge, never
+                stretched full-bleed (a tiny favicon blown up to cover the card just reads as a
+                blurry blank block). */}
+            {logoFallback ? (
+              <div className="flex size-11 items-center justify-center rounded-md bg-white p-2 shadow-sm">
+                <img src={logoFallback} alt="" loading="lazy" className="size-full object-contain" />
+              </div>
+            ) : (
+              <CategoryIcon className="size-8 text-muted-foreground/40" aria-hidden="true" />
+            )}
           </div>
         )}
       </div>
@@ -89,7 +106,10 @@ export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
         <span>{age}</span>
       </div>
 
-      <h3 className="line-clamp-2 text-sm font-semibold text-foreground">{item.title}</h3>
+      <div className="flex flex-col gap-0.5">
+        <h3 className="line-clamp-2 text-sm font-semibold text-foreground">{heading}</h3>
+        {handle && <p className="truncate text-xs text-muted-foreground">{handle}</p>}
+      </div>
 
       {item.category && (
         <span className="inline-flex w-fit items-center gap-1 rounded-full border border-violet-400/30 bg-violet-400/10 px-2 py-0.5 text-xs text-violet-300">
@@ -98,7 +118,7 @@ export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
         </span>
       )}
 
-      {item.snippet && <p className="line-clamp-3 text-sm text-muted-foreground">{item.snippet}</p>}
+      {description && <p className="line-clamp-3 text-sm text-muted-foreground">{description}</p>}
 
       <div className="mt-auto flex flex-col gap-1.5 pt-1">
         <ScoreMeter label="Trend" value={item.trend_score} variant="amber" />

@@ -10,8 +10,8 @@ import { UserService } from '../modules/User/user.service';
  * touched here, so this never silently overwrites something an admin changed by hand).
  *
  * This is the automatic counterpart to `npm run seed:admin` — that script stays for creating
- * *additional* admins/super_admins on demand; this one guarantees the very first super_admin
- * always exists without anyone having to remember to run a script.
+ * *additional* super_admins on demand; this one guarantees the very first super_admin always
+ * exists without anyone having to remember to run a script.
  */
 export const seedSuperAdminIfMissing = async (): Promise<void> => {
   const { email, password, name } = config.super_admin;

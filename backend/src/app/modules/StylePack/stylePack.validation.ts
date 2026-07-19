@@ -4,7 +4,7 @@ const slug = z
   .string({ required_error: 'slug is required' })
   .regex(/^[a-z0-9-]+$/, 'slug must contain only lowercase letters, numbers, and hyphens');
 
-const language = z.enum(['bangla', 'english', 'banglish']);
+const language = z.enum(['bangla', 'english']);
 
 const createStylePackValidation = z.object({
   body: z.object({

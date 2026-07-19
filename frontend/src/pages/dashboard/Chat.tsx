@@ -17,7 +17,6 @@ import { PageHelp } from '@/components/dashboard/PageHelp';
 const LANGUAGE_OPTIONS: { value: LanguageStyle; label: string }[] = [
   { value: 'bangla', label: 'বাংলা' },
   { value: 'english', label: 'English' },
-  { value: 'banglish', label: 'Banglish' },
 ];
 
 const SUGGESTED_PROMPTS = [

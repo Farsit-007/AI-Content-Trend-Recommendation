@@ -10,7 +10,7 @@ interface CategorySubscriptionsSectionProps {
    *  team's own custom categories (`GET /teams/:id/categories`). No longer a hardcoded fixed six —
    *  see flexible-news-taxonomy-and-relevance. */
   categories: string[];
-  isAdmin: boolean;
+  canManageTeam: boolean;
   isSaving: boolean;
   onSave: (categories: string[]) => void;
 }
@@ -18,7 +18,7 @@ interface CategorySubscriptionsSectionProps {
 export function CategorySubscriptionsSection({
   subscribed,
   categories,
-  isAdmin,
+  canManageTeam,
   isSaving,
   onSave,
 }: CategorySubscriptionsSectionProps) {
@@ -73,13 +73,13 @@ export function CategorySubscriptionsSection({
             key={category}
             className={cn(
               'flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-sm',
-              !isAdmin && 'opacity-60',
+              !canManageTeam && 'opacity-60',
             )}
           >
             <input
               type="checkbox"
               checked={selected.includes(category)}
-              disabled={!isAdmin}
+              disabled={!canManageTeam}
               onChange={() => toggle(category)}
               className="size-4 rounded border-input accent-violet-600"
             />
@@ -91,7 +91,7 @@ export function CategorySubscriptionsSection({
         )}
       </div>
 
-      {isAdmin ? (
+      {canManageTeam ? (
         <Button
           type="button"
           disabled={!dirty || isSaving}

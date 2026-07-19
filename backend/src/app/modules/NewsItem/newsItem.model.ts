@@ -30,6 +30,7 @@ const newsItemSchema = new Schema<INewsItem>({
   url: { type: String, required: true },
   discussion_url: { type: String },
   thumbnail_url: { type: String },
+  description: { type: String },
   snippet: { type: String },
   content: { type: String },
   content_status: { type: String, enum: ['none', 'partial', 'full', 'failed'], default: 'none' },

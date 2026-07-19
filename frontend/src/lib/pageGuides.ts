@@ -59,8 +59,14 @@ export const PAGE_GUIDES: Record<string, PageGuide> = {
     title: 'Team Settings',
     what: 'Everything that makes generated content sound like your team: language default, custom instructions, category subscriptions, a default style pack, custom categories, and brand-voice examples.',
     why: 'The model is never fine-tuned — this page (plus your brand-voice examples) is the entire mechanism for personalization.',
-    how: 'Admins can edit every section; members see the same page read-only. The most important section is Brand voice examples — add 25–30 real posts your team has written for the best results.',
+    how: 'This team\'s team admin (or a super admin) can edit every section; other members see the same page read-only. The most important section is Brand voice examples — add 25–30 real posts your team has written for the best results.',
     tips: ['Custom categories are for correcting a story\'s category on the Feed — they\'re a separate pool from your subscribed categories.'],
+  },
+  activity: {
+    title: 'Activity',
+    what: 'A chronological log of who did what for this team — content generated or refined, drafts saved/approved/dismissed, team settings and roster changes, and feed corrections.',
+    why: 'Once more than one person works on a team, "who generated this" and "who changed the voice profile" stop being obvious — this page answers both.',
+    how: 'Filter by category (Content, Team, Feed corrections) to narrow the feed. Newest first, with who did it and how long ago.',
   },
   guide: {
     title: 'Guide',

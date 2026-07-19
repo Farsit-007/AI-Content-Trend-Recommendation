@@ -2,10 +2,10 @@ import { apiGetList, apiPatch, apiPost } from './client';
 import type { Meta } from './types';
 
 export type FormatId = 'facebook_post' | 'linkedin_post' | 'facebook_reel_script' | 'youtube_idea' | 'caption';
-export type LanguageStyle = 'bangla' | 'english' | 'banglish';
+export type LanguageStyle = 'bangla' | 'english';
 
 /** Mirrors the backend's DEFAULT_FORMATS (contentGeneration.formats.ts) — sent explicitly when the user hasn't toggled anything. */
-export const DEFAULT_FORMATS: FormatId[] = ['facebook_post', 'linkedin_post'];
+export const DEFAULT_FORMATS: FormatId[] = ['facebook_post'];
 
 /** Every format key the generate response can contain — used to tell format entries apart from
  *  metadata keys (`topic`, `model_used`) when iterating the response object. */
@@ -73,6 +73,11 @@ export interface GeneratedContentDto {
   source: GeneratedContentSource;
   status: GeneratedContentStatus;
   model_used?: string;
+  /** Absent for `source: 'auto'` drafts — no human created those. */
+  created_by_name?: string;
+  /** Set once a human approves/dismisses this draft. */
+  updated_by_name?: string;
+  updated_at?: string;
   created_at: string;
 }
 

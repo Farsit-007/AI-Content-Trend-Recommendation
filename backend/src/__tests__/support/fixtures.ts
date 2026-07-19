@@ -35,7 +35,7 @@ export const createTestTeam = async (
   overrides: {
     name?: string;
     createdBy?: string;
-    voiceProfile?: { default_language: 'bangla' | 'english' | 'banglish'; custom_instructions?: string };
+    voiceProfile?: { default_language: 'bangla' | 'english'; custom_instructions?: string };
   } = {},
 ) =>
   Team.create({
@@ -44,8 +44,8 @@ export const createTestTeam = async (
     ...(overrides.voiceProfile ? { voice_profile: overrides.voiceProfile } : {}),
   });
 
-export const addTeamMember = async (teamId: string, userId: string) =>
-  TeamMembership.create({ team_id: teamId, user_id: userId });
+export const addTeamMember = async (teamId: string, userId: string, role: 'team_admin' | 'member' = 'member') =>
+  TeamMembership.create({ team_id: teamId, user_id: userId, role });
 
 /** A valid 1536-dimension embedding vector — matches `NewsItem.embedding`'s schema validator. */
 export const testEmbedding = (): number[] => Array(1536).fill(0.01);

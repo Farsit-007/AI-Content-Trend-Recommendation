@@ -46,6 +46,7 @@ export const fetchStackOverflow = async (): Promise<RawNewsItem[]> => {
     source_id: String(question.question_id),
     title: decodeEntities(question.title),
     url: question.link,
+    description: question.body ? decodeEntities(stripHtml(question.body)).slice(0, 500) : undefined,
     snippet: question.tags.join(', '),
     content: question.body ? decodeEntities(stripHtml(question.body)) : undefined,
     published_at: new Date(question.creation_date * 1000),

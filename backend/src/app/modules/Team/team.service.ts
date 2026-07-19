@@ -2,9 +2,10 @@ import AppError from '../../errors/AppError';
 import { httpStatus } from '../../utils/httpStatus';
 import { User } from '../User/user.model';
 import { IRequestUser } from '../User/user.interface';
+import { ActivityLogService } from '../ActivityLog/activityLog.service';
 import { NewsCategoryTaxonomyService } from '../NewsCategoryTaxonomy/newsCategoryTaxonomy.service';
 import { BrandVoiceExample } from '../BrandVoiceExample/brandVoiceExample.model';
-import { ITeam } from './team.interface';
+import { ITeam, TeamMemberRole } from './team.interface';
 import { Team, TeamMembership } from './team.model';
 
 const MAX_CUSTOM_CATEGORIES = 20;
@@ -15,10 +16,18 @@ const getTeamIdsForUser = async (userId: string): Promise<string[]> => {
   return memberships.map((m) => m.team_id.toString());
 };
 
+/** Subset of the above where the user is specifically `team_admin`. Used by `requireAuth` to
+ *  populate `req.user.team_admin_team_ids` — see `requireTeamAdmin`. */
+const getTeamAdminTeamIdsForUser = async (userId: string): Promise<string[]> => {
+  const memberships = await TeamMembership.find({ user_id: userId, role: 'team_admin' }).select('team_id');
+  return memberships.map((m) => m.team_id.toString());
+};
+
 const createTeam = async (
   payload: { name: string; description?: string },
   memberUserIds: string[],
   createdBy: string,
+  teamAdminId?: string,
 ) => {
   const team = await Team.create({ ...payload, created_by: createdBy });
 
@@ -27,8 +36,15 @@ const createTeam = async (
     if (users.length !== new Set(memberUserIds).size) {
       throw new AppError(httpStatus.BAD_REQUEST, 'One or more member user ids do not exist');
     }
+    if (teamAdminId && !memberUserIds.includes(teamAdminId)) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'team_admin_id must be one of the provided member_ids');
+    }
     await TeamMembership.insertMany(
-      memberUserIds.map((user_id) => ({ team_id: team._id, user_id })),
+      memberUserIds.map((user_id) => ({
+        team_id: team._id,
+        user_id,
+        role: user_id === teamAdminId ? 'team_admin' : 'member',
+      })),
     );
   }
 
@@ -36,7 +52,7 @@ const createTeam = async (
 };
 
 const listTeams = async (requestingUser: IRequestUser) => {
-  if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') {
+  if (requestingUser.role === 'super_admin') {
     return Team.find();
   }
   return Team.find({ _id: { $in: requestingUser.team_ids } });
@@ -52,7 +68,13 @@ const getTeamById = async (teamId: string) => {
     TeamMembership.find({ team_id: teamId }).populate('user_id', 'name email role'),
     isTeamReady(teamId),
   ]);
-  return { team, members: memberships.map((m) => m.user_id), team_ready };
+  // `team_role` (team_admin/member) is distinct from the populated user's own `role` (the global
+  // super_admin/user tier) — merged onto the same object here so the frontend gets one flat shape.
+  const members = memberships.map((m) => {
+    const user = m.user_id as unknown as { toObject: () => Record<string, unknown> };
+    return { ...user.toObject(), team_role: m.role };
+  });
+  return { team, members, team_ready };
 };
 
 /**
@@ -77,6 +99,7 @@ const updateTeam = async (
       'name' | 'description' | 'voice_profile' | 'subscribed_categories' | 'default_style_pack_id' | 'default_models'
     >
   >,
+  requestingUser: IRequestUser,
 ) => {
   const dedupedPayload = payload.subscribed_categories
     ? { ...payload, subscribed_categories: [...new Set(payload.subscribed_categories)] }
@@ -85,6 +108,16 @@ const updateTeam = async (
   if (!team) {
     throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
   }
+
+  void ActivityLogService.recordActivity({
+    team_id: teamId,
+    actor: requestingUser,
+    action: 'team.settings_updated',
+    summary: `Updated team settings (${Object.keys(payload).join(', ')})`,
+    target_type: 'team',
+    target_id: teamId,
+  });
+
   return team;
 };
 
@@ -97,7 +130,12 @@ const deleteTeam = async (teamId: string) => {
   return team;
 };
 
-const addMember = async (teamId: string, userId: string) => {
+const addMember = async (
+  teamId: string,
+  userId: string,
+  role: TeamMemberRole = 'member',
+  requestingUser: IRequestUser,
+) => {
   const [team, user] = await Promise.all([Team.findById(teamId), User.findById(userId)]);
   if (!team) throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
   if (!user) throw new AppError(httpStatus.NOT_FOUND, 'User not found');
@@ -107,15 +145,84 @@ const addMember = async (teamId: string, userId: string) => {
     throw new AppError(httpStatus.CONFLICT, 'User is already a member of this team');
   }
 
-  return TeamMembership.create({ team_id: teamId, user_id: userId });
+  const membership = await TeamMembership.create({ team_id: teamId, user_id: userId, role });
+
+  void ActivityLogService.recordActivity({
+    team_id: teamId,
+    actor: requestingUser,
+    action: 'team.member_added',
+    summary: `Added ${user.name} to the team as ${role === 'team_admin' ? 'team admin' : 'a member'}`,
+    target_type: 'team',
+    target_id: teamId,
+  });
+
+  return membership;
 };
 
-const removeMember = async (teamId: string, userId: string) => {
-  const result = await TeamMembership.findOneAndDelete({ team_id: teamId, user_id: userId });
-  if (!result) {
+const removeMember = async (teamId: string, userId: string, requestingUser: IRequestUser) => {
+  const membership = await TeamMembership.findOne({ team_id: teamId, user_id: userId });
+  if (!membership) {
     throw new AppError(httpStatus.NOT_FOUND, 'User is not a member of this team');
   }
-  return result;
+  if (membership.role === 'team_admin') {
+    await assertNotLastTeamAdmin(teamId, userId);
+  }
+  await membership.deleteOne();
+
+  const user = await User.findById(userId).select('name');
+  void ActivityLogService.recordActivity({
+    team_id: teamId,
+    actor: requestingUser,
+    action: 'team.member_removed',
+    summary: `Removed ${user?.name ?? 'a member'} from the team`,
+    target_type: 'team',
+    target_id: teamId,
+  });
+
+  return membership;
+};
+
+/** A team must always keep at least one team_admin — thrown before the caller's own
+ *  role-change/removal would drop the count to zero. `excludingUserId` is the member being
+ *  demoted/removed, so it doesn't count itself as "still a team_admin". */
+const assertNotLastTeamAdmin = async (teamId: string, excludingUserId: string): Promise<void> => {
+  const remaining = await TeamMembership.countDocuments({
+    team_id: teamId,
+    role: 'team_admin',
+    user_id: { $ne: excludingUserId },
+  });
+  if (remaining === 0) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'A team must always have at least one team admin');
+  }
+};
+
+const setMemberRole = async (
+  teamId: string,
+  userId: string,
+  role: TeamMemberRole,
+  requestingUser: IRequestUser,
+) => {
+  const membership = await TeamMembership.findOne({ team_id: teamId, user_id: userId });
+  if (!membership) {
+    throw new AppError(httpStatus.NOT_FOUND, 'User is not a member of this team');
+  }
+  if (membership.role === 'team_admin' && role === 'member') {
+    await assertNotLastTeamAdmin(teamId, userId);
+  }
+  membership.role = role;
+  await membership.save();
+
+  const user = await User.findById(userId).select('name');
+  void ActivityLogService.recordActivity({
+    team_id: teamId,
+    actor: requestingUser,
+    action: 'team.member_role_changed',
+    summary: `Changed ${user?.name ?? 'a member'}'s role to ${role === 'team_admin' ? 'team admin' : 'member'}`,
+    target_type: 'team',
+    target_id: teamId,
+  });
+
+  return membership;
 };
 
 /** Fixed six + every category discovered during ingestion + this team's own custom categories. */
@@ -170,6 +277,7 @@ const removeCustomCategory = async (teamId: string, category: string) => {
 
 export const TeamService = {
   getTeamIdsForUser,
+  getTeamAdminTeamIdsForUser,
   createTeam,
   listTeams,
   getTeamById,
@@ -177,6 +285,7 @@ export const TeamService = {
   deleteTeam,
   addMember,
   removeMember,
+  setMemberRole,
   getEffectiveCategories,
   addCustomCategory,
   removeCustomCategory,

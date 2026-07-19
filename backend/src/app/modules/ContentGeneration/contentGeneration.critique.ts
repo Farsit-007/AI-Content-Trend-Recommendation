@@ -9,6 +9,7 @@
 import config from '../../config';
 import { chatCompletionForTask } from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
+import { banglaScriptRatio } from '../../lib/scriptDetection';
 import { VoiceOptions, languageInstruction } from '../../lib/voiceProfile';
 import { LanguageStyle } from '../Team/team.interface';
 import { CONTENT_FORMATS, FormatId } from './contentGeneration.formats';
@@ -56,15 +57,6 @@ export const isWithinLengthBand = (draft: string, candidate: string): boolean =>
   if (draftLength === 0) return false;
   const ratio = candidate.trim().length / draftLength;
   return ratio >= LENGTH_BAND_MIN && ratio <= LENGTH_BAND_MAX;
-};
-
-const BANGLA_SCRIPT_PATTERN = /[ঀ-৿]/g;
-
-const banglaScriptRatio = (text: string): number => {
-  const trimmed = text.trim();
-  if (trimmed.length === 0) return 0;
-  const banglaChars = trimmed.match(BANGLA_SCRIPT_PATTERN)?.length ?? 0;
-  return banglaChars / trimmed.length;
 };
 
 /** Cheap proxy for "the critique pass didn't flip the output back toward English." Non-Bangla languages skip this check entirely — the ratio has no meaningful target for them. */

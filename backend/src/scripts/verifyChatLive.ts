@@ -31,7 +31,14 @@ async function main() {
   const teamId = (team._id as mongoose.Types.ObjectId).toString();
   console.log(`Using team: ${teamId} (${(team as unknown as { name?: string }).name ?? 'unnamed'})`);
 
-  const requestingUser: IRequestUser = { id: 'live-verify-user', email: 'live-verify@example.com', role: 'user', team_ids: [teamId] };
+  const requestingUser: IRequestUser = {
+    id: 'live-verify-user',
+    email: 'live-verify@example.com',
+    name: 'Live Verify',
+    role: 'user',
+    team_ids: [teamId],
+    team_admin_team_ids: [],
+  };
 
   const newsCount = await NewsItem.countDocuments({});
   console.log(`NewsItem docs: ${newsCount}`);
@@ -63,7 +70,14 @@ async function main() {
   const otherTeam = await Team.findOne({ _id: { $ne: team._id } });
   if (otherTeam) {
     const otherTeamId = (otherTeam._id as mongoose.Types.ObjectId).toString();
-    const otherUser: IRequestUser = { id: 'live-verify-user-2', email: 'live-verify-2@example.com', role: 'user', team_ids: [otherTeamId] };
+    const otherUser: IRequestUser = {
+      id: 'live-verify-user-2',
+      email: 'live-verify-2@example.com',
+      name: 'Live Verify 2',
+      role: 'user',
+      team_ids: [otherTeamId],
+      team_admin_team_ids: [],
+    };
     await ChatService.askChat(
       { team_id: otherTeamId, message: 'hello from another team', conversation_id: trendResult.conversation_id },
       otherUser,

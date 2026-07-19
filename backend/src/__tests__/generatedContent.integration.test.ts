@@ -10,7 +10,7 @@ afterAll(disconnectTestDb);
 
 describe('POST /api/v1/generated-content — manual draft persistence', () => {
   it('coexists with an auto-drafted document for the same pair, both listed', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-manual-draft-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-manual-draft-1@example.test' });
     const token = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const newsItemId = '507f1f77bcf86cd799439011';
@@ -49,7 +49,7 @@ describe('POST /api/v1/generated-content — manual draft persistence', () => {
   });
 
   it('allows a second manual draft for the same pair (uniqueness scoped to source: auto)', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-manual-draft-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-manual-draft-2@example.test' });
     const token = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const newsItemId = '507f1f77bcf86cd799439012';
@@ -71,7 +71,7 @@ describe('POST /api/v1/generated-content — manual draft persistence', () => {
   });
 
   it('still rejects a direct duplicate source:auto insert for the same pair', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-manual-draft-3@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-manual-draft-3@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const newsItemId = '507f1f77bcf86cd799439013';
 
@@ -97,7 +97,7 @@ describe('POST /api/v1/generated-content — manual draft persistence', () => {
   });
 
   it('saves a topic-only manual draft with no news_item_id', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-manual-draft-4@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-manual-draft-4@example.test' });
     const token = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
 
@@ -111,7 +111,7 @@ describe('POST /api/v1/generated-content — manual draft persistence', () => {
   });
 
   it('rejects a draft with no populated formats', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-manual-draft-5@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-manual-draft-5@example.test' });
     const token = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
 
@@ -124,7 +124,7 @@ describe('POST /api/v1/generated-content — manual draft persistence', () => {
   });
 
   it('rejects a non-member saving a draft for another team', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-manual-draft-6@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-manual-draft-6@example.test' });
     const outsider = await createTestUser({ email: 'outsider-manual-draft@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const outsiderToken = createAuthToken(outsider);

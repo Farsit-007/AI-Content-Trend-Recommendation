@@ -14,7 +14,7 @@ import { buildMessages } from './chat.prompt';
 import { fetchConversationHistory, fetchNewsContext } from './chat.retrieval';
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
-  if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') return;
+  if (requestingUser.role === 'super_admin') return;
   if (!requestingUser.team_ids.includes(teamId)) {
     throw new AppError(httpStatus.FORBIDDEN, 'You do not have access to this team');
   }
@@ -25,9 +25,6 @@ const NOT_READY_GUIDANCE: Record<LanguageStyle, string> = {
   bangla:
     'আপনার টিমের সেটআপ এখনও সম্পূর্ণ হয়নি — নির্ভরযোগ্য উত্তর দেওয়ার জন্য টিম সেটিংসে গিয়ে অন্তত একটি ' +
     'বিষয়শ্রেণী সাবস্ক্রাইব করুন এবং একটি ব্র্যান্ড ভয়েস উদাহরণ যোগ করুন।',
-  banglish:
-    "Apnar team-er setup ekhono complete hoyni — bhorosajogyo answer paoar jonyo Team Settings-e giye " +
-    'ontoto ekti category subscribe korun ebong ekti brand voice example add korun.',
   english:
     "Your team isn't fully set up yet — head to Team Settings and subscribe to at least one category " +
     'and add a brand-voice example so I can ground answers in your feed.',

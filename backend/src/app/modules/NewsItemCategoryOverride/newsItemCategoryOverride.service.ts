@@ -1,12 +1,13 @@
 import AppError from '../../errors/AppError';
 import { httpStatus } from '../../utils/httpStatus';
 import { IRequestUser } from '../User/user.interface';
+import { ActivityLogService } from '../ActivityLog/activityLog.service';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { TeamService } from '../Team/team.service';
 import { NewsItemCategoryOverride } from './newsItemCategoryOverride.model';
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
-  if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') return;
+  if (requestingUser.role === 'super_admin') return;
   if (!requestingUser.team_ids.includes(teamId)) {
     throw new AppError(httpStatus.FORBIDDEN, 'You do not have access to this team');
   }
@@ -49,6 +50,16 @@ const setOverride = async (
     },
     { new: true, upsert: true, setDefaultsOnInsert: true },
   );
+
+  void ActivityLogService.recordActivity({
+    team_id: teamId,
+    actor: requestingUser,
+    action: 'news.category_corrected',
+    summary: `Corrected "${newsItem.title}"${payload.category !== undefined ? ` to category "${payload.category}"` : ''}`,
+    target_type: 'news_item',
+    target_id: newsItemId,
+  });
+
   return result;
 };
 

@@ -5,7 +5,7 @@ const voiceProfileSchema = new Schema<ITeamVoiceProfile>(
   {
     default_language: {
       type: String,
-      enum: ['bangla', 'english', 'banglish'],
+      enum: ['bangla', 'english'],
       default: 'bangla',
     },
     custom_instructions: { type: String, trim: true, maxlength: 500 },
@@ -32,6 +32,7 @@ const teamMembershipSchema = new Schema<ITeamMembership>({
   // ObjectId + ref so `.populate('user_id', 'name email role')` (getTeamById) can actually
   // resolve the User document — a plain String field can't be populated.
   user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  role: { type: String, enum: ['team_admin', 'member'], default: 'member' },
   created_at: { type: Date, default: Date.now },
 });
 

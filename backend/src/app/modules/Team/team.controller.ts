@@ -5,8 +5,8 @@ import sendResponse from '../../utils/sendResponse';
 import { TeamService } from './team.service';
 
 const createTeam = catchAsync(async (req: Request, res: Response) => {
-  const { name, description, member_ids } = req.body;
-  const result = await TeamService.createTeam({ name, description }, member_ids ?? [], req.user!.id);
+  const { name, description, member_ids, team_admin_id } = req.body;
+  const result = await TeamService.createTeam({ name, description }, member_ids ?? [], req.user!.id, team_admin_id);
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
@@ -36,7 +36,7 @@ const getTeamById = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateTeam = catchAsync(async (req: Request, res: Response) => {
-  const result = await TeamService.updateTeam(req.params.teamId as string, req.body);
+  const result = await TeamService.updateTeam(req.params.teamId as string, req.body, req.user!);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -56,7 +56,7 @@ const deleteTeam = catchAsync(async (req: Request, res: Response) => {
 });
 
 const addMember = catchAsync(async (req: Request, res: Response) => {
-  const result = await TeamService.addMember(req.params.teamId as string, req.body.user_id);
+  const result = await TeamService.addMember(req.params.teamId as string, req.body.user_id, req.body.role, req.user!);
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
@@ -66,11 +66,26 @@ const addMember = catchAsync(async (req: Request, res: Response) => {
 });
 
 const removeMember = catchAsync(async (req: Request, res: Response) => {
-  const result = await TeamService.removeMember(req.params.teamId as string, req.params.userId as string);
+  const result = await TeamService.removeMember(req.params.teamId as string, req.params.userId as string, req.user!);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Member removed from team successfully',
+    data: result,
+  });
+});
+
+const setMemberRole = catchAsync(async (req: Request, res: Response) => {
+  const result = await TeamService.setMemberRole(
+    req.params.teamId as string,
+    req.params.userId as string,
+    req.body.role,
+    req.user!,
+  );
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Member role updated successfully',
     data: result,
   });
 });
@@ -113,6 +128,7 @@ export const TeamController = {
   deleteTeam,
   addMember,
   removeMember,
+  setMemberRole,
   getCategories,
   addCategory,
   removeCategory,

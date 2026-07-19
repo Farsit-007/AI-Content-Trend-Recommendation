@@ -1,4 +1,6 @@
-export type UserRole = 'super_admin' | 'admin' | 'user';
+/** Only two global tiers: `super_admin` (full platform control) and `user` (everyone else).
+ *  Team-scoped admin rights live on the membership row instead — see `ITeamMembership.role`. */
+export type UserRole = 'super_admin' | 'user';
 
 export interface IUser {
   email: string;
@@ -23,6 +25,9 @@ export interface IAuthPayload {
 
 /** What `requireAuth` attaches to `req.user` — resolved fresh from the DB on every request. */
 export interface IRequestUser extends IAuthPayload {
+  name: string;
   role: UserRole;
   team_ids: string[];
+  /** Subset of `team_ids` this user is `team_admin` of — see `requireTeamAdmin`. */
+  team_admin_team_ids: string[];
 }

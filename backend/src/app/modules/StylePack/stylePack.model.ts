@@ -5,7 +5,7 @@ const stylePackSchema = new Schema<IStylePack>({
   name: { type: String, required: true, trim: true },
   slug: { type: String, required: true, trim: true, unique: true },
   description: { type: String, trim: true },
-  language: { type: String, enum: ['bangla', 'english', 'banglish'], required: true },
+  language: { type: String, enum: ['bangla', 'english'], required: true },
   tone_tags: { type: [String], default: [] },
   style_card: { type: String },
   style_card_generated_at: { type: Date },

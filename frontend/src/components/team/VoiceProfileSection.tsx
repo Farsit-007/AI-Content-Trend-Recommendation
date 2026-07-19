@@ -8,7 +8,6 @@ import type { TeamVoiceProfile } from '@/lib/api/teams';
 const LANGUAGE_OPTIONS: { value: TeamVoiceProfile['default_language']; label: string }[] = [
   { value: 'bangla', label: 'বাংলা' },
   { value: 'english', label: 'English' },
-  { value: 'banglish', label: 'Banglish' },
 ];
 
 interface VoiceProfileFormValues {
@@ -18,12 +17,12 @@ interface VoiceProfileFormValues {
 
 interface VoiceProfileSectionProps {
   voiceProfile: TeamVoiceProfile | undefined;
-  isAdmin: boolean;
+  canManageTeam: boolean;
   isSaving: boolean;
   onSave: (profile: TeamVoiceProfile) => void;
 }
 
-export function VoiceProfileSection({ voiceProfile, isAdmin, isSaving, onSave }: VoiceProfileSectionProps) {
+export function VoiceProfileSection({ voiceProfile, canManageTeam, isSaving, onSave }: VoiceProfileSectionProps) {
   const form = useForm<VoiceProfileFormValues>({
     defaultValues: {
       default_language: voiceProfile?.default_language ?? 'bangla',
@@ -63,7 +62,7 @@ export function VoiceProfileSection({ voiceProfile, isAdmin, isSaving, onSave }:
                       <button
                         key={option.value}
                         type="button"
-                        disabled={!isAdmin}
+                        disabled={!canManageTeam}
                         onClick={() => field.onChange(option.value)}
                         className={cn(
                           'rounded px-3 py-1 text-sm transition disabled:cursor-not-allowed disabled:opacity-60',
@@ -90,7 +89,7 @@ export function VoiceProfileSection({ voiceProfile, isAdmin, isSaving, onSave }:
                 <FormControl>
                   <ExpandableTextarea
                     {...field}
-                    disabled={!isAdmin}
+                    disabled={!canManageTeam}
                     maxLength={500}
                     rows={4}
                     placeholder="e.g. always end with a question, never use more than 2 emojis, audience is beginner developers"
@@ -102,7 +101,7 @@ export function VoiceProfileSection({ voiceProfile, isAdmin, isSaving, onSave }:
             )}
           />
 
-          {isAdmin ? (
+          {canManageTeam ? (
             <Button
               type="submit"
               disabled={isSaving}

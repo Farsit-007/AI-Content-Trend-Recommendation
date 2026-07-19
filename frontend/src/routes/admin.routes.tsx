@@ -6,7 +6,9 @@ import AdminTeams from '@/pages/dashboard/admin/Teams';
 import AdminCatalog from '@/pages/dashboard/admin/Catalog';
 import { userPaths } from './user.routes';
 
-/** Admins get everything a user has, plus the role-guarded admin console. */
+/** super_admin gets everything a user has, plus the role-guarded platform admin console.
+ *  Team-scoped admin rights (a team's own team_admin) live in Team Settings instead — see
+ *  TeamMembersSection — not here, since those never need a distinct global route. */
 export const adminPaths: TUserPath[] = [
   ...userPaths,
   {
@@ -14,27 +16,27 @@ export const adminPaths: TUserPath[] = [
     path: 'admin/pipeline',
     element: <Admin />,
     icon: Shield,
-    roles: ['admin', 'super_admin'],
+    roles: ['super_admin'],
   },
   {
     name: 'Users',
     path: 'admin/users',
     element: <AdminUsers />,
     icon: Users,
-    roles: ['admin', 'super_admin'],
+    roles: ['super_admin'],
   },
   {
     name: 'Teams',
     path: 'admin/teams',
     element: <AdminTeams />,
     icon: Building2,
-    roles: ['admin', 'super_admin'],
+    roles: ['super_admin'],
   },
   {
     name: 'Catalog',
     path: 'admin/catalog',
     element: <AdminCatalog />,
     icon: Database,
-    roles: ['admin', 'super_admin'],
+    roles: ['super_admin'],
   },
 ];

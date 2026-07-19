@@ -46,6 +46,7 @@ export const fetchDevTo = async (): Promise<RawNewsItem[]> => {
     title: article.title,
     url: article.url,
     thumbnail_url: article.cover_image ?? article.social_image,
+    description: article.description,
     snippet: article.description,
     published_at: article.published_at ? new Date(article.published_at) : undefined,
     raw_points: article.public_reactions_count ?? 0,

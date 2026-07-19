@@ -9,7 +9,9 @@ import {
   getTeam,
   listTeams,
   removeTeamMember,
+  setTeamMemberRole,
   type TeamDto,
+  type TeamMemberRole,
 } from '@/lib/api/teams';
 import { listUsers, type UserDto } from '@/lib/api/users';
 import { useTour } from '@/context/tour-context';
@@ -52,6 +54,15 @@ function TeamRow({ team, allUsers }: { team: TeamDto; allUsers: UserDto[] }) {
       invalidate();
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to remove member'),
+  });
+
+  const roleMutation = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: TeamMemberRole }) => setTeamMemberRole(team._id, userId, role),
+    onSuccess: (_, { role }) => {
+      toast.success(role === 'team_admin' ? 'Promoted to team admin' : 'Demoted to member');
+      invalidate();
+    },
+    onError: (err: Error) => toast.error(err.message || 'Failed to update role'),
   });
 
   const deleteMutation = useMutation({
@@ -110,25 +121,46 @@ function TeamRow({ team, allUsers }: { team: TeamDto; allUsers: UserDto[] }) {
             <>
               <ul className="flex flex-col gap-1.5">
                 {members.length === 0 && <li className="text-sm text-muted-foreground">No members yet.</li>}
-                {members.map((m) => (
-                  <li
-                    key={m._id}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm"
-                  >
-                    <span>
-                      {m.name} <span className="text-xs text-muted-foreground">{m.email}</span>
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      disabled={removeMemberMutation.isPending && removeMemberMutation.variables === m._id}
-                      onClick={() => removeMemberMutation.mutate(m._id)}
+                {members.map((m) => {
+                  const isTeamAdmin = m.team_role === 'team_admin';
+                  const roleBusy = roleMutation.isPending && roleMutation.variables?.userId === m._id;
+                  return (
+                    <li
+                      key={m._id}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm"
                     >
-                      <UserMinus className="size-3.5 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                  </li>
-                ))}
+                      <span>
+                        {m.name} <span className="text-xs text-muted-foreground">{m.email}</span>
+                        {isTeamAdmin && (
+                          <span className="ml-1.5 rounded-full border border-violet-400/30 bg-violet-400/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
+                            Team admin
+                          </span>
+                        )}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          disabled={roleBusy}
+                          onClick={() => roleMutation.mutate({ userId: m._id, role: isTeamAdmin ? 'member' : 'team_admin' })}
+                        >
+                          {isTeamAdmin ? 'Demote' : 'Make admin'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={removeMemberMutation.isPending && removeMemberMutation.variables === m._id}
+                          onClick={() => removeMemberMutation.mutate(m._id)}
+                        >
+                          <UserMinus className="size-3.5 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
 
               {availableUsers.length > 0 && (
@@ -173,6 +205,7 @@ export default function AdminTeams() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [memberIds, setMemberIds] = useState<string[]>([]);
+  const [teamAdminId, setTeamAdminId] = useState<string | undefined>(undefined);
 
   const teamsQuery = useQuery({ queryKey: ['teams', 'all'], queryFn: listTeams });
   const usersQuery = useQuery({ queryKey: ['users', ''], queryFn: () => listUsers() });
@@ -186,13 +219,19 @@ export default function AdminTeams() {
       setName('');
       setDescription('');
       setMemberIds([]);
+      setTeamAdminId(undefined);
       queryClient.invalidateQueries({ queryKey: ['teams', 'all'] });
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to create team'),
   });
 
   const toggleMember = (id: string) => {
-    setMemberIds((prev) => (prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]));
+    setMemberIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id];
+      // A team_admin pick that's no longer a selected member can't stay the team_admin.
+      if (teamAdminId === id && !next.includes(id)) setTeamAdminId(undefined);
+      return next;
+    });
   };
 
   const handleCreate = () => {
@@ -200,7 +239,12 @@ export default function AdminTeams() {
       toast.error('Team name is required');
       return;
     }
-    createMutation.mutate({ name: name.trim(), description: description.trim() || undefined, member_ids: memberIds });
+    createMutation.mutate({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      member_ids: memberIds,
+      team_admin_id: teamAdminId,
+    });
   };
 
   return (
@@ -211,8 +255,8 @@ export default function AdminTeams() {
             <span className="gradient-text">Team</span> management
           </h1>
           <p className="text-sm text-muted-foreground">
-            Stand up new teams and manage any team's roster — any admin can edit any team, even ones they don't
-            personally belong to.
+            Stand up new teams and manage any team's roster — a super admin can edit any team, even ones they
+            don't personally belong to.
           </p>
         </div>
         <PageHelp guideKey="teams" onStartTour={() => startTour(PAGE_TOURS.teams)} />
@@ -246,6 +290,34 @@ export default function AdminTeams() {
                     )}
                   >
                     {u.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {memberIds.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Team admin (optional — defaults to plain members)</span>
+            <div className="flex flex-wrap gap-1.5">
+              {memberIds.map((id) => {
+                const person = users.find((u) => u._id === id);
+                if (!person) return null;
+                const active = teamAdminId === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setTeamAdminId(active ? undefined : id)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition',
+                      active
+                        ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-300'
+                        : 'border-white/10 text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {person.name}
                   </button>
                 );
               })}

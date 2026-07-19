@@ -63,7 +63,7 @@ const YOUTUBE_IDEA = {
 
 describe('POST /api/v1/content/generate', () => {
   it('generates the default two formats for an authenticated user using the mocked LLM, without a real OpenRouter call', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-content-gen@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-content-gen@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -104,7 +104,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('generates a single requested format', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-single-format@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-single-format@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -122,7 +122,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('generates youtube_idea as a structured object, not text', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-youtube-format@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-youtube-format@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -139,7 +139,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('rejects an unknown format', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-format-invalid@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-format-invalid@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -152,7 +152,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('rejects an empty formats array', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-format-empty@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-format-empty@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -165,7 +165,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('rejects duplicate formats', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-format-dup@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-format-dup@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -178,7 +178,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('rejects more than 5 formats', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-format-toomany@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-format-toomany@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -195,7 +195,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('requesting a single additional format costs exactly one call, independent of a prior request', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-additional-format@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-additional-format@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -226,7 +226,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('fails the whole request with 502 when one requested format errors', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-format-fail@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-format-fail@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -254,7 +254,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('defaults the prompt to Bangla and includes the team custom instructions', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-voice-default@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-voice-default@example.test' });
     const team = await createTestTeam({
       createdBy: admin._id.toString(),
       voiceProfile: { default_language: 'bangla', custom_instructions: 'Always end with a question.' },
@@ -276,7 +276,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('lets the request language override the team default', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-voice-override@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-voice-override@example.test' });
     const team = await createTestTeam({
       createdBy: admin._id.toString(),
       voiceProfile: { default_language: 'bangla' },
@@ -298,7 +298,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it("includes the resolved news item's snippet and url in the generation prompt", async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-content-gen-snippet@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-content-gen-snippet@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const newsItem = await createNewsItemDoc({
@@ -330,7 +330,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('includes the anti-hallucination grounding instruction in the system prompt', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-content-gen-grounding@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-content-gen-grounding@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -348,7 +348,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('falls back to the topic-only prompt when the news_item_id does not resolve', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-content-gen-invalid-id@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-content-gen-invalid-id@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     // A topic string unique to this test (not reused elsewhere in this file) — the topic-embedding
@@ -380,7 +380,7 @@ describe('POST /api/v1/content/generate', () => {
   });
 
   it('rejects an invalid language value', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-voice-invalid@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-voice-invalid@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -407,7 +407,7 @@ const createPackWithExample = async (content: string) => {
 
 describe('POST /api/v1/content/generate — style pack conditioning', () => {
   it("includes the team's default style pack's example text in the system prompt", async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-stylepack-gen-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-gen-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const pack = await createPackWithExample('একটা Programming Hero স্টাইলের পোস্ট');
@@ -428,7 +428,7 @@ describe('POST /api/v1/content/generate — style pack conditioning', () => {
   });
 
   it("lets a request-level style_pack_id override the team's default", async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-stylepack-gen-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-gen-2@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const defaultPack = await createPackWithExample('default pack example text');
@@ -455,7 +455,7 @@ describe('POST /api/v1/content/generate — style pack conditioning', () => {
   });
 
   it('soft-fails on a dangling default pack: 200 response, no style block', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-stylepack-gen-3@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-gen-3@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const pack = await createPackWithExample('will be deleted');
@@ -508,7 +508,7 @@ describe('POST /api/v1/content/generate — platform-aware style retrieval', () 
   };
 
   it('gives facebook_post and linkedin_post distinct, platform-matched style example sets in one request', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-platform-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-platform-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -547,7 +547,7 @@ describe('POST /api/v1/content/generate — platform-aware style retrieval', () 
   });
 
   it('fetches the style pack examples exactly once per request regardless of format count', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-platform-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-platform-2@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const pack = await createTaggedPack(['fb one'], ['li one']);
@@ -571,7 +571,7 @@ describe('POST /api/v1/content/generate — platform-aware style retrieval', () 
   });
 
   it('untagged (platform: other) examples still surface via backfill — no regression from platform-aware ranking', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-platform-3@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-platform-3@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     // No platform passed — defaults to 'other' per the schema, matching pre-change corpora.
@@ -594,7 +594,7 @@ describe('POST /api/v1/content/generate — platform-aware style retrieval', () 
 
 describe('POST /api/v1/content/generate — fresh generation (no response cache)', () => {
   it('two identical generate requests produce independent drafts, each with its own LLM call', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-fresh-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-fresh-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const topic = 'fresh-generation-identical-requests unique topic';
@@ -621,7 +621,7 @@ describe('POST /api/v1/content/generate — fresh generation (no response cache)
   });
 
   it('the regenerate field is accepted and ignored, regardless of its value', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-fresh-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-fresh-2@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -652,7 +652,7 @@ describe('POST /api/v1/content/generate — fresh generation (no response cache)
 
 describe('POST /api/v1/content/generate — per-format prompt directives', () => {
   it('includes the length/structure directive matching each requested format only', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-format-directives@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-format-directives@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -696,7 +696,7 @@ describe('POST /api/v1/content/generate — fact-grounded generation', () => {
   };
 
   it('extracts and injects a fact sheet into every requested format for a content-rich item', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-facts-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-facts-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const newsItem = await createNewsItemDoc({ content: RICH_CONTENT, content_status: 'full' });
@@ -720,10 +720,10 @@ describe('POST /api/v1/content/generate — fact-grounded generation', () => {
   });
 
   it('reuses the cached fact sheet for a second team generating from the same item', async () => {
-    const admin1 = await createTestUser({ role: 'admin', email: 'admin-facts-2a@example.test' });
+    const admin1 = await createTestUser({ role: 'super_admin', email: 'admin-facts-2a@example.test' });
     const team1 = await createTestTeam({ createdBy: admin1._id.toString() });
     const token1 = createAuthToken(admin1);
-    const admin2 = await createTestUser({ role: 'admin', email: 'admin-facts-2b@example.test' });
+    const admin2 = await createTestUser({ role: 'super_admin', email: 'admin-facts-2b@example.test' });
     const team2 = await createTestTeam({ createdBy: admin2._id.toString() });
     const token2 = createAuthToken(admin2);
     const newsItem = await createNewsItemDoc({ content: RICH_CONTENT, content_status: 'full' });
@@ -761,7 +761,7 @@ describe('POST /api/v1/content/generate — fact-grounded generation', () => {
   });
 
   it('skips extraction for content below the threshold, leaving the prompt shape unchanged', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-facts-3@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-facts-3@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const newsItem = await createNewsItemDoc({ content: THIN_CONTENT, content_status: 'full', snippet: 'A short snippet.' });
@@ -787,7 +787,7 @@ describe('POST /api/v1/content/generate — fact-grounded generation', () => {
   });
 
   it('soft-fails when extraction returns garbage, generating without a facts block', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-facts-4@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-facts-4@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const newsItem = await createNewsItemDoc({ content: RICH_CONTENT, content_status: 'full' });
@@ -816,7 +816,7 @@ describe('POST /api/v1/content/refine', () => {
   const REVISED_TEXT = 'A shorter, punchier revision of the draft.';
 
   it('applies the instruction and returns the revised text with zero cache side effects', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-refine-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-refine-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const keysBefore = await redis.keys('*');
@@ -841,7 +841,7 @@ describe('POST /api/v1/content/refine', () => {
   });
 
   it('rejects youtube_idea', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-refine-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-refine-2@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -859,7 +859,7 @@ describe('POST /api/v1/content/refine', () => {
   });
 
   it('rejects a user outside the team', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-refine-3@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-refine-3@example.test' });
     const outsider = await createTestUser({ email: 'outsider-refine@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const outsiderToken = createAuthToken(outsider);
@@ -878,7 +878,7 @@ describe('POST /api/v1/content/refine', () => {
   });
 
   it('rejects oversized current_text and instruction', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-refine-4@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-refine-4@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -906,7 +906,7 @@ describe('POST /api/v1/content/refine', () => {
   });
 
   it("includes the resolved style pack's card but not its examples in the refine prompt", async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-refine-5@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-refine-5@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const pack = await StylePack.create({
@@ -945,7 +945,7 @@ describe('POST /api/v1/content/refine', () => {
 
 describe('bake-off harness prompt-assembly fidelity', () => {
   it('builds the identical system prompt as a live request for the same topic/format/pack and a brand-voice-cold team', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-bakeoff-parity@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-bakeoff-parity@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const pack = await StylePack.create({
@@ -1011,7 +1011,7 @@ describe('POST /api/v1/content/generate — critique pass', () => {
   it('flag off (default) makes zero extra calls and leaves output unchanged from pre-existing behavior', async () => {
     config.content_generation.critique_enabled = false;
 
-    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-off@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-critique-off@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const pack = await createPackForCritique();
@@ -1034,7 +1034,7 @@ describe('POST /api/v1/content/generate — critique pass', () => {
     config.content_generation.critique_enabled = true;
     config.content_generation.critique_formats = ['facebook_post', 'linkedin_post'];
 
-    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-on@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-critique-on@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const pack = await createPackForCritique();
@@ -1058,7 +1058,7 @@ describe('POST /api/v1/content/generate — critique pass', () => {
     config.content_generation.critique_enabled = true;
     config.content_generation.critique_formats = ['facebook_post'];
 
-    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-nopack@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-critique-nopack@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -1079,7 +1079,7 @@ describe('POST /api/v1/content/generate — critique pass', () => {
     config.content_generation.critique_enabled = true;
     config.content_generation.critique_formats = ['facebook_post', 'linkedin_post', 'youtube_idea'] as never;
 
-    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-youtube@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-critique-youtube@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const pack = await createPackForCritique();
@@ -1102,7 +1102,7 @@ describe('POST /api/v1/content/generate — critique pass', () => {
     config.content_generation.critique_enabled = true;
     config.content_generation.critique_formats = ['facebook_post'];
 
-    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-refine@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-critique-refine@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const REVISED = 'A refined version of the draft.';
@@ -1122,7 +1122,7 @@ describe('POST /api/v1/content/generate — critique pass', () => {
     config.content_generation.critique_enabled = true;
     config.content_generation.critique_formats = ['facebook_post'];
 
-    const admin = await createTestUser({ role: 'admin', email: 'admin-critique-cache@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-critique-cache@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const pack = await createPackForCritique();
@@ -1178,7 +1178,7 @@ describe('POST /api/v1/content/generate — non-bootstrap model resolution', () 
   };
 
   it("resolves through the team's default_models[content_generation] — hits the adapter, not the bootstrap client", async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-team-default-model@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-team-default-model@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const { model } = await createConfiguredProviderAndModel('openrouter/team-default-model');
@@ -1201,7 +1201,7 @@ describe('POST /api/v1/content/generate — non-bootstrap model resolution', () 
   });
 
   it('a request-level llm_model_id overrides the team default', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-request-override-model@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-request-override-model@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const { model: teamModel } = await createConfiguredProviderAndModel('openrouter/team-default-model-2');
@@ -1226,7 +1226,7 @@ describe('POST /api/v1/content/generate — non-bootstrap model resolution', () 
   });
 
   it('an inactive team default model soft-falls-through to the bootstrap tier rather than failing the request', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-inactive-team-default@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-inactive-team-default@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const { model } = await createConfiguredProviderAndModel('openrouter/inactive-team-default');

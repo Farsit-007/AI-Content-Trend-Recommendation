@@ -12,17 +12,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHelp } from '@/components/dashboard/PageHelp';
 
-type RoleOption = 'user' | 'admin' | 'super_admin';
+type RoleOption = 'user' | 'super_admin';
 
 const ROLE_CHIP: Record<string, string> = {
   super_admin: 'border-amber-400/40 bg-amber-400/10 text-amber-400',
-  admin: 'border-violet-400/40 bg-violet-400/10 text-violet-300',
   user: 'border-white/10 bg-white/5 text-muted-foreground',
 };
 
 const ROLE_LABEL: Record<string, string> = {
   super_admin: 'Super Admin',
-  admin: 'Admin',
   user: 'Member',
 };
 
@@ -124,9 +122,6 @@ export default function AdminUsers() {
             <option value="user" className="bg-background text-foreground">
               Member
             </option>
-            <option value="admin" className="bg-background text-foreground">
-              Admin
-            </option>
             {isSuperAdmin && (
               <option value="super_admin" className="bg-background text-foreground">
                 Super Admin
@@ -137,7 +132,9 @@ export default function AdminUsers() {
 
         {teams.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Assign to teams (optional)</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              Assign to teams (optional) — as a plain member; promote to team admin from Team Settings.
+            </span>
             <div className="flex flex-wrap gap-1.5">
               {teams.map((team) => {
                 const active = selectedTeamIds.includes(team._id);

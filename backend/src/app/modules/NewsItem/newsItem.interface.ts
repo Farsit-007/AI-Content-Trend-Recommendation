@@ -6,8 +6,13 @@ export interface INewsItem {
   url: string;
   /** The aggregator's own comment/discussion thread, when distinct from `url`. */
   discussion_url?: string;
-  /** A source-native preview image — never scraped/derived beyond what the source's own API provides. */
+  /** A source-native preview image when available, else an og:image scrape, else a static
+   *  per-source logo — see newsIngestion.metaEnrichment. */
   thumbnail_url?: string;
+  /** The source's own description/tagline, or an og:description scrape when the source has none.
+   *  Distinct from `snippet` (a short teaser, sometimes just tags) and `content` (the relevance-gated
+   *  full article text) — this is always populated when any description-like text is available. */
+  description?: string;
   snippet?: string;
   content?: string;
   content_status: 'none' | 'partial' | 'full' | 'failed';

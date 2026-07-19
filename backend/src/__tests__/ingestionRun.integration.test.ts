@@ -36,7 +36,7 @@ describe('GET /api/v1/news-items/ingestion-runs', () => {
   });
 
   it('lets an admin list run history with sourceHealth alongside it', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-runs@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-runs@example.test' });
     const token = createAuthToken(admin);
     await seedRuns(3);
 
@@ -48,7 +48,7 @@ describe('GET /api/v1/news-items/ingestion-runs', () => {
   });
 
   it('clamps ?limit= to 100 documents', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-limit@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-limit@example.test' });
     const token = createAuthToken(admin);
     await seedRuns(105);
 

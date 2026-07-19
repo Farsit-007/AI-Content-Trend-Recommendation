@@ -30,6 +30,11 @@ const generatedContentSchema = new Schema<IGeneratedContent>({
   source: { type: String, enum: ['auto', 'manual'], required: true },
   status: { type: String, enum: ['draft', 'approved', 'dismissed'], default: 'draft' },
   model_used: { type: String },
+  created_by: { type: String },
+  created_by_name: { type: String },
+  updated_by: { type: String },
+  updated_by_name: { type: String },
+  updated_at: { type: Date },
   created_at: { type: Date, default: Date.now },
 });
 

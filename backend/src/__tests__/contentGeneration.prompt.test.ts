@@ -90,7 +90,7 @@ describe('buildSystemPrompt', () => {
 
   it('produces the byte-identical team-voice prompt (no style context) when brand-voice examples exist', () => {
     const prompt = buildSystemPrompt([teamExample], voiceOptions);
-    expect(prompt).toContain('Brand voice examples:\n1. [brand_voice_example]\nteam post content');
+    expect(prompt).toContain('Brand voice examples:\n1. [brand_voice_example, written in English]\nteam post content');
     expect(prompt).not.toContain('Style examples');
     expect(prompt).not.toContain("This team's own past posts");
   });
@@ -230,21 +230,6 @@ describe('Language fidelity — requested language always wins over style materi
     // The Bangla style material is still present (it defines tone, not language) alongside the
     // English instruction — the dominance clause exists precisely because both are in the prompt.
     expect(systemPrompt).toContain('বাংলা প্রযুক্তি লেখার একটি প্রাণবন্ত ধরন');
-  });
-
-  it('Banglish request against a Bangla style pack: system prompt carries the Banglish instruction and the dominance clause', () => {
-    const messages = buildMessages(
-      'facebook_post',
-      'AI agents in content marketing',
-      banglaFewShot,
-      { language: 'banglish' },
-      undefined,
-      banglaStyleContext,
-    );
-    const systemPrompt = messages[0].content;
-
-    expect(systemPrompt).toContain('Write in Banglish');
-    expect(systemPrompt).toContain('This output language is non-negotiable');
   });
 
   it('the dominance clause is absent when no style/few-shot material is present at all', () => {

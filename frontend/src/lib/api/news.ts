@@ -15,6 +15,9 @@ export interface NewsItemDto {
   url: string;
   discussion_url?: string;
   thumbnail_url?: string;
+  /** The source's own description/tagline, or an og:description scrape fallback — see the backend's
+   *  newsIngestion.metaEnrichment. Distinct from `snippet` (short teaser) and `content` (full text). */
+  description?: string;
   snippet?: string;
   content?: string;
   content_status?: 'none' | 'partial' | 'full' | 'failed';
@@ -64,6 +67,8 @@ export interface CreateNewsItemPayload {
   content_hash: string;
   title: string;
   url: string;
+  thumbnail_url?: string;
+  description?: string;
   snippet?: string;
   content?: string;
   category?: string;
@@ -78,6 +83,8 @@ export function createNewsItem(payload: CreateNewsItemPayload): Promise<NewsItem
 export interface UpdateNewsItemPayload {
   title?: string;
   url?: string;
+  thumbnail_url?: string;
+  description?: string;
   snippet?: string;
   content?: string;
   trend_score?: number;

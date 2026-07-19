@@ -40,7 +40,7 @@ const makeTeamReady = async (teamId: string) => {
 
 describe('POST /api/v1/chat', () => {
   it('answers an authenticated question using the mocked LLM, without a real OpenRouter call', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await makeTeamReady(team._id.toString());
     const token = createAuthToken(admin);
@@ -63,7 +63,7 @@ describe('POST /api/v1/chat', () => {
   });
 
   it('continues a conversation when a conversation_id is supplied', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-2@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await makeTeamReady(team._id.toString());
     const token = createAuthToken(admin);
@@ -96,7 +96,7 @@ describe('POST /api/v1/chat', () => {
   });
 
   it("resolves through the team's default_models[chat] — hits the adapter, not the bootstrap client", async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-team-default@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-team-default@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await makeTeamReady(team._id.toString());
     const token = createAuthToken(admin);
@@ -135,7 +135,7 @@ describe('POST /api/v1/chat', () => {
 
 describe('POST /api/v1/chat — team readiness gating', () => {
   it('returns fixed guidance and makes no embedding/LLM call for a not-ready team (no categories, no brand voice)', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-not-ready-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-not-ready-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -152,7 +152,7 @@ describe('POST /api/v1/chat — team readiness gating', () => {
   });
 
   it('returns fixed guidance for a team with categories but no brand-voice examples', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-not-ready-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-not-ready-2@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
     const token = createAuthToken(admin);
@@ -168,7 +168,7 @@ describe('POST /api/v1/chat — team readiness gating', () => {
   });
 
   it('persists the user message and the guidance reply to ChatMessage for conversation continuity', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-not-ready-3@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-not-ready-3@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -189,7 +189,7 @@ describe('POST /api/v1/chat — team readiness gating', () => {
   });
 
   it('responds in the requested language even when the team is not ready', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-not-ready-4@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-not-ready-4@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -205,7 +205,7 @@ describe('POST /api/v1/chat — team readiness gating', () => {
 
 describe('GET /api/v1/chat/conversations', () => {
   it('lists a team\'s conversations, most recently active first, with preview and count', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-list-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-list-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -230,7 +230,7 @@ describe('GET /api/v1/chat/conversations', () => {
   });
 
   it('returns an empty list for a team with no chat history yet', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-list-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-list-2@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
@@ -244,7 +244,7 @@ describe('GET /api/v1/chat/conversations', () => {
   });
 
   it('truncates a long last message to the preview cap', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-list-3@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-list-3@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const longContent = 'x'.repeat(300);
@@ -260,7 +260,7 @@ describe('GET /api/v1/chat/conversations', () => {
   });
 
   it('rejects a non-member requesting another team\'s conversations', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-list-4@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-list-4@example.test' });
     const outsider = await createTestUser({ email: 'outsider-chat-list@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const outsiderToken = createAuthToken(outsider);
@@ -279,7 +279,7 @@ describe('GET /api/v1/chat/conversations', () => {
   });
 
   it('rejects a request with no team_id query param', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-list-5@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-list-5@example.test' });
     const token = createAuthToken(admin);
 
     const res = await request(app).get('/api/v1/chat/conversations').set('Authorization', `Bearer ${token}`);
@@ -289,7 +289,7 @@ describe('GET /api/v1/chat/conversations', () => {
 
 describe('GET /api/v1/chat/conversations/:conversationId', () => {
   it('returns every message in the conversation, in chronological order', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-chat-get-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-chat-get-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
     const t0 = new Date(Date.now() - 120_000);
@@ -309,9 +309,9 @@ describe('GET /api/v1/chat/conversations/:conversationId', () => {
   });
 
   it('does not leak another team\'s conversation — empty result, not another team\'s messages', async () => {
-    const admin1 = await createTestUser({ role: 'admin', email: 'admin-chat-get-2a@example.test' });
+    const admin1 = await createTestUser({ role: 'super_admin', email: 'admin-chat-get-2a@example.test' });
     const team1 = await createTestTeam({ createdBy: admin1._id.toString() });
-    const admin2 = await createTestUser({ role: 'admin', email: 'admin-chat-get-2b@example.test' });
+    const admin2 = await createTestUser({ role: 'super_admin', email: 'admin-chat-get-2b@example.test' });
     const team2 = await createTestTeam({ createdBy: admin2._id.toString() });
     const token2 = createAuthToken(admin2);
 

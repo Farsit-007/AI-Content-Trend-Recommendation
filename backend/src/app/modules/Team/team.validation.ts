@@ -22,6 +22,8 @@ const createTeamValidation = z.object({
     name: z.string({ required_error: 'name is required' }).min(1),
     description: z.string().optional(),
     member_ids: z.array(objectId).optional().default([]),
+    /** Must be one of `member_ids` — becomes this team's initial `team_admin`. */
+    team_admin_id: objectId.optional(),
   }),
 });
 
@@ -31,7 +33,7 @@ const updateTeamValidation = z.object({
     description: z.string().optional(),
     voice_profile: z
       .object({
-        default_language: z.enum(['bangla', 'english', 'banglish']).default('bangla'),
+        default_language: z.enum(['bangla', 'english']).default('bangla'),
         custom_instructions: z.string().trim().max(500).optional(),
       })
       .optional(),
@@ -44,6 +46,13 @@ const updateTeamValidation = z.object({
 const addMemberValidation = z.object({
   body: z.object({
     user_id: objectId,
+    role: z.enum(['team_admin', 'member']).optional(),
+  }),
+});
+
+const setMemberRoleValidation = z.object({
+  body: z.object({
+    role: z.enum(['team_admin', 'member'], { required_error: 'role is required' }),
   }),
 });
 
@@ -57,5 +66,6 @@ export const TeamValidation = {
   createTeamValidation,
   updateTeamValidation,
   addMemberValidation,
+  setMemberRoleValidation,
   addCategoryValidation,
 };

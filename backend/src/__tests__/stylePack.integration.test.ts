@@ -57,7 +57,7 @@ describe('Style pack CRUD', () => {
   });
 
   it('rejects admin and regular users from mutating packs and examples', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-stylepack-mutate@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-mutate@example.test' });
     const user = await createTestUser({ email: 'user-stylepack-mutate@example.test' });
     const pack = await createPackDoc();
 
@@ -143,7 +143,7 @@ describe('include_inactive visibility', () => {
 
   it('includes inactive packs only for super_admin with include_inactive=true', async () => {
     const superAdmin = await createTestUser({ role: 'super_admin', email: 'super-stylepack-inactive-2@example.test' });
-    const admin = await createTestUser({ role: 'admin', email: 'admin-stylepack-inactive@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-inactive@example.test' });
     const inactivePack = await createPackDoc({ is_active: false });
 
     const superAdminRes = await request(app)
@@ -160,7 +160,7 @@ describe('include_inactive visibility', () => {
 
 describe('Team default_style_pack_id', () => {
   it('stores and clears the field via team PATCH', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-team-stylepack@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-team-stylepack@example.test' });
     const token = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const pack = await createPackDoc();
@@ -181,7 +181,7 @@ describe('Team default_style_pack_id', () => {
   });
 
   it('does not break a team read when default_style_pack_id points at a deleted pack', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-team-stylepack-dangling@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-team-stylepack-dangling@example.test' });
     const token = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const pack = await createPackDoc();
@@ -291,7 +291,7 @@ describe('Bulk example import', () => {
   });
 
   it('rejects admin and regular users', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-stylepack-bulk@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-bulk@example.test' });
     const user = await createTestUser({ email: 'user-stylepack-bulk@example.test' });
     const pack = await createPackDoc();
 
@@ -385,7 +385,7 @@ describe('Style card generation', () => {
   });
 
   it('rejects admin and regular users', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-stylepack-card@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-card@example.test' });
     const user = await createTestUser({ email: 'user-stylepack-card@example.test' });
     const pack = await createPackDoc();
 

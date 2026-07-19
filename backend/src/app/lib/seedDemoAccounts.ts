@@ -1,19 +1,21 @@
 import config from '../config';
 import { logger } from './logger';
-import { Team } from '../modules/Team/team.model';
+import { Team, TeamMembership } from '../modules/Team/team.model';
 import { BrandVoiceExample } from '../modules/BrandVoiceExample/brandVoiceExample.model';
 import { embedForTask } from './modelResolution';
 import { User } from '../modules/User/user.model';
 import { UserService } from '../modules/User/user.service';
 
 /** Fixed, publicly-documented (non-production only) credentials — surfaced on the frontend
- *  login screen so a judge/reviewer can sign in as any role without provisioning anything. */
+ *  login screen so a judge/reviewer can sign in as any role without provisioning anything.
+ *  Both accounts are global `user`s — `admin` is this team's `team_admin`, `user` is a plain
+ *  `member`; only `superadmin@gmail.com` (seedSuperAdminIfMissing) is a global `super_admin`. */
 export const DEMO_ACCOUNTS = {
-  admin: { email: 'demo.admin@growthstudio.dev', password: 'DemoAdmin123!', name: 'Demo Admin' },
+  admin: { email: 'demo.admin@growthstudio.dev', password: 'DemoAdmin123!', name: 'Demo Team Admin' },
   user: { email: 'demo.member@growthstudio.dev', password: 'DemoMember123!', name: 'Demo Member' },
 } as const;
 
-const DEMO_TEAM_NAME = 'Growth Studio Demo Team';
+export const DEMO_TEAM_NAME = 'Growth Studio Demo Team';
 
 // Under team-readiness gating, empty subscribed_categories makes the demo team "not ready" and
 // defeats the point of a seeded demo — give it a real starting subscription.
@@ -77,20 +79,34 @@ export const seedDemoAccountsIfMissing = async (): Promise<void> => {
     await Team.updateOne({ _id: teamId }, { subscribed_categories: DEMO_SUBSCRIBED_CATEGORIES });
   }
 
-  for (const [role, account] of [
-    ['admin', DEMO_ACCOUNTS.admin],
-    ['user', DEMO_ACCOUNTS.user],
+  for (const [teamRole, account] of [
+    ['team_admin', DEMO_ACCOUNTS.admin],
+    ['member', DEMO_ACCOUNTS.user],
   ] as const) {
-    const exists = await User.findOne({ email: account.email }).select('_id');
-    if (exists) continue;
-    try {
-      const created = await UserService.createUser({ ...account, role, team_ids: [teamId] });
-      logger.info(`[seedDemoAccounts] created demo ${role} ${created.email} on team "${DEMO_TEAM_NAME}" (${teamId})`);
-    } catch (err) {
-      // A concurrent boot can win the create race between our findOne and this insert — the
-      // DB's unique index on email rejects the loser. That's success from this function's
-      // point of view (the account now exists), not a failure.
-      logger.info({ err: err instanceof Error ? err.message : err }, `[seedDemoAccounts] ${role} creation skipped — likely already created concurrently`);
+    const existing = await User.findOne({ email: account.email }).select('_id');
+    if (!existing) {
+      try {
+        // team_ids intentionally omitted here — createUser's own membership insert has no way to
+        // specify a per-team role, and this demo account's whole point is to demonstrate team_admin.
+        const created = await UserService.createUser({ ...account, role: 'user' });
+        await TeamMembership.create({ team_id: teamId, user_id: created._id, role: teamRole });
+        logger.info(`[seedDemoAccounts] created demo ${teamRole} ${created.email} on team "${DEMO_TEAM_NAME}" (${teamId})`);
+      } catch (err) {
+        // A concurrent boot can win the create race between our findOne and this insert — the
+        // DB's unique index on email rejects the loser. That's success from this function's
+        // point of view (the account now exists), not a failure.
+        logger.info({ err: err instanceof Error ? err.message : err }, `[seedDemoAccounts] ${teamRole} creation skipped — likely already created concurrently`);
+      }
+      continue;
+    }
+
+    // Backfill for an account whose User document exists but whose membership row doesn't (e.g.
+    // seeded before this team existed, or lost to a partial earlier failure) — otherwise this demo
+    // account is permanently teamless even though this seed considers itself done.
+    const hasMembership = await TeamMembership.exists({ team_id: teamId, user_id: existing._id });
+    if (!hasMembership) {
+      await TeamMembership.create({ team_id: teamId, user_id: existing._id, role: teamRole });
+      logger.info(`[seedDemoAccounts] backfilled missing ${teamRole} membership for ${account.email} on team "${DEMO_TEAM_NAME}"`);
     }
   }
 

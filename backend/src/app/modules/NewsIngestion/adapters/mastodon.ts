@@ -44,6 +44,7 @@ export const fetchMastodon = async (): Promise<RawNewsItem[]> => {
     source_id: link.url,
     title: link.title,
     url: link.url,
+    description: link.description ? stripHtml(link.description) : undefined,
     snippet: link.description ? stripHtml(link.description) : undefined,
     published_at: new Date(),
     raw_points: sharerCount(link),

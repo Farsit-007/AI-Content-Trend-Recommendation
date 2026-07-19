@@ -50,7 +50,7 @@ const createNewsItemDoc = (overrides: Partial<Record<string, unknown>> = {}) =>
 
 describe('POST /api/v1/generated-content/run — team-scoped, freshness-windowed selection', () => {
   it('drafts only the fresh, subscribed-category item for a team subscribed to AI', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-autogen-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-autogen-1@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
@@ -94,7 +94,7 @@ describe('POST /api/v1/generated-content/run — team-scoped, freshness-windowed
   });
 
   it('creates no drafts when every high-opportunity item is stale', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-autogen-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-autogen-2@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
@@ -124,7 +124,7 @@ describe('POST /api/v1/generated-content/run — team-scoped, freshness-windowed
   });
 
   it('selects across all subscribed categories for a team subscribed to more than one', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-autogen-3@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-autogen-3@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI', 'DevOps'] });
@@ -151,7 +151,7 @@ describe('POST /api/v1/generated-content/run — team-scoped, freshness-windowed
   });
 
   it('(team-readiness-gating) skips a team with empty subscribed_categories — not ready even with brand voice', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-autogen-not-ready@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-autogen-not-ready@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await BrandVoiceExample.create({
@@ -181,7 +181,7 @@ describe('POST /api/v1/generated-content/run — team-scoped, freshness-windowed
   });
 
   it('excludes an archived item even when it is fresh and high-opportunity', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-autogen-4@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-autogen-4@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
@@ -215,7 +215,7 @@ describe('POST /api/v1/generated-content/run — team-scoped, freshness-windowed
 
 describe('POST /api/v1/generated-content/run — model_used reflects the actually-resolved model', () => {
   it('stores the static bootstrap model when no LlmProvider is configured', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-autogen-modelused-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-autogen-modelused-1@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
@@ -241,7 +241,7 @@ describe('POST /api/v1/generated-content/run — model_used reflects the actuall
   });
 
   it("stores the team's configured default model, not the static import, once one is set", async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-autogen-modelused-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-autogen-modelused-2@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
@@ -287,7 +287,7 @@ describe('POST /api/v1/generated-content/run — model_used reflects the actuall
 
 describe('POST /api/v1/generated-content/run — idempotency is independent of response caching', () => {
   it('running the job twice in a row creates zero new drafts and makes zero further LLM calls on the second run', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-autogen-idempotent@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-autogen-idempotent@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });

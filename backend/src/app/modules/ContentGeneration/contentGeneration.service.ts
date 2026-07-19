@@ -3,6 +3,7 @@ import { chatCompletionForTask, resolveModelForTask } from '../../lib/modelResol
 import { logger } from '../../lib/logger';
 import { resolveVoiceOptions } from '../../lib/voiceProfile';
 import { httpStatus } from '../../utils/httpStatus';
+import { ActivityLogService } from '../ActivityLog/activityLog.service';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { StylePack } from '../StylePack/stylePack.model';
 import { Team } from '../Team/team.model';
@@ -18,6 +19,7 @@ import {
   YoutubeIdea,
 } from './contentGeneration.interface';
 import { critiqueText, isCritiqueEligible } from './contentGeneration.critique';
+import { buildLanguageReinforcement, isLanguageMismatched } from './contentGeneration.languageGuard';
 import { buildMessages, buildRefineMessages } from './contentGeneration.prompt';
 import { parseTextFormat, parseYoutubeIdea } from './contentGeneration.parse';
 import {
@@ -31,7 +33,7 @@ import config from '../../config';
 type FormatValue = string | YoutubeIdea;
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
-  if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') return;
+  if (requestingUser.role === 'super_admin') return;
   if (!requestingUser.team_ids.includes(teamId)) {
     throw new AppError(httpStatus.FORBIDDEN, 'You do not have access to this team');
   }
@@ -163,9 +165,41 @@ const generateContent = async (
           requestModelId: payload.llm_model_id,
           temperature: 0.7,
         });
-        const parsed = parseFormatValue(format, raw);
+        let parsed = parseFormatValue(format, raw);
         if (parsed === null) {
           throw new Error(`format "${format}" returned an unparseable response`);
+        }
+
+        // The languageDominance clause in buildSystemPrompt is a request, not a guarantee — models
+        // reliably drift toward a few-shot example's language over a system instruction. This is the
+        // hard backstop: detect the drift and retry once with a reinforced, last-position instruction
+        // before ever handing back output in the wrong language. Soft-fail like everything else in
+        // this loop — a failed retry still returns the best text we have, never a request error.
+        if (typeof parsed === 'string' && isLanguageMismatched(parsed, voiceOptions.language)) {
+          logger.warn(
+            `[ContentGeneration] format "${format}" drifted from requested language "${voiceOptions.language}" — retrying once with a reinforced instruction`,
+          );
+          try {
+            const retryRaw = await chatCompletionForTask(
+              'content_generation',
+              [...messages, { role: 'system', content: buildLanguageReinforcement(voiceOptions.language) }],
+              { teamId: payload.team_id, requestModelId: payload.llm_model_id, temperature: 0.5 },
+            );
+            const retryParsed = parseFormatValue(format, retryRaw);
+            if (retryParsed !== null) {
+              parsed = retryParsed;
+              if (typeof parsed === 'string' && isLanguageMismatched(parsed, voiceOptions.language)) {
+                logger.warn(
+                  `[ContentGeneration] format "${format}" still mismatched requested language "${voiceOptions.language}" after retry — keeping it anyway`,
+                );
+              }
+            }
+          } catch (err) {
+            logger.warn(
+              { err: err instanceof Error ? err.message : err },
+              `[ContentGeneration] language-correction retry failed for format "${format}" — keeping original draft`,
+            );
+          }
         }
 
         // Critique is text-format-only, pack-gated, and off by default (isCritiqueEligible
@@ -187,6 +221,14 @@ const generateContent = async (
   for (const [format, value] of formatResults) {
     results[format] = value;
   }
+
+  void ActivityLogService.recordActivity({
+    team_id: payload.team_id,
+    actor: requestingUser,
+    action: 'content.generated',
+    summary: `Generated ${requestedFormats.join(', ')} for "${payload.topic}"`,
+    metadata: { formats: requestedFormats, news_item_id: payload.news_item_id },
+  });
 
   return { topic: payload.topic, ...results, model_used: modelUsed } as GeneratedContent;
 };
@@ -221,6 +263,14 @@ const refineContent = async (
     logger.error('[ContentGeneration] Refine response was empty after parsing');
     throw new AppError(httpStatus.BAD_GATEWAY, 'Content refinement failed — please try again');
   }
+
+  void ActivityLogService.recordActivity({
+    team_id: payload.team_id,
+    actor: requestingUser,
+    action: 'content.refined',
+    summary: `Refined the ${payload.format} draft ("${payload.instruction}")`,
+    metadata: { format: payload.format },
+  });
 
   return { revised_text: revised };
 };

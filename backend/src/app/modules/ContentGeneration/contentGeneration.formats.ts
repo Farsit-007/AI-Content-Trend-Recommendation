@@ -64,7 +64,7 @@ export const CONTENT_FORMATS: Record<FormatId, ContentFormatDefinition> = {
   },
 };
 
-export const DEFAULT_FORMATS: FormatId[] = ['facebook_post', 'linkedin_post'];
+export const DEFAULT_FORMATS: FormatId[] = ['facebook_post'];
 
 /** Text-kind formats only — youtube_idea is a structured object, excluded from refine. */
 export const TEXT_FORMAT_IDS: FormatId[] = FORMAT_IDS.filter((id) => CONTENT_FORMATS[id].kind === 'text');

@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 interface StylePackSectionProps {
   stylePacks: StylePackDto[];
   currentId: string | undefined;
-  isAdmin: boolean;
+  canManageTeam: boolean;
   isSaving: boolean;
   onSave: (id: string | undefined) => void;
 }
 
-export function StylePackSection({ stylePacks, currentId, isAdmin, isSaving, onSave }: StylePackSectionProps) {
+export function StylePackSection({ stylePacks, currentId, canManageTeam, isSaving, onSave }: StylePackSectionProps) {
   // The parent remounts this component (via `key`) whenever `currentId` changes underneath it
   // after a save, so this only ever needs to seed its initial draft — no resync effect needed.
   const [selected, setSelected] = useState<string | undefined>(currentId);
@@ -27,7 +27,7 @@ export function StylePackSection({ stylePacks, currentId, isAdmin, isSaving, onS
         </p>
       </div>
 
-      {isAdmin ? (
+      {canManageTeam ? (
         <div className="flex flex-wrap items-center gap-2">
           <select
             value={selected ?? ''}

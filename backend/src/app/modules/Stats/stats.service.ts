@@ -14,7 +14,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const HIGH_OPPORTUNITY_THRESHOLD = 7.5;
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
-  if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') return;
+  if (requestingUser.role === 'super_admin') return;
   if (!requestingUser.team_ids.includes(teamId)) {
     throw new AppError(httpStatus.FORBIDDEN, 'You do not have access to this team');
   }
@@ -143,7 +143,7 @@ const getSystemStats = async () => {
 };
 
 const getOverview = async (teamId: string | undefined, requestingUser: IRequestUser) => {
-  const isElevated = requestingUser.role === 'admin' || requestingUser.role === 'super_admin';
+  const isElevated = requestingUser.role === 'super_admin';
   const resolvedTeamId = teamId ?? requestingUser.team_ids[0];
 
   if (resolvedTeamId) {

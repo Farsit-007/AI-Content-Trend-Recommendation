@@ -1,4 +1,5 @@
 import { ChatMessage } from '../../lib/llmClient';
+import { detectScriptLanguage } from '../../lib/scriptDetection';
 import { VoiceOptions, languageInstruction } from '../../lib/voiceProfile';
 import { FactSheet } from './contentGeneration.facts';
 import { CONTENT_FORMATS, FormatId } from './contentGeneration.formats';
@@ -21,11 +22,15 @@ export interface StyleContext {
   examples: FewShotExample[];
 }
 
+/** Tags each example with its own detected script so the model can't mistake "match this example's
+ *  tone" for "match this example's language" — the languageDominance clause below tells it which one
+ *  wins, but a concrete per-example label makes that instruction easier to apply correctly. */
 const formatExamples = (examples: FewShotExample[]): string =>
   examples
     .map((example, i) => {
       const hint = example.engagement_hint ? ` (engagement: ${example.engagement_hint})` : '';
-      return `${i + 1}. [${example.source}]${hint}\n${example.content}`;
+      const script = detectScriptLanguage(example.content) === 'bangla' ? 'Bengali' : 'English';
+      return `${i + 1}. [${example.source}, written in ${script}]${hint}\n${example.content}`;
     })
     .join('\n\n');
 

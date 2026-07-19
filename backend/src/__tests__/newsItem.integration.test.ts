@@ -98,7 +98,7 @@ describe('GET /api/v1/news-items', () => {
 
 describe('Subscription-filtered feed', () => {
   it('filters the feed to a subscribed team member and keeps meta.total accurate', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-sub-feed@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-sub-feed@example.test' });
     const member = await createTestUser({ email: 'member-sub-feed@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -121,7 +121,7 @@ describe('Subscription-filtered feed', () => {
   });
 
   it('lets an explicit category param override the subscription filter', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-sub-override@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-sub-override@example.test' });
     const member = await createTestUser({ email: 'member-sub-override@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -140,7 +140,7 @@ describe('Subscription-filtered feed', () => {
   });
 
   it('does not filter an unauthenticated request', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-sub-unauth@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-sub-unauth@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await Team.findByIdAndUpdate(team._id, { subscribed_categories: ['AI'] });
 
@@ -154,7 +154,7 @@ describe('Subscription-filtered feed', () => {
   });
 
   it('BREAKING (team-readiness-gating): a team with empty subscribed_categories is not ready — feed is empty, not unfiltered', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-sub-empty@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-sub-empty@example.test' });
     const member = await createTestUser({ email: 'member-sub-empty@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -175,7 +175,7 @@ describe('Subscription-filtered feed', () => {
 
 describe('Flexible category feed matching (flexible-news-taxonomy-and-relevance)', () => {
   it('a team subscribed to a broad group sees a fine-grained item whose category_group matches', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-flex-1@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-flex-1@example.test' });
     const member = await createTestUser({ email: 'member-flex-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -195,7 +195,7 @@ describe('Flexible category feed matching (flexible-news-taxonomy-and-relevance)
   });
 
   it('a team subscribed to a specific discovered category still excludes a sibling category under the same group', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-flex-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-flex-2@example.test' });
     const member = await createTestUser({ email: 'member-flex-2@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -215,7 +215,7 @@ describe('Flexible category feed matching (flexible-news-taxonomy-and-relevance)
   });
 
   it('an item under a completely unsubscribed group is excluded', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-flex-3@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-flex-3@example.test' });
     const member = await createTestUser({ email: 'member-flex-3@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -240,7 +240,7 @@ describe('Semantic "nearly relevant" feed tier (flexible-news-taxonomy-and-relev
   });
 
   it('is never called when the feature flag is off (default)', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-semantic-off@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-semantic-off@example.test' });
     const member = await createTestUser({ email: 'member-semantic-off@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -256,7 +256,7 @@ describe('Semantic "nearly relevant" feed tier (flexible-news-taxonomy-and-relev
 
   it('merges semantic matches into the page and tags them with match_reason, when enabled and room remains', async () => {
     config.news_feed.semantic_match_enabled = true;
-    const admin = await createTestUser({ role: 'admin', email: 'admin-semantic-on@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-semantic-on@example.test' });
     const member = await createTestUser({ email: 'member-semantic-on@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -283,7 +283,7 @@ describe('Semantic "nearly relevant" feed tier (flexible-news-taxonomy-and-relev
 
   it('is not called when the page is already full from exact/group matches', async () => {
     config.news_feed.semantic_match_enabled = true;
-    const admin = await createTestUser({ role: 'admin', email: 'admin-semantic-full@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-semantic-full@example.test' });
     const member = await createTestUser({ email: 'member-semantic-full@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -304,7 +304,7 @@ describe('Semantic "nearly relevant" feed tier (flexible-news-taxonomy-and-relev
 
   it('falls back to exact/group results only when the semantic lookup throws', async () => {
     config.news_feed.semantic_match_enabled = true;
-    const admin = await createTestUser({ role: 'admin', email: 'admin-semantic-error@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-semantic-error@example.test' });
     const member = await createTestUser({ email: 'member-semantic-error@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -321,7 +321,7 @@ describe('Semantic "nearly relevant" feed tier (flexible-news-taxonomy-and-relev
 
   it('is not called when an explicit ?category= param is present (team subscription is bypassed entirely)', async () => {
     config.news_feed.semantic_match_enabled = true;
-    const admin = await createTestUser({ role: 'admin', email: 'admin-semantic-explicit-cat@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-semantic-explicit-cat@example.test' });
     const member = await createTestUser({ email: 'member-semantic-explicit-cat@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -340,7 +340,7 @@ describe('Semantic "nearly relevant" feed tier (flexible-news-taxonomy-and-relev
 
 describe('Team readiness gating', () => {
   it('returns team_ready: false and an empty feed for a team with categories but no brand-voice examples', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-ready-categories-only@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-ready-categories-only@example.test' });
     const member = await createTestUser({ email: 'member-ready-categories-only@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -359,7 +359,7 @@ describe('Team readiness gating', () => {
   });
 
   it('returns team_ready: true and the filtered feed for a fully-ready team', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-ready-full@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-ready-full@example.test' });
     const member = await createTestUser({ email: 'member-ready-full@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -390,7 +390,7 @@ describe('Team readiness gating', () => {
 
 describe('News item create/update/delete', () => {
   it('lets an admin create, update, and delete a news item', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-crud@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-crud@example.test' });
     const adminToken = createAuthToken(admin);
 
     const createRes = await request(app)
@@ -469,7 +469,7 @@ describe('News item category override', () => {
     // Overrides are only surfaced to callers with actual team_ids membership (see
     // NewsItemService.getAllNewsItems/getSingleNewsItem), so an admin who isn't a member of
     // `team` would not see it reflected even though `assertTeamAccess` would let them set it.
-    const admin = await createTestUser({ role: 'admin', email: 'admin-override@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-override@example.test' });
     const member = await createTestUser({ email: 'member-override@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());

@@ -80,6 +80,14 @@ function DraftRow({ draft }: { draft: GeneratedContentDto }) {
               {draft.source}
             </span>
             <span className="text-muted-foreground">{new Date(draft.created_at).toLocaleDateString()}</span>
+            {draft.created_by_name && (
+              <span className="text-muted-foreground">by {draft.created_by_name}</span>
+            )}
+            {draft.updated_by_name && draft.status !== 'draft' && (
+              <span className="text-muted-foreground">
+                · {draft.status} by {draft.updated_by_name}
+              </span>
+            )}
           </div>
         </div>
 

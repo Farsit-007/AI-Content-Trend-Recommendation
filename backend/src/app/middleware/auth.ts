@@ -43,8 +43,11 @@ export const requireAuth = catchAsync(async (req: Request, _res: Response, next:
     throw new AppError(httpStatus.UNAUTHORIZED, 'Password was changed — please log in again');
   }
 
-  const team_ids = await TeamService.getTeamIdsForUser(user._id.toString());
-  req.user = { id: user._id.toString(), email: user.email, role: user.role, team_ids };
+  const [team_ids, team_admin_team_ids] = await Promise.all([
+    TeamService.getTeamIdsForUser(user._id.toString()),
+    TeamService.getTeamAdminTeamIdsForUser(user._id.toString()),
+  ]);
+  req.user = { id: user._id.toString(), email: user.email, name: user.name, role: user.role, team_ids, team_admin_team_ids };
   next();
 });
 
@@ -66,8 +69,11 @@ export const optionalAuth = catchAsync(async (req: Request, _res: Response, next
     }
     const user = await User.findById(payload.id);
     if (user) {
-      const team_ids = await TeamService.getTeamIdsForUser(user._id.toString());
-      req.user = { id: user._id.toString(), email: user.email, role: user.role, team_ids };
+      const [team_ids, team_admin_team_ids] = await Promise.all([
+        TeamService.getTeamIdsForUser(user._id.toString()),
+        TeamService.getTeamAdminTeamIdsForUser(user._id.toString()),
+      ]);
+      req.user = { id: user._id.toString(), email: user.email, name: user.name, role: user.role, team_ids, team_admin_team_ids };
     }
   } catch {
     // Invalid/expired token on an optional-auth route — proceed unauthenticated rather than fail.
@@ -75,15 +81,7 @@ export const optionalAuth = catchAsync(async (req: Request, _res: Response, next
   next();
 });
 
-/** Gate for admin-only routes. A super_admin can do everything an admin can. Must run after `requireAuth`. */
-export const requireAdmin = (req: Request, _res: Response, next: NextFunction) => {
-  if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-    throw new AppError(httpStatus.FORBIDDEN, 'Admin access required');
-  }
-  next();
-};
-
-/** Gate for super_admin-only routes, e.g. managing the platform catalog. Must run after `requireAuth`. */
+/** Gate for super_admin-only routes, e.g. managing the platform catalog, users, or teams list. Must run after `requireAuth`. */
 export const requireSuperAdmin = (req: Request, _res: Response, next: NextFunction) => {
   if (req.user?.role !== 'super_admin') {
     throw new AppError(httpStatus.FORBIDDEN, 'Super admin access required');
@@ -92,20 +90,39 @@ export const requireSuperAdmin = (req: Request, _res: Response, next: NextFuncti
 };
 
 /**
- * Gate for team-scoped routes, e.g. `/teams/:teamId/...`. Admins and super_admins pass regardless
- * of membership; everyone else must be a member of the team named by `req.params[paramName]`.
- * Must run after `requireAuth`.
+ * Gate for team-scoped read/write routes, e.g. `/teams/:teamId/...`. The super_admin passes
+ * regardless of membership; everyone else must be a member of the team named by
+ * `req.params[paramName]`. Must run after `requireAuth`.
  */
 export const requireTeamAccess =
   (paramName = 'teamId') =>
   (req: Request, _res: Response, next: NextFunction) => {
-    if (req.user?.role === 'admin' || req.user?.role === 'super_admin') {
+    if (req.user?.role === 'super_admin') {
       return next();
     }
 
     const teamId = req.params[paramName] as string | undefined;
     if (!teamId || !req.user?.team_ids.includes(teamId)) {
       throw new AppError(httpStatus.FORBIDDEN, 'You do not have access to this team');
+    }
+    next();
+  };
+
+/**
+ * Gate for team-management routes (settings, members) — stricter than `requireTeamAccess`. The
+ * super_admin passes regardless of membership; everyone else must specifically be `team_admin` of
+ * the team named by `req.params[paramName]`, not just a member. Must run after `requireAuth`.
+ */
+export const requireTeamAdmin =
+  (paramName = 'teamId') =>
+  (req: Request, _res: Response, next: NextFunction) => {
+    if (req.user?.role === 'super_admin') {
+      return next();
+    }
+
+    const teamId = req.params[paramName] as string | undefined;
+    if (!teamId || !req.user?.team_admin_team_ids.includes(teamId)) {
+      throw new AppError(httpStatus.FORBIDDEN, 'Team admin access required');
     }
     next();
   };

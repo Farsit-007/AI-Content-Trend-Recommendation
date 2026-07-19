@@ -13,7 +13,7 @@ afterAll(disconnectTestDb);
 
 describe('Team CRUD', () => {
   it('lets an admin create a team and add/remove a member', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-team-crud@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-team-crud@example.test' });
     const member = await createTestUser({ email: 'member-to-add@example.test' });
     const adminToken = createAuthToken(admin);
 
@@ -46,7 +46,7 @@ describe('Team CRUD', () => {
   });
 
   it('lets an admin update and delete a team', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-update-delete@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-update-delete@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
 
@@ -76,7 +76,7 @@ describe('Team CRUD', () => {
   });
 
   it('rejects a non-member fetching another team', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-owns-team@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-owns-team@example.test' });
     const outsider = await createTestUser({ email: 'outsider-team@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const outsiderToken = createAuthToken(outsider);
@@ -89,7 +89,7 @@ describe('Team CRUD', () => {
   });
 
   it('lets a super_admin list every team, including ones it has no membership in', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-super-admin-list@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-super-admin-list@example.test' });
     const superAdmin = await createTestUser({ role: 'super_admin', email: 'super-admin-list@example.test' });
     await createTestTeam({ name: 'Team A', createdBy: admin._id.toString() });
     await createTestTeam({ name: 'Team B', createdBy: admin._id.toString() });
@@ -109,7 +109,7 @@ describe('Team CRUD', () => {
 
 describe('Team categories', () => {
   it('lets a team member add and remove a custom category', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-categories@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-categories@example.test' });
     const member = await createTestUser({ email: 'member-categories@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await addTeamMember(team._id.toString(), member._id.toString());
@@ -129,7 +129,7 @@ describe('Team categories', () => {
   });
 
   it('rejects a non-member accessing team categories', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-categories-2@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-categories-2@example.test' });
     const outsider = await createTestUser({ email: 'outsider-categories@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const outsiderToken = createAuthToken(outsider);
@@ -144,7 +144,7 @@ describe('Team categories', () => {
 
 describe('Team category subscriptions', () => {
   it('lets an admin set subscribed_categories without affecting custom_categories', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-subs@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-subs@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
 
@@ -169,7 +169,7 @@ describe('Team category subscriptions', () => {
   });
 
   it('rejects a subscribed_categories value outside the fixed taxonomy', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-subs-invalid@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-subs-invalid@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
 
@@ -189,7 +189,7 @@ describe('Team category subscriptions', () => {
 
 describe('Team category subscriptions — global taxonomy (flexible-news-taxonomy-and-relevance)', () => {
   it('lets a team subscribe to a category discovered during ingestion, not just the fixed six', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-subs-discovered@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-subs-discovered@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await NewsCategoryTaxonomy.create({
@@ -209,7 +209,7 @@ describe('Team category subscriptions — global taxonomy (flexible-news-taxonom
   });
 
   it('still rejects a name that has never existed in the taxonomy at all', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-subs-nonexistent@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-subs-nonexistent@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
 
@@ -222,7 +222,7 @@ describe('Team category subscriptions — global taxonomy (flexible-news-taxonom
   });
 
   it("GET /teams/:id/categories includes a discovered category alongside the fixed six", async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-subs-effective@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-subs-effective@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     await NewsCategoryTaxonomy.create({
@@ -243,7 +243,7 @@ describe('Team category subscriptions — global taxonomy (flexible-news-taxonom
 
 describe('Team readiness', () => {
   it('exposes team_ready: false on GET /teams/:id for a freshly created team', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-ready-fresh@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-ready-fresh@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
 
@@ -256,7 +256,7 @@ describe('Team readiness', () => {
   });
 
   it('exposes team_ready: false when categories are set but no brand-voice example exists', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-ready-categories@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-ready-categories@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
 
@@ -273,7 +273,7 @@ describe('Team readiness', () => {
   });
 
   it('exposes team_ready: true once both categories and a brand-voice example exist', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-ready-full@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-ready-full@example.test' });
     const adminToken = createAuthToken(admin);
     const team = await createTestTeam({ createdBy: admin._id.toString() });
 

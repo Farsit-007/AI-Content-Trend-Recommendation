@@ -10,6 +10,7 @@ const NAV_DESCRIPTIONS: Record<string, string> = {
   Drafts: 'Every draft ever generated for your team lands here — review, approve, or dismiss.',
   Chat: 'Ask questions and get answers grounded in your team\'s real news feed — no invented facts.',
   Team: 'Your team\'s voice, categories, style pack, and brand-voice examples — the settings behind every generation.',
+  Activity: 'Who did what, across content generation, drafts, and team settings.',
   Guide: 'A full role-aware walkthrough of the platform, any time you want to revisit it.',
   Account: 'Your account details and self-service password rotation.',
   Pipeline: 'Monitor and manually trigger the news-ingestion and auto-generation background jobs.',

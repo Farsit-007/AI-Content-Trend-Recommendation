@@ -12,7 +12,7 @@ afterAll(disconnectTestDb);
 
 describe('Brand voice examples — super_admin access', () => {
   it('lets a super_admin create, list, and delete examples for a team it has no membership in', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-bve-super@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-bve-super@example.test' });
     const superAdmin = await createTestUser({ role: 'super_admin', email: 'super-bve@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(superAdmin);

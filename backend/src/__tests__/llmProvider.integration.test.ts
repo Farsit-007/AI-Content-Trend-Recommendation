@@ -16,15 +16,11 @@ describe('LLM provider registry — auth gating', () => {
     expect(res.status).toBe(401);
   });
 
-  it('rejects a non-super-admin caller (regular user and admin alike)', async () => {
+  it('rejects a non-super-admin caller', async () => {
     const user = await createTestUser({ email: 'user-llm-1@example.test' });
-    const admin = await createTestUser({ role: 'admin', email: 'admin-llm-1@example.test' });
-
-    for (const requester of [user, admin]) {
-      const token = createAuthToken(requester);
-      const res = await request(app).get('/api/v1/llm-providers').set(authHeader(token));
-      expect(res.status).toBe(403);
-    }
+    const token = createAuthToken(user);
+    const res = await request(app).get('/api/v1/llm-providers').set(authHeader(token));
+    expect(res.status).toBe(403);
   });
 });
 
@@ -332,8 +328,8 @@ describe('LLM provider registry — task defaults', () => {
   });
 
   it('rejects a non-super-admin caller for task-default routes', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-llm-2@example.test' });
-    const token = createAuthToken(admin);
+    const user = await createTestUser({ email: 'user-llm-2@example.test' });
+    const token = createAuthToken(user);
 
     const res = await request(app).get('/api/v1/llm-providers/task-defaults').set(authHeader(token));
     expect(res.status).toBe(403);
@@ -370,8 +366,8 @@ describe('LLM provider registry — task defaults', () => {
   });
 
   it('rejects a non-super-admin caller for the clear route', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-llm-3@example.test' });
-    const token = createAuthToken(admin);
+    const user = await createTestUser({ email: 'user-llm-3@example.test' });
+    const token = createAuthToken(user);
 
     const res = await request(app).delete('/api/v1/llm-providers/task-defaults/chat').set(authHeader(token));
     expect(res.status).toBe(403);

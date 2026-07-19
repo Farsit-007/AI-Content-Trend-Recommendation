@@ -44,6 +44,7 @@ export const fetchLobsters = async (): Promise<RawNewsItem[]> => {
     // Unconditional, not just the url fallback above — see design.md decision 3 of
     // news-source-link-and-thumbnail-fields.
     discussion_url: story.comments_url,
+    description: story.description ? decodeEntities(stripHtml(story.description)) : undefined,
     snippet: buildSnippet(story),
     content: story.description ? decodeEntities(stripHtml(story.description)) : undefined,
     published_at: new Date(story.created_at),

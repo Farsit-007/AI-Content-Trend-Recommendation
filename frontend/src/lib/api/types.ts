@@ -42,12 +42,14 @@ export class ApiError extends Error {
   }
 }
 
-/** Authenticated user shape returned by /auth/login and /auth/me. */
+/** Authenticated user shape returned by /auth/login and /auth/me. Only two global tiers —
+ *  `super_admin` (full platform control) and `user` (everyone else). Team-scoped admin rights
+ *  (`team_admin`) live on the team membership row instead — see `TeamMember.team_role`. */
 export interface AuthUser {
   _id: string;
   email: string;
   name: string;
-  role: 'super_admin' | 'admin' | 'user';
+  role: 'super_admin' | 'user';
   team_ids?: string[];
   created_at?: string;
 }

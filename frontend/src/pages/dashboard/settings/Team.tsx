@@ -20,9 +20,6 @@ export default function Team() {
   const teamId = useTeamId();
   const { startTour } = useTour();
   const queryClient = useQueryClient();
-  // PATCH /teams/:id is gated by the user's global role server-side, not team membership —
-  // mirroring that here keeps the UI honest about what a save will actually be allowed to do.
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
   const teamQuery = useQuery({
     queryKey: ['team', teamId],
@@ -90,6 +87,10 @@ export default function Team() {
   // on every team document today, so these sections render unless a backend genuinely omits them.
   const subscriptionsAvailable = Array.isArray(team.subscribed_categories);
   const stylePacksAvailable = !stylePacksQuery.isError;
+  // Mirrors the backend's requireTeamAdmin: super_admin bypasses regardless of membership;
+  // everyone else must specifically be *this* team's team_admin, not just a member.
+  const canManageTeam =
+    user?.role === 'super_admin' || members.find((m) => m._id === user?._id)?.team_role === 'team_admin';
 
   return (
     <div className="flex flex-col gap-4">
@@ -103,13 +104,13 @@ export default function Team() {
         <PageHelp guideKey="team" onStartTour={() => startTour(PAGE_TOURS.team)} />
       </div>
 
-      <TeamMembersSection teamId={teamId} members={members} isAdmin={isAdmin} />
+      <TeamMembersSection teamId={teamId} members={members} canManageTeam={canManageTeam} />
 
       <div data-tour="team-voice">
         <VoiceProfileSection
           key={`${team.voice_profile?.default_language ?? 'bangla'}:${team.voice_profile?.custom_instructions ?? ''}`}
           voiceProfile={team.voice_profile}
-          isAdmin={isAdmin}
+          canManageTeam={canManageTeam}
           isSaving={updateMutation.isPending}
           onSave={(voice_profile: TeamVoiceProfile) => updateMutation.mutate({ voice_profile })}
         />
@@ -120,7 +121,7 @@ export default function Team() {
           key={team.subscribed_categories.join(',')}
           subscribed={team.subscribed_categories}
           categories={categoriesQuery.data ?? []}
-          isAdmin={isAdmin}
+          canManageTeam={canManageTeam}
           isSaving={updateMutation.isPending}
           onSave={(subscribed_categories) => updateMutation.mutate({ subscribed_categories })}
         />
@@ -131,7 +132,7 @@ export default function Team() {
           key={team.default_style_pack_id ?? 'none'}
           stylePacks={stylePacksQuery.data ?? []}
           currentId={team.default_style_pack_id}
-          isAdmin={isAdmin}
+          canManageTeam={canManageTeam}
           isSaving={updateMutation.isPending}
           onSave={(default_style_pack_id) => updateMutation.mutate({ default_style_pack_id: default_style_pack_id ?? null })}
         />
@@ -140,7 +141,7 @@ export default function Team() {
       <CustomCategoriesSection key={`custom:${team.custom_categories.join(',')}`} teamId={teamId} customCategories={team.custom_categories} />
 
       <div data-tour="team-brand-voice">
-        <BrandVoiceSection teamId={teamId} isAdmin={isAdmin} categories={categoriesQuery.data ?? []} />
+        <BrandVoiceSection teamId={teamId} canManageTeam={canManageTeam} categories={categoriesQuery.data ?? []} />
       </div>
     </div>
   );

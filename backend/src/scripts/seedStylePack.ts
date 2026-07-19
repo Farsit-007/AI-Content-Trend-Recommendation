@@ -2,7 +2,7 @@
  * Bulk-imports example posts into a style pack from a JSON file, creating the pack if it
  * doesn't already exist by slug. Mirrors seedBrandVoice.ts's shape and idempotency approach.
  *
- * Run: npm run seed:style-pack -- <slug> <path/to/examples.json> [--name "Display Name"] [--language bangla|english|banglish]
+ * Run: npm run seed:style-pack -- <slug> <path/to/examples.json> [--name "Display Name"] [--language bangla|english]
  * JSON shape: [{ "content": "...", "platform": "facebook", "source_ref": "...", "engagement_hint": "..." }]
  * (see seed/style-pack.example.json)
  *
@@ -67,7 +67,7 @@ const languageFlag = parseFlag('--language') as LanguageStyle | undefined;
 const main = async () => {
   if (!slug || !filePath) {
     console.error(
-      'Usage: npm run seed:style-pack -- <slug> <path/to/examples.json> [--name "Display Name"] [--language bangla|english|banglish]',
+      'Usage: npm run seed:style-pack -- <slug> <path/to/examples.json> [--name "Display Name"] [--language bangla|english]',
     );
     process.exit(1);
   }

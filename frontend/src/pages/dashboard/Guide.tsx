@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   BookOpen,
   Newspaper,
@@ -15,6 +16,8 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { getTeam } from '@/lib/api/teams';
+import { useTeamId } from '@/lib/useTeamId';
 import { cn } from '@/lib/utils';
 
 interface StepCardProps {
@@ -73,8 +76,15 @@ function CapabilityRow({ icon: Icon, title, description, to }: RoleCapability) {
 
 export default function Guide() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const teamId = useTeamId();
   const isSuperAdmin = user?.role === 'super_admin';
+
+  const teamQuery = useQuery({
+    queryKey: ['team', teamId],
+    queryFn: () => getTeam(teamId as string),
+    enabled: Boolean(teamId),
+  });
+  const isTeamAdmin = teamQuery.data?.members.find((m) => m._id === user?._id)?.team_role === 'team_admin';
 
   return (
     <div className="flex flex-col gap-8 pb-8">
@@ -91,7 +101,7 @@ export default function Guide() {
           news across seven sources (Hacker News, dev.to, GitHub Trending, Lobsters, Mastodon,
           Product Hunt, Stack Overflow), scores every story for how relevant and
           "opportunity-worthy" it is to your team, and then turns any story you pick into ready-to-post
-          content — in your team's own voice, in Bangla, English, or Banglish — in seconds.
+          content — in your team's own voice, in Bangla or English — in seconds.
         </p>
         <p className="max-w-3xl text-sm text-muted-foreground">
           <strong className="text-foreground">Why it works:</strong> instead of a generic AI writer, every
@@ -157,10 +167,11 @@ export default function Guide() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Your role: {roleLabel(user?.role)}</h2>
+        <h2 className="text-xl font-semibold">Your role: {roleLabel(user?.role, isTeamAdmin)}</h2>
         <p className="text-sm text-muted-foreground">
-          Roles are additive — everything a member can do, an admin can also do; everything an admin can do, a
-          super admin can also do.
+          Roles are additive. Every member can do the below; a team's own <strong className="text-foreground">team
+          admin</strong> can also manage that team's settings and roster; a <strong className="text-foreground">super
+          admin</strong> can do everything, for every team.
         </p>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -170,17 +181,31 @@ export default function Guide() {
             description="On any news item, open the drawer and use 'Correct for your team' — it only changes what your team sees."
             to="/dashboard/feed"
           />
-          <CapabilityRow
-            icon={Settings}
-            title="Set your team's voice, categories & style pack"
-            description="Language default, custom instructions, category subscriptions, and default style pack."
-            to="/dashboard/settings/team"
-          />
         </div>
 
-        {isAdmin && (
+        {(isTeamAdmin || isSuperAdmin) && (
           <>
-            <p className="mt-2 text-sm font-medium text-violet-300">Admin — everything above, plus:</p>
+            <p className="mt-2 text-sm font-medium text-violet-300">Team admin — everything above, plus:</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <CapabilityRow
+                icon={Settings}
+                title="Set your team's voice, categories & style pack"
+                description="Language default, custom instructions, category subscriptions, and default style pack."
+                to="/dashboard/settings/team"
+              />
+              <CapabilityRow
+                icon={Users}
+                title="Manage your team's roster"
+                description="Add or remove members, and promote/demote who else is this team's admin."
+                to="/dashboard/settings/team"
+              />
+            </div>
+          </>
+        )}
+
+        {isSuperAdmin && (
+          <>
+            <p className="mt-2 text-sm font-medium text-violet-300">Super admin — everything above, plus:</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <CapabilityRow
                 icon={Shield}
@@ -191,7 +216,7 @@ export default function Guide() {
               <CapabilityRow
                 icon={Users}
                 title="Create & manage user accounts"
-                description="There is no self-registration — every account (any role up to admin) is created here."
+                description="There is no self-registration — every account is created here."
                 to="/dashboard/admin/users"
               />
               <CapabilityRow
@@ -206,25 +231,11 @@ export default function Guide() {
                 description="Manually add, correct, or remove a story for every team at once — not just your own."
                 to="/dashboard/admin/catalog"
               />
-            </div>
-          </>
-        )}
-
-        {isSuperAdmin && (
-          <>
-            <p className="mt-2 text-sm font-medium text-violet-300">Super admin — everything above, plus:</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <CapabilityRow
                 icon={Palette}
                 title="Curate the shared style-pack library"
                 description="Build platform-wide writing styles any team can opt into, teach them example posts, retire or delete them."
                 to="/dashboard/admin/style-packs"
-              />
-              <CapabilityRow
-                icon={Users}
-                title="Mint other super admins"
-                description="The one user-creation option only a super admin can submit."
-                to="/dashboard/admin/users"
               />
             </div>
           </>
@@ -247,8 +258,8 @@ export default function Guide() {
   );
 }
 
-function roleLabel(role: string | undefined) {
+function roleLabel(role: string | undefined, isTeamAdmin: boolean) {
   if (role === 'super_admin') return 'Super Admin';
-  if (role === 'admin') return 'Admin';
+  if (isTeamAdmin) return 'Team Admin';
   return 'Member';
 }

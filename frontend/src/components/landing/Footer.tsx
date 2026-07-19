@@ -7,10 +7,7 @@ const productLinks = [
   { label: 'Ask', to: '/dashboard/chat' },
 ];
 
-const companyLinks = [
-  { label: 'About', to: '/about' },
-  { label: 'Log in', to: '/login' },
-];
+const companyLinks = [{ label: 'About', to: '/about' }];
 
 const socials = [
   { label: 'X', href: 'https://x.com', icon: AtSign },

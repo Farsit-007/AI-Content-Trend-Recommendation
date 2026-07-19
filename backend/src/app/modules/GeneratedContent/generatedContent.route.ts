@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAdmin, requireAuth } from '../../middleware/auth';
+import { requireSuperAdmin, requireAuth } from '../../middleware/auth';
 import { validation } from '../../middleware/validation';
 import { GeneratedContentController } from './generatedContent.controller';
 import { GeneratedContentValidation } from './generatedContent.validation';
@@ -22,7 +22,7 @@ router.post(
 
 router.post(
   '/run',
-  requireAdmin,
+  requireSuperAdmin,
   validation(GeneratedContentValidation.triggerAutoGenerationValidation),
   GeneratedContentController.triggerRun,
 );

@@ -102,6 +102,7 @@ const fetchTopLaunches = async (token: string): Promise<RawNewsItem[]> => {
     url: node.website ?? node.url,
     discussion_url: node.url,
     thumbnail_url: node.thumbnail?.url,
+    description: node.description || node.tagline,
     snippet: node.tagline,
     content: node.description || undefined,
     published_at: new Date(node.createdAt),

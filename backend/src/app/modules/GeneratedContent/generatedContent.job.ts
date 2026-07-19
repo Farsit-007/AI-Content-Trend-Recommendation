@@ -14,8 +14,10 @@ const TOP_NEWS_PER_TEAM = 3;
 const makeAdminUser = (teamId: string): IRequestUser => ({
   id: 'system',
   email: 'system@growth-studio.internal',
-  role: 'admin',
+  name: 'Growth Studio (auto-generation)',
+  role: 'super_admin',
   team_ids: [teamId],
+  team_admin_team_ids: [teamId],
 });
 
 export const runAutoGeneration = async (teamId?: string): Promise<IAutoGenerationSummary> => {

@@ -17,8 +17,6 @@ const LANGUAGE_INSTRUCTIONS: Record<LanguageStyle, string> = {
     'Write in Bengali (বাংলা script). Keep widely-used English technical terms ' +
     '(e.g. AI, JavaScript, framework, API) in English, as Bangla tech content naturally does. ' +
     'Never write Bengali words in Latin letters.',
-  banglish:
-    'Write in Banglish — Bengali written in Latin letters, mixed naturally with English technical terms.',
   english: 'Write in clear, natural English.',
 };
 

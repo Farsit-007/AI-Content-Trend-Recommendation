@@ -1,5 +1,6 @@
 import AppError from '../../errors/AppError';
 import { httpStatus } from '../../utils/httpStatus';
+import { ActivityLogService } from '../ActivityLog/activityLog.service';
 import { IRequestUser } from '../User/user.interface';
 import { IAutoGenerationSummary, IGeneratedContentFormats, GeneratedContentStatus } from './generatedContent.interface';
 import { runAutoGeneration } from './generatedContent.job';
@@ -7,14 +8,14 @@ import { GeneratedContent } from './generatedContent.model';
 import { assertHasAtLeastOneFormat } from './generatedContent.utils';
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
-  if (requestingUser.role === 'admin' || requestingUser.role === 'super_admin') return;
+  if (requestingUser.role === 'super_admin') return;
   if (!requestingUser.team_ids.includes(teamId)) {
     throw new AppError(httpStatus.FORBIDDEN, 'You do not have access to this team');
   }
 };
 
 const assertAdmin = (requestingUser: IRequestUser) => {
-  if (requestingUser.role !== 'admin' && requestingUser.role !== 'super_admin') {
+  if (requestingUser.role !== 'super_admin') {
     throw new AppError(httpStatus.FORBIDDEN, 'Admin access required');
   }
 };
@@ -52,7 +53,22 @@ const updateStatus = async (
   assertTeamAccess(doc.team_id, requestingUser);
 
   doc.status = status;
+  doc.updated_by = requestingUser.id;
+  doc.updated_by_name = requestingUser.name;
+  doc.updated_at = new Date();
   await doc.save();
+
+  if (status === 'approved' || status === 'dismissed') {
+    void ActivityLogService.recordActivity({
+      team_id: doc.team_id,
+      actor: requestingUser,
+      action: status === 'approved' ? 'content.draft_approved' : 'content.draft_dismissed',
+      summary: `${status === 'approved' ? 'Approved' : 'Dismissed'} the draft "${doc.topic}"`,
+      target_type: 'generated_content',
+      target_id: doc._id.toString(),
+    });
+  }
+
   return doc;
 };
 
@@ -77,11 +93,24 @@ const createDraft = async (
   assertTeamAccess(payload.team_id, requestingUser);
   assertHasAtLeastOneFormat(payload.formats);
 
-  return GeneratedContent.create({
+  const draft = await GeneratedContent.create({
     ...payload,
     source: 'manual',
     status: 'draft',
+    created_by: requestingUser.id,
+    created_by_name: requestingUser.name,
   });
+
+  void ActivityLogService.recordActivity({
+    team_id: payload.team_id,
+    actor: requestingUser,
+    action: 'content.draft_saved',
+    summary: `Saved a draft for "${payload.topic}" (${Object.keys(payload.formats).join(', ')})`,
+    target_type: 'generated_content',
+    target_id: draft._id.toString(),
+  });
+
+  return draft;
 };
 
 export const GeneratedContentService = {

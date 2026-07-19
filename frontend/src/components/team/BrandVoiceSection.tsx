@@ -22,11 +22,11 @@ const EMPTY_STATE_COPY = 'Add 25–30 of your real posts — every generation co
 
 interface BrandVoiceSectionProps {
   teamId: string;
-  isAdmin: boolean;
+  canManageTeam: boolean;
   categories: string[];
 }
 
-export function BrandVoiceSection({ teamId, isAdmin, categories }: BrandVoiceSectionProps) {
+export function BrandVoiceSection({ teamId, canManageTeam, categories }: BrandVoiceSectionProps) {
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
   const [platform, setPlatform] = useState<BrandVoicePlatform>('facebook');
@@ -79,7 +79,7 @@ export function BrandVoiceSection({ teamId, isAdmin, categories }: BrandVoiceSec
         <p className="text-sm text-muted-foreground">{EMPTY_STATE_COPY}</p>
       </div>
 
-      {isAdmin && (
+      {canManageTeam && (
         <div className="flex flex-col gap-2 rounded-lg border border-white/10 p-3">
           <ExpandableTextarea
             value={content}
@@ -156,7 +156,7 @@ export function BrandVoiceSection({ teamId, isAdmin, categories }: BrandVoiceSec
                   )}
                 </div>
               </div>
-              {isAdmin && (
+              {canManageTeam && (
                 <Button
                   type="button"
                   variant="ghost"

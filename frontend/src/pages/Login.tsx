@@ -47,11 +47,11 @@ const DEMO_ACCOUNTS = [
     description: "Full platform control + style-pack library",
   },
   {
-    role: "Admin",
+    role: "Team Admin",
     email: "demo.admin@growthstudio.dev",
     password: "DemoAdmin123!",
     icon: ShieldQuestion,
-    description: "Team, user & pipeline management",
+    description: "Manages this team's settings, voice & roster",
   },
   {
     role: "Member",

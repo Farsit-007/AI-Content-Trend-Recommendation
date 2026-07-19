@@ -59,7 +59,6 @@ describe('hasStableScriptRatio', () => {
 
   it('skips the check entirely for non-bangla languages', () => {
     expect(hasStableScriptRatio('any draft', 'completely different english text', 'english')).toBe(true);
-    expect(hasStableScriptRatio('any draft', 'completely different banglish text', 'banglish')).toBe(true);
   });
 
   it('does not block when the draft itself has no Bangla script to compare against', () => {

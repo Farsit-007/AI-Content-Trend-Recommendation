@@ -9,7 +9,7 @@ afterAll(disconnectTestDb);
 
 describe('POST /api/v1/users', () => {
   it('lets an admin create a user', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-creates-user@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-creates-user@example.test' });
     const token = createAuthToken(admin);
 
     const res = await request(app)
@@ -36,7 +36,7 @@ describe('POST /api/v1/users', () => {
 
 describe('GET /api/v1/users', () => {
   it('lets an admin list users', async () => {
-    const admin = await createTestUser({ role: 'admin', email: 'admin-lists-users@example.test' });
+    const admin = await createTestUser({ role: 'super_admin', email: 'admin-lists-users@example.test' });
     await createTestUser({ email: 'another-user@example.test' });
     const token = createAuthToken(admin);
 

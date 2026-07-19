@@ -17,12 +17,12 @@ export interface CreateUserPayload {
   team_ids?: string[];
 }
 
-/** POST /users (admin-only; `role: 'super_admin'` is itself super_admin-only server-side). */
+/** POST /users (super_admin-only). */
 export function createUser(payload: CreateUserPayload): Promise<UserDto> {
   return apiPost<UserDto>('/users', payload);
 }
 
-/** GET /users (admin-only) — every account in the system, or `?team_id=` to scope to one team. */
+/** GET /users (super_admin-only) — every account in the system, or `?team_id=` to scope to one team. */
 export function listUsers(teamId?: string): Promise<UserDto[]> {
   return apiGet<UserDto[]>('/users', { params: teamId ? { team_id: teamId } : undefined });
 }

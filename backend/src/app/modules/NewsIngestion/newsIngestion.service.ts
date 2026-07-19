@@ -7,6 +7,7 @@ import { runAllAdapters } from './adapters';
 import { AdjudicationInput, adjudicatePairs, batchesUsed } from './newsIngestion.adjudicate';
 import { categorizeBatch } from './newsIngestion.categorize';
 import { enrichContent } from './newsIngestion.contentFetch';
+import { enrichMetadata } from './newsIngestion.metaEnrichment';
 import {
   CategorizedNewsItem,
   IngestionSummary,
@@ -446,8 +447,20 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       }
     }
 
+    // Layer 3c: Description/thumbnail backfill — cheap og:meta scrape, ungated by relevance (see
+    // newsIngestion.metaEnrichment), only for items still missing one or both after adapter capture.
+    let metaEnriched: ScoredNewsItem[] = enrichedRelevant;
+    try {
+      metaEnriched = await enrichMetadata(enrichedRelevant);
+    } catch (err) {
+      logger.error(
+        { err: err instanceof Error ? err.message : err },
+        '[NewsIngestion] metadata enrichment failed — proceeding without description/thumbnail backfill',
+      );
+    }
+
     // Layer 4: Categorize & Score Opportunity
-    const categorized: CategorizedNewsItem[] = await categorizeBatch(enrichedRelevant);
+    const categorized: CategorizedNewsItem[] = await categorizeBatch(metaEnriched);
     const finalized: ScoredCategorizedNewsItem[] = categorized.map((item) => ({
       ...item,
       opportunity_score: computeOpportunityScore(item.relevance_score, item.trend_score, item.audience_fit, config.news_ingestion),
@@ -468,6 +481,7 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       // field list, not a spread — a field only on RawNewsItem is silently dropped if not listed here.
       discussion_url: item.discussion_url,
       thumbnail_url: item.thumbnail_url,
+      description: item.description,
       snippet: item.snippet,
       // A 'failed' marker means enrichment tried and found nothing — withContentMeta would
       // otherwise read the still-empty `content` as 'none' (never attempted), losing that signal.

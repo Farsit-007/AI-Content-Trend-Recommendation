@@ -5,8 +5,13 @@ export interface RawNewsItem {
   url: string;
   /** The aggregator's own comment/discussion thread, when distinct from `url` (e.g. HN item page, Product Hunt post page). */
   discussion_url?: string;
-  /** A source-native preview image (cover image, social image, thumbnail field) — never scraped/derived. */
+  /** A source-native preview image (cover image, social image, thumbnail field) — backfilled by
+   *  newsIngestion.metaEnrichment's og:image scrape, then a static per-source logo, when absent. */
   thumbnail_url?: string;
+  /** The source's own description/tagline/summary field — free to fetch (already part of the
+   *  listing/search response), so populated unconditionally, never gated by relevance like `content`
+   *  is. Backfilled by newsIngestion.metaEnrichment's og:description scrape when a source has none. */
+  description?: string;
   snippet?: string;
   content?: string;
   /** Set to 'failed' by content enrichment when a fetch/extraction attempt found nothing usable — distinct from simply never having been attempted. */

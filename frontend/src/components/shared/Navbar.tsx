@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown, Compass, LogOut } from "lucide-react";
+import { Check, ChevronsUpDown, Compass } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 
 import { useAuth } from "@/context/auth-context";
@@ -58,7 +58,7 @@ function TeamSwitcher() {
 /** Dashboard topbar. Section navigation lives in the sidebar; the
  *  `SidebarTrigger` collapses it on desktop and opens it on mobile. */
 export function Navbar() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { startTour } = useTour();
 
   const handleTakeTour = () => {
@@ -89,10 +89,6 @@ export function Navbar() {
             </div>
           )}
           <ThemeToggle />
-          <Button variant="outline" size="sm" onClick={() => void logout()}>
-            <LogOut className="size-4" />
-            <span className="hidden sm:inline">Log out</span>
-          </Button>
         </div>
       </nav>
     </header>

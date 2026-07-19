@@ -20,6 +20,14 @@ export interface IGeneratedContent {
   source: GeneratedContentSource;
   status: GeneratedContentStatus;
   model_used?: string;
+  /** Absent for `source: 'auto'` drafts — no human created those. Denormalized name/email so the
+   *  Drafts list never needs a join back to Users. */
+  created_by?: string;
+  created_by_name?: string;
+  /** Set whenever a human changes `status` (approve/dismiss) — who made that call, and when. */
+  updated_by?: string;
+  updated_by_name?: string;
+  updated_at?: Date;
   created_at: Date;
 }
 

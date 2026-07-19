@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { ExternalLink, Loader2, MessageCircle, PenLine, RotateCcw, Sparkles } from 'lucide-react';
 import { clearNewsItemOverride, getNewsItem, setNewsItemOverride, type NewsItemDto } from '@/lib/api/news';
 import { getTeamCategories } from '@/lib/api/teams';
+import { splitNewsTitle } from '@/lib/newsTitle';
+import { sourceLogoFor } from '@/lib/sourceLogos';
 import { useTeamId } from '@/lib/useTeamId';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -171,7 +173,41 @@ export function NewsItemDrawer({ newsItemId, onOpenChange }: NewsItemDrawerProps
         {item && (
           <>
             <SheetHeader>
-              <SheetTitle className="text-lg leading-snug">{item.title}</SheetTitle>
+              {(() => {
+                // A real thumbnail (native or og:image) is photo-quality and safe to stretch
+                // full-bleed; a source logo is a small mark and only ever shown as a centered
+                // badge — stretching a tiny favicon full-width just reads as a blurry blank block.
+                if (item.thumbnail_url) {
+                  return (
+                    <img
+                      src={item.thumbnail_url}
+                      alt=""
+                      loading="lazy"
+                      className="mb-2 aspect-video w-full rounded-lg border border-white/10 object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  );
+                }
+                const logo = sourceLogoFor(item.source);
+                return logo ? (
+                  <div className="mb-2 flex aspect-video w-full items-center justify-center rounded-lg border border-white/10 bg-white/5">
+                    <div className="flex size-14 items-center justify-center rounded-md bg-white p-2.5 shadow-sm">
+                      <img src={logo} alt="" loading="lazy" className="size-full object-contain" />
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+              {(() => {
+                const { heading, handle } = splitNewsTitle(item.title);
+                return (
+                  <>
+                    <SheetTitle className="text-lg leading-snug">{heading}</SheetTitle>
+                    {handle && <p className="text-xs text-muted-foreground">{handle}</p>}
+                  </>
+                );
+              })()}
               <SheetDescription>
                 <a
                   href={item.url}
@@ -227,10 +263,10 @@ export function NewsItemDrawer({ newsItemId, onOpenChange }: NewsItemDrawerProps
 
               <div className="flex flex-col gap-1.5">
                 <p className="text-xs font-medium text-muted-foreground">
-                  {item.content ? 'Full content' : 'Snippet'}
+                  {item.content ? 'Full content' : item.description ? 'Description' : 'Snippet'}
                 </p>
                 <p className="max-h-72 overflow-y-auto text-sm whitespace-pre-wrap text-foreground/90">
-                  {item.content ?? item.snippet ?? 'No preview available.'}
+                  {item.content ?? item.description ?? item.snippet ?? 'No preview available.'}
                 </p>
               </div>
             </div>

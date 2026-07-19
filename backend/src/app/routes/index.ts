@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import swaggerUi from 'swagger-ui-express';
+import { ActivityLogRoutes } from '../modules/ActivityLog/activityLog.route';
 import { GeneratedContentRoutes } from '../modules/GeneratedContent/generatedContent.route';
 import { BrandVoiceExampleRoutes } from '../modules/BrandVoiceExample/brandVoiceExample.route';
 import { ChatRoutes } from '../modules/Chat/chat.route';
@@ -32,6 +33,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: '/style-packs', route: StylePackRoutes },
   { path: '/stats', route: StatsRoutes },
   { path: '/llm-providers', route: LlmProviderRoutes },
+  { path: '/activity-log', route: ActivityLogRoutes },
 ];
 
 moduleRoutes.forEach((route) => {

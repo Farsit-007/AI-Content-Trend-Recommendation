@@ -15,6 +15,8 @@ const createNewsItemValidation = z.object({
     content_hash: z.string({ required_error: 'content_hash is required' }),
     title: z.string({ required_error: 'title is required' }),
     url: z.string({ required_error: 'url is required' }).url(),
+    thumbnail_url: z.string().url().optional(),
+    description: z.string().optional(),
     snippet: z.string().optional(),
     content: z.string().optional(),
     content_status: contentStatusValidation.optional(),
@@ -42,6 +44,8 @@ const updateNewsItemValidation = z.object({
   body: z.object({
     title: z.string().optional(),
     url: z.string().url().optional(),
+    thumbnail_url: z.string().url().optional(),
+    description: z.string().optional(),
     snippet: z.string().optional(),
     content: z.string().optional(),
     content_status: contentStatusValidation.optional(),
