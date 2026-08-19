@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { reportError } from '@/lib/errorReporting';
 
 interface Props {
   children: ReactNode;
@@ -33,9 +34,8 @@ export class RouteErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // The one place a frontend render error is observable at all today. When error tracking is added
-    // (see IMPROVEMENT-PLAN.md P4-4), report it here — this is the hook for it.
     console.error('[RouteErrorBoundary] Unhandled render error', error, info.componentStack);
+    reportError(error, { source: 'route-error-boundary', componentStack: info.componentStack });
   }
 
   private handleRetry = () => {

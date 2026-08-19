@@ -1,4 +1,6 @@
 import { apiGet, apiPost } from './client';
+import { streamSse } from './sse';
+import { ApiError } from './types';
 import type { LanguageStyle } from './content';
 
 export interface AskChatPayload {
@@ -17,6 +19,42 @@ export interface AskChatResponse {
  *  and brand voice. Uncached, one turn per call; `conversation_id` threads follow-ups. */
 export function askChat(payload: AskChatPayload): Promise<AskChatResponse> {
   return apiPost<AskChatResponse>('/chat', payload);
+}
+
+export interface AskChatStreamHandlers {
+  /** Fires once, before any text — carries the conversation id to thread follow-ups onto. */
+  onStart?: (conversationId: string) => void;
+  /** Fires per token chunk. Append, don't replace. */
+  onDelta: (text: string) => void;
+  /** Fires once with the complete reply, after it has been persisted server-side. */
+  onDone?: (reply: string) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * POST /chat/stream — the same grounded answer as `askChat`, delivered token by token.
+ *
+ * Worth the extra client complexity because chat is the one surface where the wait is unavoidable
+ * and fully visible: a buffered answer means staring at a spinner for the whole provider round trip,
+ * in a product category where every comparable tool shows the first token in under a second.
+ *
+ * Throws on a terminal `error` event, matching what `askChat` does, so callers keep one error path.
+ */
+export async function askChatStream(payload: AskChatPayload, handlers: AskChatStreamHandlers): Promise<void> {
+  let streamError: string | null = null;
+
+  await streamSse('/chat/stream', payload, {
+    signal: handlers.signal,
+    onEvent: (event, data) => {
+      const d = data as { conversation_id?: string; text?: string; reply?: string; message?: string };
+      if (event === 'start' && d.conversation_id) handlers.onStart?.(d.conversation_id);
+      else if (event === 'delta' && d.text) handlers.onDelta(d.text);
+      else if (event === 'done') handlers.onDone?.(d.reply ?? '');
+      else if (event === 'error') streamError = d.message ?? 'Chat request failed';
+    },
+  });
+
+  if (streamError) throw new ApiError(streamError, 502, []);
 }
 
 export interface ConversationSummary {

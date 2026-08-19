@@ -11,6 +11,15 @@ export interface AdapterChatMessage {
 /** Shared contract every provider implements — the "SDK kind of system" the registry is built around. */
 export interface LlmProviderAdapter {
   chatCompletion: (model: string, messages: AdapterChatMessage[], temperature: number) => Promise<string>;
+  /**
+   * Same call, yielding text as it arrives. Optional on the interface so a future provider without
+   * streaming stays implementable; callers fall back to the buffered `chatCompletion` when absent.
+   */
+  streamChatCompletion?: (
+    model: string,
+    messages: AdapterChatMessage[],
+    temperature: number,
+  ) => AsyncIterable<string>;
   embed: (model: string, text: string) => Promise<number[]>;
   embedBatch: (model: string, texts: string[]) => Promise<number[][]>;
 }

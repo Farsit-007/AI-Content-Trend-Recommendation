@@ -22,11 +22,10 @@
 
 ## Implementation status
 
-**17 of 23 done, 1 partial, 5 untouched.** Branch `chore/production-hardening`. Backend: typecheck
-clean, lint 0 errors, 555/565 tests passing. Frontend: lint 0 errors, build clean.
+**21 of 23 done, 1 partial, 1 blocked on you.** Branch `chore/production-hardening`. Backend: typecheck
+clean, lint 0 errors, 561/571 tests passing. Frontend: **27 tests passing**, lint 0 errors, build clean.
 
-The 5 untouched are not oversights — each is a multi-day change that deserves its own OpenSpec
-change: `P2-4`, `P3-3`, `P3-4`, `P4-3`, `P4-4`.
+Only `P4-3` is outstanding, and it cannot be done from here — see the flag register below.
 
 | Item | Status |
 |------|--------|
@@ -44,15 +43,15 @@ change: `P2-4`, `P3-3`, `P3-4`, `P4-3`, `P4-4`.
 | P2-1 vector-search migration | **Done, scope narrowed** — chat migrated behind `CHAT_VECTOR_SEARCH_ENABLED` with in-memory fallback. Dedup and brand-voice retrieval deliberately **not** migrated; see below |
 | P2-2 compound indexes | **Done** — three added; still worth an `explain()` against production data |
 | P2-3 categorization cap | **Done** — deferred items are stored with `needs_review`, and counted in `ingestion_runs.categorization` |
-| P2-4 generation over SSE | **Not started** |
+| P2-4 generation over SSE | **Done** — `POST /content/generate/stream`, one event per completed format, cancellation stops the remaining paid calls |
 | P3-1 code splitting | **Done** — every page is its own chunk |
 | P3-2 error boundary | **Done** — per-route boundary + router `errorElement` |
-| P3-3 streaming | **Not started** |
-| P3-4 frontend tests | **Not started** |
+| P3-3 streaming | **Done** — token streaming on `POST /chat/stream`; adapters gained `streamChatCompletion` for all three providers |
+| P3-4 frontend tests | **Done** — Vitest + Testing Library, 27 tests, a hard gate in CI from day one |
 | P4-1 key-reveal audit | **Done** — `llm.key_revealed` action |
 | P4-2 `default_models` validation | **Done** — see correction below |
-| P4-3 flag decisions | **Not started** — needs live harness runs |
-| P4-4 error tracking | **Not started** — the boundary in P3-2 has the hook ready |
+| P4-3 flag decisions | **Blocked on you** — needs live provider runs. See the register below |
+| P4-4 error tracking | **Done** — Sentry behind `SENTRY_DSN`/`VITE_SENTRY_DSN`, no-op unset; frontend SDK lazy-loaded so it costs nothing when off |
 
 ### Two corrections to this plan, found while implementing
 
@@ -97,6 +96,20 @@ retrieval." That ordering was by pool size, not by whether migrating actually he
   considered, so past the cap the best-matching item may simply not be in the slice that was loaded.
   Ordering that cap by trend score (P1-1) made the truncation principled; searching the whole corpus
   and truncating after removes it. This is the proper fix P1-1 could only approximate.
+
+### Feature flag register — P4-3
+
+Four ready-but-off flags now exist. Each needs a recorded verdict, then to be switched on or deleted;
+a flag that is neither is a live code path every future change must keep working with no evidence it
+should exist. None can be decided from a dev machine — the first two need a judgment call on real
+generated output, the last two need the target Atlas cluster.
+
+| Flag | How to decide | Criterion |
+|---|---|---|
+| `CONTENT_CRITIQUE_ENABLED` | `npm run verify:bangla-bakeoff -- --critique both` | Does the critique pass measurably improve Bangla output enough to justify one extra LLM call per eligible format? |
+| `STYLE_EXAMPLE_EMBED_BY_TOPIC_SUMMARY` | `npm run verify:style-pack-retrieval`, then `npm run migrate:style-example-embeddings` if adopting | Gate G1 — does topic-summary embedding retrieve better Bangla style examples than content embedding? |
+| `NEWS_FEED_SEMANTIC_MATCH_ENABLED` | `npm run db:verify-indexes` | Does `news_items_vector_index` exist on the target cluster? |
+| `CHAT_VECTOR_SEARCH_ENABLED` | `npm run db:create-indexes` then `npm run db:verify-indexes` | Same index, and it must declare `lifecycle` + `created_at` as **filter fields**. An index created before this change does not — `db:create-indexes` now warns rather than reporting a clean skip. |
 
 ### The 10 remaining test failures need a decision, not a fix
 

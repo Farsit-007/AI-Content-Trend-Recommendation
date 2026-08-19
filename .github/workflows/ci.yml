@@ -79,6 +79,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Vitest + jsdom; no browser, no services. A hard gate from day one, unlike the backend's —
+      # this suite starts green.
+      - name: Test
+        run: npm test
+
       # `npm run build` is `tsc -b && vite build`, so this covers typechecking too.
       - name: Build
         run: npm run build

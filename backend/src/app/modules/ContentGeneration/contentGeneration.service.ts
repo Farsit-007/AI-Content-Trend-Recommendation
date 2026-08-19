@@ -104,17 +104,15 @@ const parseFormatValue = (format: FormatId, raw: string): FormatValue | null =>
   CONTENT_FORMATS[format].kind === 'json' ? parseYoutubeIdea(raw) : parseTextFormat(raw);
 
 /**
- * Every requested format always produces a fresh LLM call — creative output is not idempotent and
- * must not pretend to be (see generation-cache-rework). `regenerate` is accepted for API
- * compatibility with older clients but has no effect. Deterministic intermediates (fact sheets,
- * topic embeddings) remain cached — see contentGeneration.facts.ts / contentGeneration.embedCache.ts.
+ * Everything a generation request needs before any format-specific work: voice, style pack, news
+ * grounding, retrieval and the fact sheet.
+ *
+ * Extracted so the buffered and streaming entry points below cannot drift in *what* they generate,
+ * only in how it is delivered. This codebase already learned that lesson once — see
+ * `buildStyleContext`, pulled out so the bake-off harness could not silently diverge from a live
+ * request's prompt.
  */
-const generateContent = async (
-  payload: GenerateContentRequest,
-  requestingUser: IRequestUser,
-): Promise<GeneratedContent> => {
-  assertTeamAccess(payload.team_id, requestingUser);
-
+const prepareGeneration = async (payload: GenerateContentRequest) => {
   const requestedFormats = payload.formats ?? DEFAULT_FORMATS;
 
   const [voiceOptions, stylePack] = await Promise.all([
@@ -130,7 +128,7 @@ const generateContent = async (
   const fewShotExamples = coldStart ? [] : await fetchTopBrandVoiceExamples(payload.team_id, topicEmbedding);
 
   // Fetched once regardless of how many formats are requested — each format ranks its own
-  // selection from this shared set via rankStyleExamples's platform preference (see below).
+  // selection from this shared set via rankStyleExamples's platform preference.
   const stylePackExamples = stylePack ? await fetchStylePackExamples(packId as string) : null;
 
   const factSheet =
@@ -143,75 +141,123 @@ const generateContent = async (
     await resolveModelForTask('content_generation', { teamId: payload.team_id, requestModelId: payload.llm_model_id })
   ).model_id;
 
+  return {
+    requestedFormats,
+    voiceOptions,
+    stylePack,
+    stylePackExamples,
+    topicEmbedding,
+    fewShotExamples,
+    factSheet,
+    newsContext,
+    modelUsed,
+  };
+};
+
+type GenerationPrep = Awaited<ReturnType<typeof prepareGeneration>>;
+
+/** Generates one format: prompt assembly, the LLM call, parsing, the language guard, and critique. */
+const generateOneFormat = async (
+  format: FormatId,
+  prep: GenerationPrep,
+  payload: GenerateContentRequest,
+): Promise<FormatValue> => {
+  const { voiceOptions, stylePack, stylePackExamples, topicEmbedding, fewShotExamples, factSheet, newsContext } = prep;
+
+  const styleContext = buildStyleContext(format, stylePack, stylePackExamples, topicEmbedding);
+  const messages = buildMessages(
+    format,
+    payload.topic,
+    fewShotExamples,
+    voiceOptions,
+    newsContext,
+    styleContext,
+    factSheet,
+  );
+
+  const raw = await chatCompletionForTask('content_generation', messages, {
+    teamId: payload.team_id,
+    requestModelId: payload.llm_model_id,
+    temperature: 0.7,
+  });
+  let parsed = parseFormatValue(format, raw);
+  if (parsed === null) {
+    throw new Error(`format "${format}" returned an unparseable response`);
+  }
+
+  // The languageDominance clause in buildSystemPrompt is a request, not a guarantee — models
+  // reliably drift toward a few-shot example's language over a system instruction. This is the
+  // hard backstop: detect the drift and retry once with a reinforced, last-position instruction
+  // before ever handing back output in the wrong language. Soft-fail — a failed retry still
+  // returns the best text we have, never a request error.
+  if (typeof parsed === 'string' && isLanguageMismatched(parsed, voiceOptions.language)) {
+    logger.warn(
+      `[ContentGeneration] format "${format}" drifted from requested language "${voiceOptions.language}" — retrying once with a reinforced instruction`,
+    );
+    try {
+      const retryRaw = await chatCompletionForTask(
+        'content_generation',
+        [...messages, { role: 'system', content: buildLanguageReinforcement(voiceOptions.language) }],
+        { teamId: payload.team_id, requestModelId: payload.llm_model_id, temperature: 0.5 },
+      );
+      const retryParsed = parseFormatValue(format, retryRaw);
+      if (retryParsed !== null) {
+        parsed = retryParsed;
+        if (typeof parsed === 'string' && isLanguageMismatched(parsed, voiceOptions.language)) {
+          logger.warn(
+            `[ContentGeneration] format "${format}" still mismatched requested language "${voiceOptions.language}" after retry — keeping it anyway`,
+          );
+        }
+      }
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : err },
+        `[ContentGeneration] language-correction retry failed for format "${format}" — keeping original draft`,
+      );
+    }
+  }
+
+  // Critique is text-format-only, pack-gated, and off by default (isCritiqueEligible checks all of
+  // that) — critiqueText itself soft-fails to `parsed` on any error or degenerate output, so this
+  // can never turn a successful format into a failed one.
+  return typeof parsed === 'string' && isCritiqueEligible(format, stylePack)
+    ? await critiqueText(parsed, stylePack!.style_card, voiceOptions, payload.team_id)
+    : parsed;
+};
+
+const logGenerated = (payload: GenerateContentRequest, requestingUser: IRequestUser, formats: FormatId[]) => {
+  void ActivityLogService.recordActivity({
+    team_id: payload.team_id,
+    actor: requestingUser,
+    action: 'content.generated',
+    summary: `Generated ${formats.join(', ')} for "${payload.topic}"`,
+    metadata: { formats, news_item_id: payload.news_item_id },
+  });
+};
+
+/**
+ * Every requested format always produces a fresh LLM call — creative output is not idempotent and
+ * must not pretend to be (see generation-cache-rework). `regenerate` is accepted for API
+ * compatibility with older clients but has no effect. Deterministic intermediates (fact sheets,
+ * topic embeddings) remain cached — see contentGeneration.facts.ts / contentGeneration.embedCache.ts.
+ *
+ * All-or-nothing: one failed format fails the request. `generateContentStream` deliberately differs.
+ */
+const generateContent = async (
+  payload: GenerateContentRequest,
+  requestingUser: IRequestUser,
+): Promise<GeneratedContent> => {
+  assertTeamAccess(payload.team_id, requestingUser);
+
+  const prep = await prepareGeneration(payload);
   const results: Partial<Record<FormatId, FormatValue>> = {};
 
   let formatResults: [FormatId, FormatValue][];
   try {
     formatResults = await Promise.all(
-      requestedFormats.map(async (format) => {
-        const styleContext = buildStyleContext(format, stylePack, stylePackExamples, topicEmbedding);
-
-        const messages = buildMessages(
-          format,
-          payload.topic,
-          fewShotExamples,
-          voiceOptions,
-          newsContext,
-          styleContext,
-          factSheet,
-        );
-        const raw = await chatCompletionForTask('content_generation', messages, {
-          teamId: payload.team_id,
-          requestModelId: payload.llm_model_id,
-          temperature: 0.7,
-        });
-        let parsed = parseFormatValue(format, raw);
-        if (parsed === null) {
-          throw new Error(`format "${format}" returned an unparseable response`);
-        }
-
-        // The languageDominance clause in buildSystemPrompt is a request, not a guarantee — models
-        // reliably drift toward a few-shot example's language over a system instruction. This is the
-        // hard backstop: detect the drift and retry once with a reinforced, last-position instruction
-        // before ever handing back output in the wrong language. Soft-fail like everything else in
-        // this loop — a failed retry still returns the best text we have, never a request error.
-        if (typeof parsed === 'string' && isLanguageMismatched(parsed, voiceOptions.language)) {
-          logger.warn(
-            `[ContentGeneration] format "${format}" drifted from requested language "${voiceOptions.language}" — retrying once with a reinforced instruction`,
-          );
-          try {
-            const retryRaw = await chatCompletionForTask(
-              'content_generation',
-              [...messages, { role: 'system', content: buildLanguageReinforcement(voiceOptions.language) }],
-              { teamId: payload.team_id, requestModelId: payload.llm_model_id, temperature: 0.5 },
-            );
-            const retryParsed = parseFormatValue(format, retryRaw);
-            if (retryParsed !== null) {
-              parsed = retryParsed;
-              if (typeof parsed === 'string' && isLanguageMismatched(parsed, voiceOptions.language)) {
-                logger.warn(
-                  `[ContentGeneration] format "${format}" still mismatched requested language "${voiceOptions.language}" after retry — keeping it anyway`,
-                );
-              }
-            }
-          } catch (err) {
-            logger.warn(
-              { err: err instanceof Error ? err.message : err },
-              `[ContentGeneration] language-correction retry failed for format "${format}" — keeping original draft`,
-            );
-          }
-        }
-
-        // Critique is text-format-only, pack-gated, and off by default (isCritiqueEligible
-        // checks all of that) — critiqueText itself soft-fails to `parsed` on any error or
-        // degenerate output, so this can never turn a successful format into a failed one.
-        const finalValue: FormatValue =
-          typeof parsed === 'string' && isCritiqueEligible(format, stylePack)
-            ? await critiqueText(parsed, stylePack!.style_card, voiceOptions, payload.team_id)
-            : parsed;
-
-        return [format, finalValue] as [FormatId, FormatValue];
-      }),
+      prep.requestedFormats.map(
+        async (format) => [format, await generateOneFormat(format, prep, payload)] as [FormatId, FormatValue],
+      ),
     );
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : err }, '[ContentGeneration] LLM call failed');
@@ -222,15 +268,69 @@ const generateContent = async (
     results[format] = value;
   }
 
-  void ActivityLogService.recordActivity({
-    team_id: payload.team_id,
-    actor: requestingUser,
-    action: 'content.generated',
-    summary: `Generated ${requestedFormats.join(', ')} for "${payload.topic}"`,
-    metadata: { formats: requestedFormats, news_item_id: payload.news_item_id },
-  });
+  logGenerated(payload, requestingUser, prep.requestedFormats);
 
-  return { topic: payload.topic, ...results, model_used: modelUsed } as GeneratedContent;
+  return { topic: payload.topic, ...results, model_used: prep.modelUsed } as GeneratedContent;
+};
+
+export interface GenerationStreamHandlers {
+  onStart: (formats: FormatId[], modelUsed: string) => void;
+  onFormatDone: (format: FormatId, value: FormatValue) => void;
+  onFormatError: (format: FormatId, message: string) => void;
+  onDone: (result: GeneratedContent) => void;
+  isCancelled: () => boolean;
+}
+
+/**
+ * Streaming twin of `generateContent`, emitting each format as it completes.
+ *
+ * The problem it solves is not cosmetic: a five-format request is a fact-extraction call plus one
+ * call per format plus an optional critique pass each — comfortably past a typical 30s proxy
+ * timeout, at which point work that was paid for and completed is lost with nothing to show for it.
+ *
+ * Two deliberate differences from the buffered path:
+ *  - **Per-format resilience.** A failed format emits `format_error` and the rest still land, rather
+ *    than failing the whole request. Incremental delivery is pointless if one bad format discards
+ *    four good ones the user already watched arrive.
+ *  - **Cancellation.** Formats run sequentially so a client who navigates away stops the remaining
+ *    paid calls. The buffered path runs them concurrently for total latency; here the latency that
+ *    matters is time-to-*first*-format, which sequential delivery already minimises.
+ */
+const generateContentStream = async (
+  payload: GenerateContentRequest,
+  requestingUser: IRequestUser,
+  handlers: GenerationStreamHandlers,
+): Promise<void> => {
+  assertTeamAccess(payload.team_id, requestingUser);
+
+  const prep = await prepareGeneration(payload);
+  handlers.onStart(prep.requestedFormats, prep.modelUsed);
+
+  const results: Partial<Record<FormatId, FormatValue>> = {};
+  const succeeded: FormatId[] = [];
+
+  for (const format of prep.requestedFormats) {
+    if (handlers.isCancelled()) {
+      logger.info(`[ContentGeneration] client disconnected — skipping remaining formats after "${format}"`);
+      return;
+    }
+
+    try {
+      const value = await generateOneFormat(format, prep, payload);
+      results[format] = value;
+      succeeded.push(format);
+      handlers.onFormatDone(format, value);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error({ err: message, format }, '[ContentGeneration] format failed during streaming generation');
+      handlers.onFormatError(format, `Could not generate ${format}. The other formats are unaffected.`);
+    }
+  }
+
+  if (succeeded.length > 0) {
+    logGenerated(payload, requestingUser, succeeded);
+  }
+  handlers.onDone({ topic: payload.topic, ...results, model_used: prep.modelUsed } as GeneratedContent);
 };
 
 const refineContent = async (
@@ -277,5 +377,6 @@ const refineContent = async (
 
 export const ContentGenerationService = {
   generateContent,
+  generateContentStream,
   refineContent,
 };

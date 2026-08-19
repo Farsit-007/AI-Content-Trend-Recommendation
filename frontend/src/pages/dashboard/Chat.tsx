@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
 import { History, Loader2, MessageSquare, Plus, Send, Sparkles } from 'lucide-react';
-import { askChat, getConversationMessages, listConversations } from '@/lib/api/chat';
+import { askChat, askChatStream, getConversationMessages, listConversations } from '@/lib/api/chat';
 import { getTeam } from '@/lib/api/teams';
 import type { LanguageStyle } from '@/lib/api/content';
 import { useTeamId } from '@/lib/useTeamId';
@@ -80,17 +80,45 @@ export default function Chat() {
     setMessages([]);
   };
 
+  /**
+   * Streams the answer in, appending each chunk to the last assistant turn.
+   *
+   * Still a TanStack mutation, and still keyed `['chat']`, so the app-wide ActiveTasksIndicator keeps
+   * showing an in-flight answer when the user navigates away — that behaviour predates streaming and
+   * shouldn't regress because of it.
+   *
+   * An empty assistant turn is appended up front and then grown in place, so the bubble (and its
+   * caret) appear immediately rather than after the first token lands.
+   */
   const chatMutation = useMutation({
     mutationKey: ['chat'],
-    mutationFn: askChat,
-    onSuccess: (response) => {
-      setConversationId(response.conversation_id);
-      setMessages((prev) => [...prev, { role: 'assistant', content: response.reply }]);
+    mutationFn: async (payload: Parameters<typeof askChat>[0]) => {
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+
+      const appendDelta = (text: string) =>
+        setMessages((prev) => {
+          const next = [...prev];
+          const last = next[next.length - 1];
+          if (last?.role === 'assistant') next[next.length - 1] = { ...last, content: last.content + text };
+          return next;
+        });
+
+      await askChatStream(payload, {
+        onStart: setConversationId,
+        onDelta: appendDelta,
+      });
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-conversations', teamId] });
     },
     onError: (err: Error) => {
       toast.error(err.message || 'Chat failed');
-      setMessages((prev) => prev.slice(0, -1));
+      // Drop the question and the empty/partial answer together — leaving a half-finished bubble
+      // with no error attached would read as a complete reply.
+      setMessages((prev) => {
+        const withoutAnswer = prev.at(-1)?.role === 'assistant' ? prev.slice(0, -1) : prev;
+        return withoutAnswer.slice(0, -1);
+      });
     },
   });
 

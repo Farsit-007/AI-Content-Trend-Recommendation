@@ -36,6 +36,22 @@ export const anthropicAdapter = (apiKey: string): LlmProviderAdapter => {
       return textBlock.text;
     },
 
+    streamChatCompletion: async function* (model: string, messages: AdapterChatMessage[], temperature: number) {
+      const { system, rest } = splitSystemMessage(messages);
+      const stream = client.messages.stream({
+        model,
+        max_tokens: MAX_TOKENS,
+        temperature,
+        system,
+        messages: rest.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      });
+      for await (const event of stream) {
+        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+          yield event.delta.text;
+        }
+      }
+    },
+
     // Anthropic has no embeddings endpoint — a real capability gap, not an oversight; see
     // design.md decision 3 of llm-provider-registry-foundation. LlmModel.capabilities is what
     // keeps Track A2's task resolver from ever routing an embedding task here.

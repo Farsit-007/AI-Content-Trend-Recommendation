@@ -3,9 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  ALL_FORMATS,
   DEFAULT_FORMATS,
   generateContent,
+  generateContentStream,
   refineContent,
   saveDraft,
   type FormatId,
@@ -72,18 +72,25 @@ export default function Generate() {
   const stylePacks = stylePacksQuery.data ?? [];
   const activeModels = activeModelsQuery.data ?? [];
 
+  /**
+   * Streams generation, adding each format's card the moment that format finishes.
+   *
+   * The buffered endpoint held one request open across a fact-extraction call plus one call per
+   * format plus an optional critique pass each — long enough to hit a proxy timeout and lose work
+   * that had already been paid for and produced. Now the first card lands in seconds, and a format
+   * that fails takes only its own card down with it.
+   */
   const generateMutation = useMutation({
     mutationKey: ['content-generation'],
-    mutationFn: generateContent,
-    onSuccess: (response) => {
-      const next: Partial<Record<FormatId, EditorEntry>> = {};
-      for (const [key, value] of Object.entries(response)) {
-        // The response also carries metadata keys (`topic`, `model_used`) — only real format
-        // entries may become editor cards.
-        if (!ALL_FORMATS.includes(key as FormatId) || value === undefined) continue;
-        next[key as FormatId] = { text: value as string | YoutubeIdea };
-      }
-      setEditor(next);
+    mutationFn: async (payload: Parameters<typeof generateContent>[0]) => {
+      // Cleared up front so a re-run doesn't leave the previous run's cards on screen while the new
+      // ones trickle in — the two sets would be indistinguishable.
+      setEditor({});
+
+      await generateContentStream(payload, {
+        onFormat: (format, value) => setEditor((prev) => ({ ...prev, [format]: { text: value } })),
+        onFormatError: (format, message) => toast.error(`${format}: ${message}`),
+      });
     },
     onError: (err: Error) => toast.error(err.message || 'Generation failed'),
   });

@@ -1,4 +1,6 @@
 import { apiGetList, apiPatch, apiPost } from './client';
+import { streamSse } from './sse';
+import { ApiError } from './types';
 import type { Meta } from './types';
 
 export type FormatId = 'facebook_post' | 'linkedin_post' | 'facebook_reel_script' | 'youtube_idea' | 'caption';
@@ -43,6 +45,53 @@ export type GenerateContentResponse = { topic: string; model_used: string } & Ge
 
 export function generateContent(payload: GenerateContentRequest): Promise<GenerateContentResponse> {
   return apiPost<GenerateContentResponse>('/content/generate', payload);
+}
+
+export interface GenerateStreamHandlers {
+  onStart?: (formats: FormatId[], modelUsed: string) => void;
+  /** Fires as each format completes — render it immediately rather than waiting for the rest. */
+  onFormat: (format: FormatId, value: string | YoutubeIdea) => void;
+  /** One format failed; the others are unaffected and still coming. */
+  onFormatError?: (format: FormatId, message: string) => void;
+  onDone?: (result: GenerateContentResponse) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * POST /content/generate/stream — same generation, emitted one format at a time.
+ *
+ * A five-format request is a fact-extraction call plus one call per format plus an optional critique
+ * pass each. Buffered, that is a single HTTP request held open well past a typical 30s proxy
+ * timeout — and a timeout there discards work that was already paid for and completed. Streaming
+ * also means the first post is on screen in seconds instead of everything arriving at once at the end.
+ *
+ * Aborting the `signal` stops the server making the remaining calls, so cancelling actually saves money.
+ */
+export async function generateContentStream(
+  payload: GenerateContentRequest,
+  handlers: GenerateStreamHandlers,
+): Promise<void> {
+  let streamError: string | null = null;
+
+  await streamSse('/content/generate/stream', payload, {
+    signal: handlers.signal,
+    onEvent: (event, data) => {
+      const d = data as {
+        formats?: FormatId[];
+        model_used?: string;
+        format?: FormatId;
+        value?: string | YoutubeIdea;
+        message?: string;
+      };
+      if (event === 'start') handlers.onStart?.(d.formats ?? [], d.model_used ?? '');
+      else if (event === 'format' && d.format && d.value !== undefined) handlers.onFormat(d.format, d.value);
+      else if (event === 'format_error' && d.format) handlers.onFormatError?.(d.format, d.message ?? 'Generation failed');
+      else if (event === 'done') handlers.onDone?.(data as GenerateContentResponse);
+      else if (event === 'error') streamError = d.message ?? 'Content generation failed';
+    },
+  });
+
+  if (streamError) throw new ApiError(streamError, 502, []);
 }
 
 export interface RefineContentRequest {

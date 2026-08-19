@@ -10,6 +10,7 @@ import handleValidationError from '../errors/handleValidationError';
 import handleCastError from '../errors/handleCastError';
 import handleDuplicateError from '../errors/handleDuplicateError';
 import AppError from '../errors/AppError';
+import { reportError } from '../lib/errorReporting';
 
 
 export const globalErrorHandler: ErrorRequestHandler = (
@@ -65,6 +66,19 @@ export const globalErrorHandler: ErrorRequestHandler = (
         message: err?.message,
       },
     ];
+  }
+
+  // Report only what nobody expected. A 4xx here is the API working correctly — a rejected login, a
+  // validation failure, a 409 from the ingestion lock — and reporting those would bury the 500s that
+  // actually need someone's attention.
+  if (statusCode >= 500) {
+    reportError(err, {
+      source: 'http',
+      method: req.method,
+      path: req.originalUrl,
+      // Identity, not credentials: enough to tell "one user hit this 40 times" from "40 users did".
+      user_id: (req as { user?: { id?: string } }).user?.id,
+    });
   }
 
   res.status(statusCode).json({

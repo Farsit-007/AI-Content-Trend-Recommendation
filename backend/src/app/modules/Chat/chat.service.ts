@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import AppError from '../../errors/AppError';
 import config from '../../config';
-import { chatCompletionForTask, embedForTask } from '../../lib/modelResolution';
+import { chatCompletionForTask, embedForTask, streamChatCompletionForTask } from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
 import { LanguageStyle } from '../Team/team.interface';
 import { resolveVoiceOptions } from '../../lib/voiceProfile';
@@ -99,6 +99,99 @@ const askChat = async (payload: ChatRequest, requestingUser: IRequestUser): Prom
   return { conversation_id: conversationId, reply };
 };
 
+export interface ChatStreamHandlers {
+  /** Called once, before the first token, with the conversation id the client should keep using. */
+  onStart: (conversationId: string) => void;
+  onDelta: (text: string) => void;
+  /** Called with the complete reply once it has been persisted. */
+  onDone: (reply: string) => void;
+  /** True when the client has gone — generation stops rather than finishing work nobody will read. */
+  isCancelled: () => boolean;
+}
+
+/**
+ * Streaming twin of `askChat`.
+ *
+ * Deliberately shares every step that decides *what* the answer is — access check, readiness
+ * guidance, retrieval, prompt assembly, persistence — and differs only in how the text is delivered.
+ * The two must not be allowed to drift into answering differently.
+ *
+ * Persistence rules, which streaming forces you to be explicit about:
+ *  - The user's message is stored before generation starts, exactly as in `askChat`, so a question
+ *    is never lost to a failed or abandoned answer.
+ *  - The assistant's reply is stored only at the end, and only if something was produced. A partial
+ *    reply from a client that disconnected mid-stream is still stored — the user saw those tokens,
+ *    so the history has to match what was on their screen.
+ */
+const askChatStream = async (
+  payload: ChatRequest,
+  requestingUser: IRequestUser,
+  handlers: ChatStreamHandlers,
+): Promise<void> => {
+  assertTeamAccess(payload.team_id, requestingUser);
+
+  const conversationId = payload.conversation_id ?? randomUUID();
+  handlers.onStart(conversationId);
+
+  const persist = (role: 'user' | 'assistant', content: string) =>
+    ChatMessage.create({ team_id: payload.team_id, conversation_id: conversationId, role, content });
+
+  if (!(await TeamService.isTeamReady(payload.team_id))) {
+    const { language } = await resolveVoiceOptions(payload.team_id, payload.language);
+    const reply = NOT_READY_GUIDANCE[language];
+    await persist('user', payload.message);
+    await persist('assistant', reply);
+    handlers.onDelta(reply);
+    handlers.onDone(reply);
+    return;
+  }
+
+  const [questionEmbedding, history, voiceOptions] = await Promise.all([
+    embedForTask('embedding', payload.message, { teamId: payload.team_id }),
+    fetchConversationHistory(payload.team_id, conversationId),
+    resolveVoiceOptions(payload.team_id, payload.language),
+  ]);
+
+  const retrieval = await fetchNewsContext(questionEmbedding);
+  logger.info(
+    {
+      teamId: payload.team_id,
+      topSimilarity: retrieval.topSimilarity,
+      poolSize: retrieval.poolSize,
+      contextCount: retrieval.context.length,
+      lowRelevance: retrieval.topSimilarity < config.chat.context_low_relevance_threshold,
+      streaming: true,
+    },
+    '[Chat] context retrieval quality',
+  );
+  const messages = buildMessages(payload.message, retrieval.context, history, voiceOptions);
+
+  await persist('user', payload.message);
+
+  let reply = '';
+  try {
+    for await (const delta of streamChatCompletionForTask('chat', messages, {
+      teamId: payload.team_id,
+      temperature: 0.7,
+    })) {
+      if (handlers.isCancelled()) break;
+      reply += delta;
+      handlers.onDelta(delta);
+    }
+  } catch (err) {
+    logger.error({ err: err instanceof Error ? err.message : err }, '[Chat] streaming LLM call failed');
+    // A mid-stream failure after partial output: keep what the user already saw rather than
+    // discarding it, then surface the failure so they know the answer is incomplete.
+    if (reply.length > 0) await persist('assistant', reply);
+    throw new AppError(httpStatus.BAD_GATEWAY, 'Chat request failed — please try again');
+  }
+
+  if (reply.length > 0) {
+    await persist('assistant', reply);
+  }
+  handlers.onDone(reply);
+};
+
 const CONVERSATION_LIST_LIMIT = 50;
 const PREVIEW_MAX_CHARS = 140;
 
@@ -162,6 +255,7 @@ const getConversationMessages = async (
 
 export const ChatService = {
   askChat,
+  askChatStream,
   listConversations,
   getConversationMessages,
 };

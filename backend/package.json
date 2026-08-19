@@ -46,6 +46,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",
     "@extractus/article-extractor": "^8.1.0",
+    "@sentry/node": "^10.70.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

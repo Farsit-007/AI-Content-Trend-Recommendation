@@ -225,6 +225,69 @@ export const chatCompletionForTask = async (
   }
 };
 
+/**
+ * Streaming chat completion resolved dynamically for `task`.
+ *
+ * Failover differs from `chatCompletionForTask` on purpose, and the difference is the whole reason
+ * this is a separate function rather than a flag. Once a token has been handed to the caller it has
+ * usually already been written to the client's socket, so retrying on another key would splice two
+ * different completions into one answer. Failover therefore applies **only before the first token**:
+ * a provider that fails at connect time is retried on the next available key; one that dies
+ * mid-stream surfaces the error, and the caller decides what a partial answer means.
+ *
+ * Falls back to the buffered call — yielding the whole answer as one chunk — for a bootstrap-tier
+ * resolution or a provider whose adapter has no `streamChatCompletion`. Callers get a uniform
+ * AsyncIterable either way and never branch on provider capability.
+ */
+export async function* streamChatCompletionForTask(
+  task: LlmTask,
+  messages: AdapterChatMessage[],
+  opts: TaskCallOptions = {},
+): AsyncGenerator<string> {
+  const temperature = opts.temperature ?? 0.7;
+  const resolved = await resolveModelForTask(task, opts);
+
+  const openStream = async (r: ResolvedModel): Promise<AsyncIterable<string> | null> => {
+    if (r.source === 'bootstrap') return null;
+    const adapter = getAdapter(r.provider_type, r.api_key);
+    if (!adapter.streamChatCompletion) return null;
+    return adapter.streamChatCompletion(r.model_id, messages, temperature);
+  };
+
+  let stream: AsyncIterable<string> | null;
+  try {
+    stream = await openStream(resolved);
+  } catch (primaryErr) {
+    logger.warn(
+      {
+        task,
+        provider: resolved.provider_type,
+        model: resolved.model_id,
+        err: primaryErr instanceof Error ? primaryErr.message : primaryErr,
+      },
+      '[modelResolution] Resolved stream failed to open, attempting failover to the next available key',
+    );
+
+    let retry: ResolvedModel;
+    try {
+      retry = await resolveModelForTask(task, { ...opts, excludeKeyId: resolved.key_id });
+    } catch {
+      throw primaryErr;
+    }
+    if (retry.key_id === resolved.key_id) throw primaryErr;
+    stream = await openStream(retry);
+  }
+
+  if (!stream) {
+    // No streaming path available — emit the buffered answer as a single chunk so the caller's
+    // consumption code is identical.
+    yield await chatCompletionForTask(task, messages, opts);
+    return;
+  }
+
+  yield* stream;
+}
+
 export interface EmbedTaskCallOptions {
   teamId?: string;
   requestModelId?: string;

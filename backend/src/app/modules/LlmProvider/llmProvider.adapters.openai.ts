@@ -17,6 +17,14 @@ export const openaiAdapter = (apiKey: string): LlmProviderAdapter => {
       return content;
     },
 
+    streamChatCompletion: async function* (model: string, messages: AdapterChatMessage[], temperature: number) {
+      const stream = await client.chat.completions.create({ model, messages, temperature, stream: true });
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) yield delta;
+      }
+    },
+
     embed: async (model: string, text: string): Promise<number[]> => {
       const response = await client.embeddings.create({ model, input: text.slice(0, MAX_EMBED_INPUT_CHARS) });
       const vector = response.data?.[0]?.embedding;

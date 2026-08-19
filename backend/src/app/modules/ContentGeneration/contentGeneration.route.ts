@@ -18,6 +18,15 @@ router.post(
   ContentGenerationController.generateContent,
 );
 
+// Streaming twin of /generate — same auth, validation and per-team LLM budget, delivered over SSE
+// with one event per completed format. Separate path rather than content-negotiated on /generate so
+// the buffered endpoint stays byte-identical for existing clients.
+router.post(
+  '/generate/stream',
+  validation(ContentGenerationValidation.generateContentValidation),
+  ContentGenerationController.generateContentStream,
+);
+
 router.post(
   '/refine',
   validation(ContentGenerationValidation.refineContentValidation),

@@ -240,6 +240,7 @@ Candidate pool = active items from the last `CHAT_CONTEXT_WINDOW_DAYS` (7), capp
 | `GET /health` | Mongo and Redis reported separately, `503` when either is down |
 | `GET /news-items/last-ingested-at` | Cheap poll (id + timestamp, any authenticated user) that the frontend watches to auto-refresh the feed when a run lands |
 | pino / pino-http | Structured logs, `/health` excluded from access logging |
+| Sentry | Optional (`SENTRY_DSN`). Reports 5xx responses, unhandled rejections, uncaught exceptions and failed cron runs — a job that silently stops firing was the blind spot. No-op when unset |
 
 ---
 
@@ -339,9 +340,9 @@ All under `/api/v1`. Envelope: `{ success, message, data, meta? }`.
 | `/teams` | CRUD, `:teamId/members` add/remove/role, `:teamId/categories` | mixed: super admin, team admin, member |
 | `/news-items` | `GET /`, `GET /:id`, `PATCH\|DELETE /:id/override`, `POST /ingest`, `GET /ingestion-runs`, `GET /maintenance-runs`, `GET /last-ingested-at` | optional auth for reads; super admin for writes and run history |
 | `/brand-voice-examples` | CRUD | authenticated |
-| `/content` | `POST /generate`, `POST /refine` | team member |
+| `/content` | `POST /generate`, `POST /generate/stream` (SSE, one event per format), `POST /refine` | team member |
 | `/generated-content` | `GET /`, `POST /`, `PATCH /:id` (status), `POST /run` (trigger auto-gen) | team member; `run` is super admin |
-| `/chat` | `POST /`, `GET /conversations`, `GET /conversations/:id` | authenticated |
+| `/chat` | `POST /`, `POST /stream` (SSE, token-by-token), `GET /conversations`, `GET /conversations/:id` | authenticated |
 | `/style-packs` | CRUD, examples, `POST /:id/generate-card` | reads authenticated; writes super admin |
 | `/llm-providers` | providers, keys, models, `task-defaults`, `models/active` | super admin |
 | `/stats` | `GET /overview` | authenticated |
@@ -358,8 +359,9 @@ All under `/api/v1`. Envelope: `{ success, message, data, meta? }`.
 | **Database** | MongoDB Atlas (Vector Search — Atlas-only; no local mongo image supports it) |
 | **Cache / locks** | Redis 7 — job locks, fact-sheet and topic-embedding caches, Product Hunt OAuth token |
 | **AI** | Provider-agnostic: OpenRouter, Anthropic, OpenAI — bring your own keys, configured in-app |
-| **Testing** | Jest + ts-jest · supertest · mongodb-memory-server · ioredis-mock — 44 suites |
+| **Testing** | Backend: Jest + ts-jest · supertest · mongodb-memory-server · ioredis-mock. Frontend: Vitest + Testing Library + jsdom |
 | **Docs** | Hand-built OpenAPI 3.1 document served through Swagger UI |
+| **Observability** | pino / pino-http · Sentry (optional, `SENTRY_DSN` / `VITE_SENTRY_DSN`) |
 | **Deploy** | Frontend on Vercel · Backend on Dokploy from `Dockerfile.prod` · Redis in Docker |
 
 ---
@@ -435,6 +437,7 @@ echo "VITE_API_URL=http://localhost:5000/api/v1" > .env
 npm run dev                     # http://localhost:5173
 npm run build                   # tsc -b && vite build
 npm run lint
+npm test                        # vitest
 ```
 
 Redis is expected on `localhost:6379` — `docker compose up redis` if you don't have one.

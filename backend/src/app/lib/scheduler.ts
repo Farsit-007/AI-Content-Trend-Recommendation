@@ -4,6 +4,7 @@ import { runAutoGeneration } from '../modules/GeneratedContent/generatedContent.
 import { IngestionAlreadyRunningError, runIngestionPipeline } from '../modules/NewsIngestion/newsIngestion.service';
 import { runEngagementRefresh } from '../modules/NewsRefresh/newsRefresh.service';
 import { runNewsRetention } from '../modules/NewsRetention/newsRetention.service';
+import { reportError } from './errorReporting';
 import { logger } from './logger';
 
 /**
@@ -24,6 +25,7 @@ export const startNewsIngestionScheduler = (): void => {
         logger.info('[scheduler] News ingestion skipped — a run is already in progress');
         return;
       }
+      reportError(err, { source: 'scheduler:news-ingestion' });
       logger.error({ err: err instanceof Error ? err.message : err }, '[scheduler] News ingestion failed');
     }
   });
@@ -37,6 +39,7 @@ export const startAutoGenerationScheduler = (): void => {
       const summary = await runAutoGeneration();
       logger.info({ summary }, '[scheduler] Auto-generation complete');
     } catch (err) {
+      reportError(err, { source: 'scheduler:auto-generation' });
       logger.error({ err: err instanceof Error ? err.message : err }, '[scheduler] Auto-generation failed');
     }
   });
@@ -50,6 +53,7 @@ export const startEngagementRefreshScheduler = (): void => {
       await runEngagementRefresh();
       logger.info('[scheduler] Engagement refresh complete');
     } catch (err) {
+      reportError(err, { source: 'scheduler:engagement-refresh' });
       logger.error({ err: err instanceof Error ? err.message : err }, '[scheduler] Engagement refresh failed');
     }
   });
@@ -63,6 +67,7 @@ export const startNewsRetentionScheduler = (): void => {
       await runNewsRetention();
       logger.info('[scheduler] News retention complete');
     } catch (err) {
+      reportError(err, { source: 'scheduler:news-retention' });
       logger.error({ err: err instanceof Error ? err.message : err }, '[scheduler] News retention failed');
     }
   });

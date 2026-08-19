@@ -3,6 +3,7 @@ import { Server } from 'http';
 import mongoose from 'mongoose';
 import app from './app';
 import config from './app/config';
+import { initErrorReporting, flushErrorReporting, reportError } from './app/lib/errorReporting';
 import { logger } from './app/lib/logger';
 import { redis } from './app/lib/redis';
 import { startAutoGenerationScheduler, startEngagementRefreshScheduler, startNewsIngestionScheduler, startNewsRetentionScheduler } from './app/lib/scheduler';
@@ -16,6 +17,9 @@ import { verifyConnections } from './app/lib/verifyConnections';
 // router doesn't proxy those record types correctly, even though the OS resolver handles them
 // fine. Forcing a public resolver avoids that failure mode.
 dns.setServers(['8.8.8.8', '1.1.1.1']);
+
+// Before anything that can fail, so a crash during startup is itself reported. No-op without a DSN.
+initErrorReporting();
 
 const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> =>
   Promise.race([
@@ -31,8 +35,12 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise
 // process before that last line is actually written — flush first so fatal errors
 // and shutdown reasons are never silently lost from `docker logs`.
 const exitAfterFlush = (code: number) => {
-  logger.flush(() => process.exit(code));
-  setTimeout(() => process.exit(code), 2_000).unref();
+  // Sentry sends asynchronously, so without flushing first the process exits before the error that
+  // killed it is ever transmitted — precisely the one worth having.
+  void flushErrorReporting().finally(() => {
+    logger.flush(() => process.exit(code));
+  });
+  setTimeout(() => process.exit(code), 4_000).unref();
 };
 
 let server: Server;
@@ -59,6 +67,7 @@ async function main() {
       logger.info(`Server is running on port ${config.port}`);
     });
   } catch (error) {
+    reportError(error, { source: 'startup' });
     logger.fatal({ err: error }, 'Startup failed');
     exitAfterFlush(1);
   }
@@ -89,11 +98,13 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 process.on('unhandledRejection', (reason) => {
+  reportError(reason, { source: 'unhandledRejection' });
   logger.fatal({ err: reason }, 'unhandledRejection detected, shutting down...');
   exitAfterFlush(1);
 });
 
 process.on('uncaughtException', (err) => {
+  reportError(err, { source: 'uncaughtException' });
   logger.fatal({ err }, 'uncaughtException detected, shutting down...');
   exitAfterFlush(1);
 });

@@ -66,6 +66,12 @@ const envSchema = z.object({
   // locks out the whole world at once. Set to 1 in production (Dokploy/Traefik). Left at 0 by
   // default because trusting X-Forwarded-For with no proxy in front lets any client spoof its IP and
   // mint a fresh rate-limit bucket per request.
+  // Error tracking. Unset = disabled, and every reporting call becomes a no-op (lib/errorReporting.ts).
+  SENTRY_DSN: z.string().optional(),
+  // Performance tracing is off by default: it has its own cost profile and is a separate decision
+  // from "tell me when the API 500s".
+  SENTRY_TRACES_SAMPLE_RATE: z.string().default('0'),
+
   TRUST_PROXY_HOPS: z.string().default('0'),
 
   // Rate limiting. Windows are in minutes, maxes are requests per window.
@@ -319,6 +325,11 @@ export default {
   },
 
   trust_proxy_hops: Number(env.TRUST_PROXY_HOPS),
+
+  sentry: {
+    dsn: env.SENTRY_DSN,
+    traces_sample_rate: Number(env.SENTRY_TRACES_SAMPLE_RATE),
+  },
 
   rate_limit: {
     enabled: env.RATE_LIMIT_ENABLED === 'true',

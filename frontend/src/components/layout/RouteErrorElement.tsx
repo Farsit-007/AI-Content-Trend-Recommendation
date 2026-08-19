@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { isRouteErrorResponse, useNavigate, useRouteError } from 'react-router-dom';
 import { AlertTriangle, Home, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { reportError } from '@/lib/errorReporting';
 
 /**
  * React Router's `errorElement`. Complements `RouteErrorBoundary`, which catches render errors inside
@@ -24,6 +26,12 @@ export function RouteErrorElement() {
   const isStaleChunk =
     error instanceof Error &&
     /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(error.message);
+
+  useEffect(() => {
+    // A stale-chunk error is a deploy artefact, not a defect — reporting it would just add noise
+    // proportional to how often you ship.
+    if (!isStaleChunk) reportError(error, { source: 'router-error-element', message });
+  }, [error, isStaleChunk, message]);
 
   return (
     <div className="flex min-h-svh items-center justify-center px-4">
