@@ -22,7 +22,7 @@
 
 ## Implementation status
 
-**21 of 23 done, 1 partial, 1 blocked on you.** Branch `chore/production-hardening`. Backend: typecheck
+**20 of 23 done, 1 partial, 1 blocked on you, 1 removed by request.** Branch `chore/production-hardening`. Backend: typecheck
 clean, lint 0 errors, 561/571 tests passing. Frontend: **27 tests passing**, lint 0 errors, build clean.
 
 Only `P4-3` is outstanding, and it cannot be done from here — see the flag register below.
@@ -32,7 +32,7 @@ Only `P4-3` is outstanding, and it cannot be done from here — see the flag reg
 | P0-1 password reset | **Done** — `lib/mailer.ts`, SMTP config; needs `SMTP_*` set to actually deliver |
 | P0-2 rate limiting | **Done** — three Redis-backed tiers + `trust proxy` |
 | P0-3 ingestion lock | **Done** — Redis lock, 409 on the manual trigger |
-| P0-4 CI | **Done** — `.github/workflows/ci.yml`; test step is soft-gated, see below |
+| P0-4 CI | **Removed at the owner's request (2026-08-20).** The workflow was built and working; it was deleted deliberately, not skipped. Nothing runs the test suites automatically now — `npm test` in each package still works |
 | P0-5 committed secrets | **Partly** — `env.example` scrubbed. **You must still rotate all four leaked values**; they remain in git history |
 | P1-1 chat pool ordering | **Done** |
 | P1-2 per-team relevance | **Done** — `news_item_team_scores`, in-database team-ranked feed + auto-gen, backfill script |
@@ -119,8 +119,8 @@ calls of every generate request that omits `formats`, so it is a product and cos
 one and make the other match.** The tenth is `contentGeneration.bakeoff.ts`'s prompt-fidelity test:
 the harness's assembled prompt has drifted from a live request's.
 
-Until both are settled, the CI test step carries `continue-on-error: true`. Remove it once they are —
-a permanently-soft gate stops meaning anything.
+These were previously gated by CI's soft-failing test step; with CI removed (P0-4), nothing surfaces
+them automatically — run `npm test` in `backend/` to see them.
 
 ---
 
