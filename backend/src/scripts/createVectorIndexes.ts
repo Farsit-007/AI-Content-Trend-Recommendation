@@ -10,14 +10,26 @@ dns.setServers(['8.8.8.8', '1.1.1.1']);
 interface VectorIndexSpec {
   collection: string;
   indexName: string;
+  /**
+   * Scalar fields usable in a `$vectorSearch` `filter`. These must be declared on the index — a
+   * filter naming a field that isn't declared is rejected, it does not silently degrade. Declaring
+   * them lets the filter run *during* the search, so the `limit` is spent on eligible documents
+   * rather than being consumed by ones a later `$match` would discard.
+   */
+  filterFields?: string[];
 }
 
 const VECTOR_INDEXES: VectorIndexSpec[] = [
-  { collection: 'news_items', indexName: 'news_items_vector_index' },
-  { collection: 'brand_voice_examples', indexName: 'brand_voice_vector_index' },
+  {
+    collection: 'news_items',
+    indexName: 'news_items_vector_index',
+    // Chat context retrieval pre-filters on both (see Chat/chat.vectorRetrieval.ts).
+    filterFields: ['lifecycle', 'created_at'],
+  },
+  { collection: 'brand_voice_examples', indexName: 'brand_voice_vector_index', filterFields: ['team_id'] },
 ];
 
-const vectorSearchDefinition = {
+const buildDefinition = (filterFields: string[] = []) => ({
   fields: [
     {
       type: 'vector' as const,
@@ -25,15 +37,16 @@ const vectorSearchDefinition = {
       numDimensions: 1536,
       similarity: 'cosine' as const,
     },
+    ...filterFields.map((path) => ({ type: 'filter' as const, path })),
   ],
-};
+});
 
 const createVectorIndexes = async (): Promise<void> => {
   await mongoose.connect(config.database_url as string);
   const db = mongoose.connection.db;
   if (!db) throw new Error('Mongoose connection not established');
 
-  for (const { collection, indexName } of VECTOR_INDEXES) {
+  for (const { collection, indexName, filterFields } of VECTOR_INDEXES) {
     // listSearchIndexes/createSearchIndex require the collection namespace to
     // already exist — Atlas won't lazily create it the way normal writes do.
     await db.createCollection(collection).catch((err) => {
@@ -45,14 +58,30 @@ const createVectorIndexes = async (): Promise<void> => {
     const existing = await coll.listSearchIndexes(indexName).toArray().catch(() => []);
 
     if (existing.length > 0) {
-      console.log(`[createVectorIndexes] ${collection}.${indexName}: already exists, skipping`);
+      // An index created before `filterFields` existed has no filter paths, so a filtered
+      // $vectorSearch against it fails. Say so rather than reporting a clean skip — the fix is a
+      // manual drop-and-recreate in Atlas, which this script deliberately does not do unprompted.
+      const declared = ((existing[0] as { latestDefinition?: { fields?: { type: string; path: string }[] } })
+        .latestDefinition?.fields ?? [])
+        .filter((f) => f.type === 'filter')
+        .map((f) => f.path);
+      const missing = (filterFields ?? []).filter((f) => !declared.includes(f));
+      if (missing.length > 0) {
+        console.warn(
+          `[createVectorIndexes] ${collection}.${indexName}: EXISTS but is missing filter field(s) ` +
+            `[${missing.join(', ')}]. Filtered $vectorSearch queries will fail against it. ` +
+            'Drop the index in Atlas and re-run this script to recreate it.',
+        );
+      } else {
+        console.log(`[createVectorIndexes] ${collection}.${indexName}: already exists, skipping`);
+      }
       continue;
     }
 
     await coll.createSearchIndex({
       name: indexName,
       type: 'vectorSearch',
-      definition: vectorSearchDefinition,
+      definition: buildDefinition(filterFields),
     });
     console.log(`[createVectorIndexes] ${collection}.${indexName}: created`);
   }

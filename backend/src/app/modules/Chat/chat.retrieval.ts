@@ -1,8 +1,10 @@
 import config from '../../config';
+import { logger } from '../../lib/logger';
 import { cosineSimilarity } from '../../lib/similarity';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { ChatContextItem, IChatMessage } from './chat.interface';
 import { ChatMessage } from './chat.model';
+import { findChatContextByVector } from './chat.vectorRetrieval';
 
 const NEWS_LIMIT = 5;
 const HISTORY_LIMIT = 10;
@@ -68,6 +70,25 @@ export const fetchNewsContext = async (
   questionEmbedding: number[],
 ): Promise<RankedNewsContext> => {
   const since = new Date(Date.now() - config.chat.context_window_days * 24 * 3600 * 1000);
+
+  // Preferred path: let the database do the search against its vector index, over the whole corpus.
+  // Ready but off by default — see CHAT_VECTOR_SEARCH_ENABLED. Any failure (missing index, wrong
+  // filter fields, a non-Atlas deployment) falls through to the in-memory path below rather than
+  // failing the question, so enabling this can never be worse than not enabling it.
+  if (config.chat.vector_search_enabled) {
+    try {
+      const candidates = await findChatContextByVector(questionEmbedding, since, NEWS_LIMIT);
+      if (candidates.length > 0) {
+        return rankNewsItems(candidates, questionEmbedding);
+      }
+      logger.warn('[Chat] vector search returned no candidates — falling back to the in-memory pool');
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : err },
+        '[Chat] vector search failed — falling back to the in-memory pool. Is news_items_vector_index present?',
+      );
+    }
+  }
 
   // The `.sort()` is load-bearing, not cosmetic. `context_pool_cap` truncates this query, so without
   // an explicit order Mongo returns documents in natural order and the cap keeps an arbitrary slice —

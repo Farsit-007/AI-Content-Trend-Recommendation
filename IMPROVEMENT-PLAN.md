@@ -22,11 +22,11 @@
 
 ## Implementation status
 
-**16 of 23 done, 1 partial, 6 untouched.** Branch `chore/production-hardening`. Backend: typecheck
-clean, lint 0 errors, 549/559 tests passing. Frontend: lint 0 errors, build clean.
+**17 of 23 done, 1 partial, 5 untouched.** Branch `chore/production-hardening`. Backend: typecheck
+clean, lint 0 errors, 555/565 tests passing. Frontend: lint 0 errors, build clean.
 
-The 6 untouched are not oversights — each is a multi-day change that deserves its own OpenSpec
-change: `P2-1`, `P2-4`, `P3-3`, `P3-4`, `P4-3`, `P4-4`.
+The 5 untouched are not oversights — each is a multi-day change that deserves its own OpenSpec
+change: `P2-4`, `P3-3`, `P3-4`, `P4-3`, `P4-4`.
 
 | Item | Status |
 |------|--------|
@@ -41,7 +41,7 @@ change: `P2-1`, `P2-4`, `P3-3`, `P3-4`, `P4-3`, `P4-4`.
 | P1-4 filter/sort allowlists | **Done** — plus `query parser` pinned explicitly |
 | P1-5 pagination clamp | **Done** |
 | P1-6 builder cleanup | **Done** — also fixed the dead `-createdAt` default sort |
-| P2-1 vector-search migration | **Not started** — was blocked on P1-2, now unblocked |
+| P2-1 vector-search migration | **Done, scope narrowed** — chat migrated behind `CHAT_VECTOR_SEARCH_ENABLED` with in-memory fallback. Dedup and brand-voice retrieval deliberately **not** migrated; see below |
 | P2-2 compound indexes | **Done** — three added; still worth an `explain()` against production data |
 | P2-3 categorization cap | **Done** — deferred items are stored with `needs_review`, and counted in `ingestion_runs.categorization` |
 | P2-4 generation over SSE | **Not started** |
@@ -79,6 +79,24 @@ fixed:
 - The backend ESLint config enabled the TypeScript-unaware base `no-unused-vars` and `no-undef`
   alongside their typescript-eslint equivalents, so every unused variable reported twice and
   built-in types like `RequestInit` read as undefined globals. 25 lint errors → 0.
+
+### P2-1's original ordering in this plan was wrong
+
+This plan said to migrate "largest pool first: dedup's recent pool, then chat, then brand-voice
+retrieval." That ordering was by pool size, not by whether migrating actually helps:
+
+- **Dedup should not migrate.** It compares each candidate against stored items *and against the
+  other candidates in the same run*, which are not in the index yet. `$vectorSearch` can only serve
+  the first half, so the result is a hybrid of N per-candidate Atlas queries plus the in-memory
+  comparison it was meant to replace — more round trips and more moving parts than the single bulk
+  load it started as.
+- **Brand-voice retrieval is not worth it.** A team's pool is 25-30 vectors — one small query either
+  way. The original `brand-voice-rag` design note already reached this conclusion.
+- **Chat was the real win**, and it does more than save the ~6 MB of embeddings each request
+  transferred: the in-memory path truncates to `CHAT_CONTEXT_POOL_CAP` *before* relevance is
+  considered, so past the cap the best-matching item may simply not be in the slice that was loaded.
+  Ordering that cap by trend score (P1-1) made the truncation principled; searching the whole corpus
+  and truncating after removes it. This is the proper fix P1-1 could only approximate.
 
 ### The 10 remaining test failures need a decision, not a fix
 

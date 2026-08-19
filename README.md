@@ -255,8 +255,8 @@ Two Atlas Vector Search indexes exist (`news_items.embedding`, `brand_voice_exam
 | **Per-team relevance** | Ingestion (L5), and on any brand-voice change | Item embedding vs. *one team's* examples → `news_item_team_scores`; ranked in-database so the feed's default `-opportunity_score` sort paginates correctly |
 | **Brand voice RAG** | Generate | Topic embedding vs. the *requesting team's own* examples, in-process, top 3 |
 | **Style pack RAG** | Generate | Topic embedding vs. the resolved pack's examples, platform-preferred, top 5 |
-| **Chat grounding** | Question | Question embedding vs. a 7-day active pool (cap 500), top 5 |
-| **Feed semantic tier** | Feed read | The one true `$vectorSearch` path — **off by default** |
+| **Chat grounding** | Question | `$vectorSearch` over the whole corpus, pre-filtered to the 7-day active window (`CHAT_VECTOR_SEARCH_ENABLED`, off by default) — falls back to ranking a capped 500-item in-memory pool |
+| **Feed semantic tier** | Feed read | `$vectorSearch` against `news_items_vector_index` — **off by default** |
 
 Content generation end to end:
 

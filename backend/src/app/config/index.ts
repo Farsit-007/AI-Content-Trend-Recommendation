@@ -192,6 +192,12 @@ const envSchema = z.object({
   // Log-only annotation threshold: a top similarity below this is logged so a low-context answer
   // is distinguishable from a model-ignoring-good-context one. Does not gate behavior.
   CHAT_CONTEXT_LOW_RELEVANCE_THRESHOLD: z.string().default('0.3'),
+  // Serve chat context from Atlas Vector Search instead of ranking a capped in-memory pool. Off by
+  // default for the same reason NEWS_FEED_SEMANTIC_MATCH_ENABLED is: $vectorSearch needs
+  // `news_items_vector_index` to actually exist on the target cluster, with `lifecycle` and
+  // `created_at` declared as filter fields. Confirm with `npm run db:verify-indexes` before enabling.
+  // Failure is soft either way — the in-memory path stays as the fallback (see chat.retrieval.ts).
+  CHAT_VECTOR_SEARCH_ENABLED: z.string().default('false'),
 
   NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD: z.string().default('0.6'),
   NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE: z.string().default('0.4'),
@@ -358,6 +364,7 @@ export default {
     context_window_days: Number(env.CHAT_CONTEXT_WINDOW_DAYS),
     context_pool_cap: Number(env.CHAT_CONTEXT_POOL_CAP),
     context_low_relevance_threshold: Number(env.CHAT_CONTEXT_LOW_RELEVANCE_THRESHOLD),
+    vector_search_enabled: env.CHAT_VECTOR_SEARCH_ENABLED === 'true',
   },
 
   news_ingestion: {
