@@ -1,35 +1,9 @@
 import config from '../../config';
+import { mapWithConcurrency } from '../../lib/concurrency';
 import { logger } from '../../lib/logger';
 import { decodeEntities, stripHtml } from './adapters/htmlText';
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
-
-/**
- * Runs `fn` over `items` with at most `limit` in flight at once, preserving input order in the
- * result array. A small local queue rather than a dependency — this pipeline has exactly one
- * call site for bounded concurrency.
- */
-export const mapWithConcurrency = async <T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> => {
-  const results: R[] = new Array(items.length);
-  let nextIndex = 0;
-
-  const worker = async (): Promise<void> => {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      results[index] = await fn(items[index]);
-    }
-  };
-
-  const workerCount = Math.min(Math.max(limit, 1), items.length);
-  await Promise.all(Array.from({ length: workerCount }, worker));
-
-  return results;
-};
 
 interface DevToArticleDetail {
   body_markdown?: string;
@@ -175,3 +149,7 @@ export const enrichContent = async <T extends EnrichableItem>(
 
   return { items: enriched, countsBySource };
 };
+
+// Re-exported for the existing unit tests that import it from here; the implementation lives in
+// lib/concurrency.ts so mocking this module can't stub it out from under metaEnrichment.
+export { mapWithConcurrency };

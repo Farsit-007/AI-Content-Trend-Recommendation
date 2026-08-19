@@ -1,14 +1,16 @@
 import { LayoutDashboard, Newspaper, Sparkles, MessageSquare, Inbox, History, Settings, UserCog, BookOpen } from 'lucide-react';
 import type { TUserPath } from '@/types/sidebar.type';
-import Overview from '@/pages/dashboard/Overview';
-import Feed from '@/pages/dashboard/Feed';
-import Generate from '@/pages/dashboard/Generate';
-import Drafts from '@/pages/dashboard/Drafts';
-import Chat from '@/pages/dashboard/Chat';
-import Team from '@/pages/dashboard/settings/Team';
-import ActivityLog from '@/pages/dashboard/ActivityLog';
-import Guide from '@/pages/dashboard/Guide';
-import Account from '@/pages/dashboard/Account';
+import {
+  Account,
+  ActivityLog,
+  Chat,
+  Drafts,
+  Feed,
+  Generate,
+  Guide,
+  Overview,
+  Team,
+} from './lazyPages';
 
 /** Sections available to every authenticated user. */
 export const userPaths: TUserPath[] = [

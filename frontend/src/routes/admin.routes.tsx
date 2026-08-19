@@ -1,9 +1,6 @@
 import { Shield, Users, Building2, Database } from 'lucide-react';
 import type { TUserPath } from '@/types/sidebar.type';
-import Admin from '@/pages/dashboard/Admin';
-import AdminUsers from '@/pages/dashboard/admin/Users';
-import AdminTeams from '@/pages/dashboard/admin/Teams';
-import AdminCatalog from '@/pages/dashboard/admin/Catalog';
+import { Admin, AdminCatalog, AdminTeams, AdminUsers } from './lazyPages';
 import { userPaths } from './user.routes';
 
 /** super_admin gets everything a user has, plus the role-guarded platform admin console.

@@ -5,26 +5,52 @@ import { embedForTask } from '../../lib/modelResolution';
 import { IRequestUser } from '../User/user.interface';
 import { recordTombstones } from '../NewsDedupLedger/newsDedupLedger.service';
 import { NewsItemCategoryOverrideService } from '../NewsItemCategoryOverride/newsItemCategoryOverride.service';
+import { NewsItemTeamScoreService } from '../NewsItemTeamScore/newsItemTeamScore.service';
 import { Team } from '../Team/team.model';
 import { TeamService } from '../Team/team.service';
 import { INewsItem } from './newsItem.interface';
 import { NewsItem } from './newsItem.model';
 import { findSemanticallyRelevantItems } from './newsItem.semanticMatch';
-import { newsItemSearchableFields } from './newsItem.utils';
+import {
+  newsItemDefaultSort,
+  newsItemFilterableFields,
+  newsItemSearchableFields,
+  newsItemSortableFields,
+} from './newsItem.utils';
 
 const HIGH_OPPORTUNITY_THRESHOLD = 7.5;
 
-/** Splices in the requesting user's team override (if any) without mutating the stored document. */
-const withOverride = (item: InstanceType<typeof NewsItem>, override?: { category?: string; opportunity_score?: number }) => {
+/**
+ * Resolves the scores a given team actually sees, without mutating the stored document.
+ *
+ * Three sources, in strict precedence:
+ *  1. a manual per-team override (`news_item_category_overrides`) — a human said so;
+ *  2. this team's computed score (`news_item_team_scores`) — measured against *its own* brand voice;
+ *  3. the item's stored value — the platform-wide baseline, scored against every team's voice pooled
+ *     together. Correct only for a single-team deployment, so it is the last resort: it applies to
+ *     anonymous reads, and to a team that has no brand voice yet (cold start) and therefore has no
+ *     score of its own to prefer.
+ */
+const withTeamView = (
+  item: InstanceType<typeof NewsItem>,
+  override?: { category?: string; opportunity_score?: number },
+  teamScore?: { relevance_score: number; opportunity_score: number },
+) => {
   const plain = item.toObject();
-  if (!override) {
-    return { ...plain, is_overridden: false };
-  }
+
+  const relevance_score = teamScore?.relevance_score ?? plain.relevance_score;
+  const opportunity_score = override?.opportunity_score ?? teamScore?.opportunity_score ?? plain.opportunity_score;
+
   return {
     ...plain,
-    category: override.category ?? plain.category,
-    opportunity_score: override.opportunity_score ?? plain.opportunity_score,
-    is_overridden: true,
+    category: override?.category ?? plain.category,
+    relevance_score,
+    opportunity_score,
+    is_overridden: Boolean(override),
+    /** Which of the three sources supplied `opportunity_score` — lets the UI explain a ranking. */
+    score_source: override?.opportunity_score !== undefined ? ('override' as const)
+      : teamScore ? ('team' as const)
+      : ('baseline' as const),
   };
 };
 
@@ -66,20 +92,18 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
     return { meta, result: [], team_ready: false };
   }
 
-  // QueryBuilder.sort()'s own default (`-createdAt`) references a field that doesn't exist on
-  // this schema, so it never does anything — inject the real default here, before QueryBuilder
-  // sees the query, so an explicit `?sort=` still wins unchanged.
-  if (!remainingQuery.sort) {
-    remainingQuery.sort = '-current_trend_score -created_at';
-  }
-
   // Base filter, not folded into `remainingQuery`: an explicit `?lifecycle=` still needs to flow
   // through QueryBuilder.filter() untouched (e.g. the `?lifecycle=archived` admin escape hatch),
   // so the exclusion is only added here when the caller didn't ask for a specific lifecycle.
   const baseFilter = remainingQuery.lifecycle ? {} : { lifecycle: { $ne: 'archived' } };
 
-  const newsItemQuery = new QueryBuilder(NewsItem.find(baseFilter), remainingQuery)
-    .search(newsItemSearchableFields)
+  const newsItemQuery = new QueryBuilder(NewsItem.find(baseFilter), remainingQuery, {
+    searchableFields: newsItemSearchableFields,
+    filterableFields: newsItemFilterableFields,
+    sortableFields: newsItemSortableFields,
+    defaultSort: newsItemDefaultSort,
+  })
+    .search()
     .filter()
     .sort()
     .paginate();
@@ -108,8 +132,35 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
     }
   }
 
-  const primaryResult = await newsItemQuery.modelQuery;
+  // `countTotal()` first: it yields the resolved (clamped) page/limit that the ranked path below
+  // needs for its own skip/limit, so the two can never disagree about page size.
   const meta = await newsItemQuery.countTotal();
+
+  // Opportunity is the feed's default sort, and it is the one sort whose values are per-team, so it
+  // cannot be served by the ordinary query — see `rankIdsByTeamOpportunity`. Every other sort is on a
+  // field the shared document owns and takes the normal path unchanged.
+  const requestedSort = typeof remainingQuery.sort === 'string' ? remainingQuery.sort : '';
+  const opportunityTerm = requestedSort
+    .split(/[\s,]+/)
+    .find((term) => term.replace(/^-/, '') === 'opportunity_score');
+
+  let primaryResult;
+  if (teamId && opportunityTerm) {
+    const rankedIds = await NewsItemTeamScoreService.rankItemIdsForTeam(
+      newsItemQuery.modelQuery.getFilter(),
+      teamId,
+      (meta.page - 1) * meta.limit,
+      meta.limit,
+      opportunityTerm.startsWith('-'),
+    );
+    const docs = await NewsItem.find({ _id: { $in: rankedIds } });
+    // `$in` does not preserve the ranked order, so restore it rather than serving a page whose rows
+    // are the right ones in the wrong sequence.
+    const byId = new Map(docs.map((d) => [d._id.toString(), d]));
+    primaryResult = rankedIds.map((id) => byId.get(id.toString())).filter((d): d is NonNullable<typeof d> => Boolean(d));
+  } else {
+    primaryResult = await newsItemQuery.modelQuery;
+  }
 
   // Semantic "nearly relevant" tier (flexible-news-taxonomy-and-relevance) — ready-but-inactive by
   // default (config.news_feed.semantic_match_enabled), see config/index.ts for why. Only fills the
@@ -149,9 +200,11 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
     }
   }
 
-  const annotate = (plain: ReturnType<typeof withOverride>) => {
+  const annotate = (plain: ReturnType<typeof withTeamView>) => {
     if (!teamId) return plain;
 
+    // Reads the resolved, team-aware score `withTeamView` produced — so the badge agrees with the
+    // number shown next to it and with the order the page was ranked in.
     const high_opportunity = (plain.opportunity_score ?? 0) >= HIGH_OPPORTUNITY_THRESHOLD;
     const match_reason = semanticMatchIds.has(String(plain._id)) ? ('semantic' as const) : undefined;
 
@@ -159,23 +212,37 @@ const getAllNewsItems = async (query: Record<string, unknown>, requestingUser?: 
   };
 
   const teamReady = teamId ? true : undefined;
+  const itemIds = result.map((item) => item._id.toString());
+
+  // Scores for the resolved team. Fetched even when the caller didn't sort by opportunity, because
+  // the displayed relevance/opportunity and the high-opportunity badge must reflect this team's view
+  // on every read, not just on a ranked one.
+  const scoresByItem = teamId
+    ? await NewsItemTeamScoreService.fetchScoresForItems(itemIds, teamId)
+    : new Map<string, { relevance_score: number; opportunity_score: number }>();
 
   if (!requestingUser || requestingUser.team_ids.length === 0) {
     return {
       meta,
-      result: result.map((item) => omitListOnlyFields(annotate(withOverride(item)))),
+      result: result.map((item) =>
+        omitListOnlyFields(annotate(withTeamView(item, undefined, scoresByItem.get(item._id.toString())))),
+      ),
       team_ready: teamReady,
     };
   }
 
   const overridesByItem = await NewsItemCategoryOverrideService.fetchOverridesForItems(
-    result.map((item) => item._id.toString()),
+    itemIds,
     requestingUser.team_ids,
   );
   return {
     meta,
     result: result.map((item) =>
-      omitListOnlyFields(annotate(withOverride(item, overridesByItem.get(item._id.toString())))),
+      omitListOnlyFields(
+        annotate(
+          withTeamView(item, overridesByItem.get(item._id.toString()), scoresByItem.get(item._id.toString())),
+        ),
+      ),
     ),
     team_ready: teamReady,
   };
@@ -188,14 +255,16 @@ const getSingleNewsItem = async (id: string, requestingUser?: IRequestUser) => {
   if (!result) return null;
 
   if (!requestingUser || requestingUser.team_ids.length === 0) {
-    return omitEmbedding(withOverride(result));
+    return omitEmbedding(withTeamView(result));
   }
 
-  const overridesByItem = await NewsItemCategoryOverrideService.fetchOverridesForItems(
-    [result._id.toString()],
-    requestingUser.team_ids,
-  );
-  return omitEmbedding(withOverride(result, overridesByItem.get(result._id.toString())));
+  const itemId = result._id.toString();
+  const teamId = requestingUser.team_ids[0];
+  const [overridesByItem, scoresByItem] = await Promise.all([
+    NewsItemCategoryOverrideService.fetchOverridesForItems([itemId], requestingUser.team_ids),
+    NewsItemTeamScoreService.fetchScoresForItems([itemId], teamId),
+  ]);
+  return omitEmbedding(withTeamView(result, overridesByItem.get(itemId), scoresByItem.get(itemId)));
 };
 
 const updateNewsItem = async (id: string, payload: Partial<INewsItem>) => {

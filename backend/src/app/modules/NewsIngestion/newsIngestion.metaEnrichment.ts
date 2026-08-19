@@ -12,7 +12,7 @@
 import config from '../../config';
 import { logger } from '../../lib/logger';
 import { decodeEntities } from './adapters/htmlText';
-import { mapWithConcurrency } from './newsIngestion.contentFetch';
+import { mapWithConcurrency } from '../../lib/concurrency';
 
 const MAX_HEAD_BYTES = 200 * 1024;
 

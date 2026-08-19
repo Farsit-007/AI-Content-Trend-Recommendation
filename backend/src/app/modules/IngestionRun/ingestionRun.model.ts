@@ -1,5 +1,13 @@
 import { Schema, model } from 'mongoose';
-import { IAdjudicationCounts, IIngestionRun, ISourceRunCount } from './ingestionRun.interface';
+import { IAdjudicationCounts, ICategorizationCounts, IIngestionRun, ISourceRunCount } from './ingestionRun.interface';
+
+const categorizationCountsSchema = new Schema<ICategorizationCounts>(
+  {
+    llm_categorized: { type: Number, required: true, default: 0 },
+    cap_deferred: { type: Number, required: true, default: 0 },
+  },
+  { _id: false },
+);
 
 const adjudicationCountsSchema = new Schema<IAdjudicationCounts>(
   {
@@ -37,6 +45,7 @@ const ingestionRunSchema = new Schema<IIngestionRun>({
   total_stored: { type: Number, required: true, default: 0 },
   sources: { type: [sourceRunCountSchema], required: true, default: [] },
   adjudication: { type: adjudicationCountsSchema },
+  categorization: { type: categorizationCountsSchema },
   error: { type: String },
 });
 

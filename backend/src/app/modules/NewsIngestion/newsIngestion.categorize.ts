@@ -135,7 +135,54 @@ const categorizeOneBatch = async (
   );
 };
 
-export const categorizeBatch = async (items: ScoredNewsItem[]): Promise<CategorizedNewsItem[]> => {
+export interface CategorizationOutcome {
+  items: CategorizedNewsItem[];
+  /** How many items were categorized by the LLM. */
+  llm_categorized: number;
+  /** How many exceeded `maxItems` and took the fallback instead of an LLM call. */
+  cap_deferred: number;
+}
+
+/**
+ * Splits `items` at `maxItems`, keeping the highest `trend_score` for the LLM.
+ *
+ * Layer 4 is the only unbounded LLM cost in the pipeline — adjudication has
+ * `NEWS_INGESTION_ADJUDICATION_MAX_BATCHES`, but categorization previously called once per ~10
+ * survivors with no ceiling. That was survivable while relevance gated storage; since every deduped
+ * fresh item now reaches this layer, a source that suddenly returns 10× its usual volume (an API
+ * change, a new Mastodon instance, a scrape that stops paginating) converts directly into 10× the
+ * spend with no alert.
+ *
+ * Overflow items are **not dropped** — they take the same low-confidence fallback a parse failure
+ * would, which sets `needs_review`, so they are still stored, still visible, and surfaced in the
+ * review queue rather than silently lost.
+ */
+export const splitAtCap = (
+  items: ScoredNewsItem[],
+  maxItems: number,
+): { toCategorize: ScoredNewsItem[]; deferred: ScoredNewsItem[] } => {
+  if (maxItems <= 0 || items.length <= maxItems) {
+    return { toCategorize: items, deferred: [] };
+  }
+  const ranked = [...items].sort((a, b) => b.trend_score - a.trend_score);
+  return { toCategorize: ranked.slice(0, maxItems), deferred: ranked.slice(maxItems) };
+};
+
+export const categorizeBatch = async (
+  allItems: ScoredNewsItem[],
+  maxItems: number = Number.POSITIVE_INFINITY,
+): Promise<CategorizationOutcome> => {
+  const { toCategorize: items, deferred } = splitAtCap(allItems, maxItems);
+
+  if (deferred.length > 0) {
+    // Logged loudly and reported to `ingestion_runs` (see the service) — a silent cap would read as
+    // full coverage, exactly the blind spot run observability exists to close.
+    logger.warn(
+      `[NewsIngestion] Categorization cap reached: ${items.length}/${allItems.length} items sent to the LLM, ` +
+        `${deferred.length} stored with the fallback category and needs_review instead`,
+    );
+  }
+
   const batches: ScoredNewsItem[][] = [];
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     batches.push(items.slice(i, i + BATCH_SIZE));
@@ -149,5 +196,9 @@ export const categorizeBatch = async (items: ScoredNewsItem[]): Promise<Categori
   const knownCategories = await NewsCategoryTaxonomyService.listAllCategories();
 
   const results = await Promise.all(batches.map((batch) => categorizeOneBatch(batch, knownCategories)));
-  return results.flat();
+  return {
+    items: [...results.flat(), ...deferred.map(fallbackCategorize)],
+    llm_categorized: items.length,
+    cap_deferred: deferred.length,
+  };
 };

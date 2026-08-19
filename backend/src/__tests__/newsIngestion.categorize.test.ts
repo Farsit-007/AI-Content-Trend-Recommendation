@@ -77,7 +77,7 @@ describe('categorizeBatch — global category taxonomy (flexible-news-taxonomy-a
     const item = baseItem();
     mockChatCompletion(cannedWithCategory([item], 'AI', 'AI'));
 
-    const [result] = await categorizeBatch([item]);
+    const [result] = (await categorizeBatch([item])).items;
 
     expect(result.category).toBe('AI');
     expect(result.category_group).toBe('AI');
@@ -89,7 +89,7 @@ describe('categorizeBatch — global category taxonomy (flexible-news-taxonomy-a
     const item = baseItem();
     mockChatCompletion(cannedWithCategory([item], '  ai  ', 'AI'));
 
-    const [result] = await categorizeBatch([item]);
+    const [result] = (await categorizeBatch([item])).items;
 
     expect(result.category).toBe('AI'); // canonical casing from the taxonomy, not " ai "
     const count = await NewsCategoryTaxonomy.countDocuments({ normalized_key: 'ai' });
@@ -100,7 +100,7 @@ describe('categorizeBatch — global category taxonomy (flexible-news-taxonomy-a
     const item = baseItem();
     mockChatCompletion(cannedWithCategory([item], 'LLM Tooling', 'AI'));
 
-    const [result] = await categorizeBatch([item]);
+    const [result] = (await categorizeBatch([item])).items;
 
     expect(result.category).toBe('LLM Tooling');
     expect(result.category_group).toBe('AI');
@@ -114,7 +114,7 @@ describe('categorizeBatch — global category taxonomy (flexible-news-taxonomy-a
     const item = baseItem();
     mockChatCompletion(cannedWithCategory([item], 'Quantum Computing', 'not-a-real-group'));
 
-    const [result] = await categorizeBatch([item]);
+    const [result] = (await categorizeBatch([item])).items;
 
     expect(result.category).toBe('Quantum Computing');
     expect(result.category_group).toBe('Other');
@@ -127,7 +127,7 @@ describe('categorizeBatch — global category taxonomy (flexible-news-taxonomy-a
 
     const item2 = baseItem({ source_id: '2', content_hash: 'hash-2' });
     mockChatCompletion(cannedWithCategory([item2], 'LLM Tooling', 'AI'));
-    const [result2] = await categorizeBatch([item2]);
+    const [result2] = (await categorizeBatch([item2])).items;
 
     expect(result2.category).toBe('LLM Tooling');
     const count = await NewsCategoryTaxonomy.countDocuments({ normalized_key: 'llm tooling' });
@@ -138,7 +138,7 @@ describe('categorizeBatch — global category taxonomy (flexible-news-taxonomy-a
     const item = baseItem();
     mockChatCompletion('not valid json');
 
-    const [result] = await categorizeBatch([item]);
+    const [result] = (await categorizeBatch([item])).items;
 
     expect(result.category).toBe('Other');
     expect(result.category_group).toBe('Other');

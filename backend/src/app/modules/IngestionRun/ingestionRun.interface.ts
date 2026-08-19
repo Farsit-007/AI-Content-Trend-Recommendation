@@ -22,6 +22,17 @@ export interface IAdjudicationCounts {
   fallbacks: number;
 }
 
+/**
+ * Run-level Layer 4 counters. Run-level rather than per-source because the categorization cap ranks
+ * globally by trend score, so which source an over-cap item came from is incidental.
+ */
+export interface ICategorizationCounts {
+  /** Items sent to the categorization LLM. */
+  llm_categorized: number;
+  /** Items over `NEWS_INGESTION_MAX_CATEGORIZE_ITEMS`, stored with the fallback category + needs_review. */
+  cap_deferred: number;
+}
+
 export interface IIngestionRun {
   started_at: Date;
   finished_at: Date;
@@ -30,5 +41,6 @@ export interface IIngestionRun {
   total_stored: number;
   sources: ISourceRunCount[];
   adjudication?: IAdjudicationCounts;
+  categorization?: ICategorizationCounts;
   error?: string;
 }

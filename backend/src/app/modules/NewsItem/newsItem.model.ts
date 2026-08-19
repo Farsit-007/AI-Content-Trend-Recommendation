@@ -61,6 +61,13 @@ const newsItemSchema = new Schema<INewsItem>({
   },
   opportunity_score: { type: Number },
   category_confidence: { type: Number },
+  // The LLM's 0-1 audience-fit judgement, persisted rather than consumed and discarded at ingest.
+  // `opportunity_score` is derived from it, and per-team opportunity has to be recomputable long
+  // after the run that created the item — when a team's brand voice changes, or during backfill.
+  // Without this stored, the only way to re-derive it is to invert the weighted sum, which breaks
+  // the moment the weights are retuned. Absent on items ingested before this field existed; see
+  // `audienceFitOf` in NewsItemTeamScore/newsItemTeamScore.service.ts for the fallback.
+  audience_fit: { type: Number },
   needs_review: { type: Boolean, default: false },
   processed: { type: Boolean, default: false },
   created_at: { type: Date, default: Date.now },
@@ -72,5 +79,19 @@ const newsItemSchema = new Schema<INewsItem>({
   archived_at: { type: Date },
   archive_reason: { type: String, enum: ['max_age', 'trend_floor', 'source_removed'] },
 });
+
+// The feed's actual query shape, which no single-field index above can serve end to end: filter on
+// lifecycle, narrow by the team's subscribed categories or their broad groups, then sort by live
+// trend score. With only single-field indexes Mongo picks one, then sorts the remainder in memory —
+// survivable at current row counts and steadily worse as the collection grows (the retention job is
+// what has been keeping it small enough to hide). Two indexes because the subscription filter is an
+// `$or` over the two category fields, and an `$or` branch needs its own usable index each.
+newsItemSchema.index({ lifecycle: 1, category: 1, current_trend_score: -1 });
+newsItemSchema.index({ lifecycle: 1, category_group: 1, current_trend_score: -1 });
+
+// Substring search over the feed is a collection scan by nature (unanchored case-insensitive regex
+// cannot use a btree index). This supports the unfiltered default feed — lifecycle plus the default
+// sort — which is the single most-requested query in the product.
+newsItemSchema.index({ lifecycle: 1, current_trend_score: -1, created_at: -1 });
 
 export const NewsItem = model<INewsItem>('NewsItem', newsItemSchema, 'news_items');

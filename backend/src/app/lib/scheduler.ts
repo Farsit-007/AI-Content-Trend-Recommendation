@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import config from '../config';
 import { runAutoGeneration } from '../modules/GeneratedContent/generatedContent.job';
-import { runIngestionPipeline } from '../modules/NewsIngestion/newsIngestion.service';
+import { IngestionAlreadyRunningError, runIngestionPipeline } from '../modules/NewsIngestion/newsIngestion.service';
 import { runEngagementRefresh } from '../modules/NewsRefresh/newsRefresh.service';
 import { runNewsRetention } from '../modules/NewsRetention/newsRetention.service';
 import { logger } from './logger';
@@ -18,6 +18,12 @@ export const startNewsIngestionScheduler = (): void => {
       const summary = await runIngestionPipeline('cron');
       logger.info({ summary }, '[scheduler] News ingestion complete');
     } catch (err) {
+      // Lock contention is an expected outcome (a manual run or another replica is mid-pipeline),
+      // not a failure — logging it at error level would train the team to ignore this line.
+      if (err instanceof IngestionAlreadyRunningError) {
+        logger.info('[scheduler] News ingestion skipped — a run is already in progress');
+        return;
+      }
       logger.error({ err: err instanceof Error ? err.message : err }, '[scheduler] News ingestion failed');
     }
   });

@@ -30,14 +30,19 @@ function measure(selector: string): Rect | null {
  */
 export function TourOverlay() {
   const { steps, stepIndex, next, prev, stopTour } = useTour();
-  const [rect, setRect] = useState<Rect | null>(null);
-  const [ready, setReady] = useState(false);
+  // One piece of state, stamped with the step it was measured for. Previously `ready` was reset with
+  // a synchronous `setReady(false)` at the top of the effect below, which is a cascading render —
+  // stamping instead lets both `ready` and `rect` be *derived*, so switching steps invalidates the
+  // old measurement automatically rather than needing an extra render to clear it.
+  const [measured, setMeasured] = useState<{ key: string; rect: Rect | null } | null>(null);
 
   const step = steps?.[stepIndex] ?? null;
+  const stepKey = step ? `${stepIndex}:${step.target}` : null;
+  const ready = Boolean(stepKey && measured?.key === stepKey);
+  const rect = ready ? (measured?.rect ?? null) : null;
 
   useEffect(() => {
     if (!step) return;
-    setReady(false);
     const el = document.querySelector(step.target);
     if (!el) {
       // Target isn't on screen (e.g. empty list) — skip forward automatically.
@@ -45,24 +50,22 @@ export function TourOverlay() {
       return () => clearTimeout(t);
     }
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const t = setTimeout(() => {
-      setRect(measure(step.target));
-      setReady(true);
-    }, 320);
+    // Waits out the smooth scroll before measuring, so the spotlight lands on the settled position.
+    const t = setTimeout(() => setMeasured({ key: `${stepIndex}:${step.target}`, rect: measure(step.target) }), 320);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step?.target, stepIndex]);
 
   useLayoutEffect(() => {
     if (!step) return;
-    const recompute = () => setRect(measure(step.target));
+    const recompute = () => setMeasured({ key: `${stepIndex}:${step.target}`, rect: measure(step.target) });
     window.addEventListener('resize', recompute);
     window.addEventListener('scroll', recompute, true);
     return () => {
       window.removeEventListener('resize', recompute);
       window.removeEventListener('scroll', recompute, true);
     };
-  }, [step]);
+  }, [step, stepIndex]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

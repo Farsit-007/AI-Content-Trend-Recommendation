@@ -3,6 +3,7 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 import config from '../../config';
 import AppError from '../../errors/AppError';
 import { logger } from '../../lib/logger';
+import { isMailConfigured, sendPasswordResetMail } from '../../lib/mailer';
 import { httpStatus } from '../../utils/httpStatus';
 import { TeamMembership } from '../Team/team.model';
 import { TeamService } from '../Team/team.service';
@@ -162,10 +163,17 @@ const changePassword = async (
 };
 
 /**
- * No SMTP is configured in this deployment, so instead of emailing the reset link the token
- * is logged server-side (operator can relay it), and returned in the response body outside
- * production for frontend development. The response message is identical whether or not the
- * email has an account — no enumeration.
+ * Issues a 15-minute reset token and emails the link.
+ *
+ * The response message is identical whether or not the email has an account — no enumeration. The
+ * token is still returned in the body outside production so frontend development doesn't need a
+ * working mailbox, but that is a convenience, not the delivery mechanism: with SMTP configured the
+ * link is emailed, and production returns nothing in the body either way.
+ *
+ * When SMTP is *not* configured this degrades to the previous behavior — log the token for an
+ * operator to relay — rather than failing the request, so a deployment that hasn't set SMTP_* yet
+ * keeps working exactly as it did. The `error` level is deliberate: in production that line means a
+ * real user asked to reset their password and nothing was delivered, which someone needs to see.
  */
 const forgotPassword = async (email: string) => {
   const user = await User.findOne({ email: email.toLowerCase() });
@@ -179,7 +187,15 @@ const forgotPassword = async (email: string) => {
     { expiresIn: '15m' },
   );
 
-  logger.info({ email: user.email }, 'Password reset token issued (no SMTP configured — relay manually)');
+  const delivered = await sendPasswordResetMail(user.email, reset_token, user.name);
+  if (!delivered) {
+    const message = isMailConfigured()
+      ? 'Password reset token issued but the email failed to send — relay it manually'
+      : 'Password reset token issued but SMTP is not configured — no email was sent, relay it manually';
+    logger.error({ email: user.email, reset_token }, message);
+  } else {
+    logger.info({ email: user.email }, 'Password reset email sent');
+  }
 
   return { reset_token: config.node_env !== 'production' ? reset_token : undefined };
 };

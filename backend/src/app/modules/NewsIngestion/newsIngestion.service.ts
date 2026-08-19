@@ -1,8 +1,10 @@
 import config from '../../config';
 import { logger } from '../../lib/logger';
+import { redis } from '../../lib/redis';
 import { NewsItem } from '../NewsItem/newsItem.model';
-import { IAdjudicationCounts, ISourceRunCount } from '../IngestionRun/ingestionRun.interface';
+import { IAdjudicationCounts, ICategorizationCounts, ISourceRunCount } from '../IngestionRun/ingestionRun.interface';
 import { IngestionRun } from '../IngestionRun/ingestionRun.model';
+import { scoreItemsForAllTeams } from '../NewsItemTeamScore/newsItemTeamScore.service';
 import { runAllAdapters } from './adapters';
 import { AdjudicationInput, adjudicatePairs, batchesUsed } from './newsIngestion.adjudicate';
 import { categorizeBatch } from './newsIngestion.categorize';
@@ -25,7 +27,6 @@ import {
 import {
   CorroborationEvidence,
   DedupSurvivor,
-  EmbeddedNewsItem,
   HashedNewsItem,
   SemanticRouting,
   attachContentHash,
@@ -165,6 +166,7 @@ interface RunCountState {
   contentFailedCounts: Record<string, number> | undefined;
   errorsBySource: Record<string, string>;
   adjudication?: IAdjudicationCounts;
+  categorization?: ICategorizationCounts;
   totalStored: number;
   topLevelError?: string;
 }
@@ -196,6 +198,7 @@ const persistRun = async (state: RunCountState): Promise<void> => {
       total_stored: state.totalStored,
       sources,
       adjudication: state.adjudication,
+      categorization: state.categorization,
       error: state.topLevelError,
     });
   } catch (err) {
@@ -342,7 +345,52 @@ const augmentedEngagement = (item: { raw_points: number; raw_comments: number; r
   };
 };
 
+const LOCK_KEY = 'lock:news_ingestion';
+// ~0.92 of the 3h default cron period, matching the PX/cron ratio the engagement-refresh and
+// retention jobs already use.
+const LOCK_TTL_MS = 2.75 * 60 * 60 * 1000;
+
+/**
+ * Thrown when a run is already in flight. Distinct from a pipeline failure: the manual trigger turns
+ * this into a 409 so an admin sees "already running" rather than a misleading success or 500.
+ */
+export class IngestionAlreadyRunningError extends Error {
+  constructor() {
+    super('A news ingestion run is already in progress — wait for it to finish before starting another.');
+    this.name = 'IngestionAlreadyRunningError';
+  }
+}
+
+/**
+ * Serializes ingestion runs across the whole deployment, mirroring `newsRefresh`/`newsRetention`.
+ * Ingestion is the most expensive job and the only one with a manual trigger, so it was the one that
+ * most needed this: an admin hitting "Run ingestion" mid-cron previously ran the entire pipeline
+ * twice concurrently — doubled embedding, adjudication and categorization spend, plus two writers
+ * racing on the unique `content_hash`. It also matters the moment more than one replica runs, since
+ * all four schedulers are in-process.
+ *
+ * Expire-only release on the cron path (no compare-and-delete), consistent with the sibling jobs.
+ * The manual path releases eagerly on completion so an admin isn't locked out for the rest of the
+ * window by a run that already finished.
+ */
 export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<IngestionSummary> => {
+  const acquired = await redis.set(LOCK_KEY, String(Date.now()), 'PX', LOCK_TTL_MS, 'NX');
+  if (!acquired) {
+    logger.info(`[NewsIngestion] Another ingestion run holds the lock — skipping (trigger: ${trigger})`);
+    throw new IngestionAlreadyRunningError();
+  }
+
+  try {
+    return await runPipelineLocked(trigger);
+  } finally {
+    if (trigger === 'manual') {
+      // Best-effort: a failed release just means the lock expires on its own TTL.
+      await redis.del(LOCK_KEY).catch(() => undefined);
+    }
+  }
+};
+
+const runPipelineLocked = async (trigger: 'cron' | 'manual'): Promise<IngestionSummary> => {
   const started_at = new Date();
   let adapterSources: string[] = [];
   let errorsBySource: Record<string, string> = {};
@@ -354,6 +402,7 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
   let contentFetchedCounts: Record<string, number> | undefined;
   let contentFailedCounts: Record<string, number> | undefined;
   let adjudicationCounts: IAdjudicationCounts | undefined;
+  let categorizationCounts: ICategorizationCounts | undefined;
   let totalStored = 0;
 
   try {
@@ -459,8 +508,14 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       );
     }
 
-    // Layer 4: Categorize & Score Opportunity
-    const categorized: CategorizedNewsItem[] = await categorizeBatch(metaEnriched);
+    // Layer 4: Categorize & Score Opportunity — capped, see categorizeBatch/splitAtCap. Items over
+    // the cap are stored with the fallback category and needs_review, never dropped.
+    const categorization = await categorizeBatch(metaEnriched, config.news_ingestion.max_categorize_items);
+    categorizationCounts = {
+      llm_categorized: categorization.llm_categorized,
+      cap_deferred: categorization.cap_deferred,
+    };
+    const categorized: CategorizedNewsItem[] = categorization.items;
     const finalized: ScoredCategorizedNewsItem[] = categorized.map((item) => ({
       ...item,
       opportunity_score: computeOpportunityScore(item.relevance_score, item.trend_score, item.audience_fit, config.news_ingestion),
@@ -513,14 +568,23 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       embedding: item.embedding,
       opportunity_score: item.opportunity_score,
       category_confidence: item.category_confidence,
+      audience_fit: item.audience_fit,
       needs_review: item.needs_review,
       processed: true,
     }));
 
+    let insertedItems: { _id: Types.ObjectId; embedding: number[]; trend_score: number; relevance_score?: number; audience_fit?: number }[] = [];
     if (payloads.length > 0) {
       try {
         const result = await NewsItem.insertMany(payloads, { ordered: false });
         totalStored = result.length;
+        insertedItems = result.map((doc) => ({
+          _id: doc._id,
+          embedding: doc.embedding,
+          trend_score: doc.trend_score,
+          relevance_score: doc.relevance_score,
+          audience_fit: doc.audience_fit,
+        }));
       } catch (err) {
         // A duplicate-key race (another run inserted the same content_hash between our dedupe
         // check and this insert) is possible; ordered:false means every other document still
@@ -529,6 +593,19 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
         totalStored = bulkErr.insertedDocs?.length ?? 0;
         logger.error({ err: err instanceof Error ? err.message : err }, '[NewsIngestion] insertMany reported errors');
       }
+    }
+
+    // Layer 5: per-team relevance/opportunity. The `relevance_score` stored on the item above is the
+    // platform-wide baseline — max similarity against every team's brand voice pooled together —
+    // which is only meaningful when there is exactly one team. Each team's own view is scored here
+    // into `news_item_team_scores` and is what the feed and the auto-generation job actually rank by.
+    // Never throws: a scoring failure leaves teams on the baseline, which is the pre-existing
+    // behavior, and must not fail an otherwise-successful run.
+    if (insertedItems.length > 0) {
+      const scored = await scoreItemsForAllTeams(insertedItems);
+      logger.info(
+        `[NewsIngestion] per-team scoring: ${scored.rows} rows across ${scored.teams} teams with a brand voice`,
+      );
     }
 
     const summaries = buildSourceSummaries(adapterSources, fetchedCounts, freshCounts, uniqueCounts, relevantCounts);
@@ -546,6 +623,7 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       contentFailedCounts,
       errorsBySource,
       adjudication: adjudicationCounts,
+      categorization: categorizationCounts,
       totalStored,
     });
 
@@ -565,6 +643,7 @@ export const runIngestionPipeline = async (trigger: 'cron' | 'manual'): Promise<
       contentFailedCounts,
       errorsBySource,
       adjudication: adjudicationCounts,
+      categorization: categorizationCounts,
       totalStored,
       topLevelError: message,
     });

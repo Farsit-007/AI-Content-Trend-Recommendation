@@ -5,6 +5,8 @@ import { IRequestUser } from '../User/user.interface';
 import { ActivityLogService } from '../ActivityLog/activityLog.service';
 import { NewsCategoryTaxonomyService } from '../NewsCategoryTaxonomy/newsCategoryTaxonomy.service';
 import { BrandVoiceExample } from '../BrandVoiceExample/brandVoiceExample.model';
+import { LlmModelCapability, LlmTask } from '../LlmProvider/llmProvider.interface';
+import { LlmModel } from '../LlmProvider/llmProvider.model';
 import { ITeam, TeamMemberRole } from './team.interface';
 import { Team, TeamMembership } from './team.model';
 
@@ -91,6 +93,41 @@ const isTeamReady = async (teamId: string): Promise<boolean> => {
   return Boolean(hasBrandVoice);
 };
 
+/**
+ * Referential check on `default_models`. Request validation already rejects unknown task *keys*
+ * (`z.record(llmTaskEnum, objectId)`), but it only checks that each *value* is a well-formed
+ * ObjectId — so a valid-looking id for a model that doesn't exist, is deactivated, or lacks the
+ * capability the task needs was stored happily. Model resolution then soft-fails past that tier to
+ * the global default, which is the right fallback but not what the team asked for and produces no
+ * user-visible signal: the setting silently does nothing.
+ *
+ * Rejecting at write time turns that into an error the admin can act on, at the moment they can.
+ */
+const assertDefaultModelsResolvable = async (defaultModels: ITeam['default_models']): Promise<void> => {
+  const entries = Object.entries(defaultModels ?? {}).filter(([, id]) => Boolean(id)) as [LlmTask, string][];
+  if (entries.length === 0) return;
+
+  const models = await LlmModel.find({ _id: { $in: entries.map(([, id]) => id) } });
+  const byId = new Map(models.map((m) => [m._id.toString(), m]));
+
+  for (const [task, modelId] of entries) {
+    const model = byId.get(modelId);
+    if (!model) {
+      throw new AppError(httpStatus.BAD_REQUEST, `default_models.${task}: no LLM model exists with id ${modelId}`);
+    }
+    if (!model.is_active) {
+      throw new AppError(httpStatus.BAD_REQUEST, `default_models.${task}: model "${model.display_name}" is not active`);
+    }
+    const required: LlmModelCapability = task === 'embedding' ? 'embedding' : 'chat';
+    if (!model.capabilities.includes(required)) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        `default_models.${task}: model "${model.display_name}" has no "${required}" capability`,
+      );
+    }
+  }
+};
+
 const updateTeam = async (
   teamId: string,
   payload: Partial<
@@ -101,6 +138,10 @@ const updateTeam = async (
   >,
   requestingUser: IRequestUser,
 ) => {
+  if (payload.default_models) {
+    await assertDefaultModelsResolvable(payload.default_models);
+  }
+
   const dedupedPayload = payload.subscribed_categories
     ? { ...payload, subscribed_categories: [...new Set(payload.subscribed_categories)] }
     : payload;

@@ -31,6 +31,16 @@ export const createAuthToken = (user: { _id: unknown; email: string }): string =
     expiresIn: config.jwt_expires_in,
   } as SignOptions);
 
+/**
+ * `voice_profile.default_language` defaults to **english** here, not to the schema's own `bangla`
+ * default. Almost every canned LLM response in the suite is English, and generation runs a hard
+ * language guard (`isLanguageMismatched` -> one reinforced retry) — so a team left on the schema
+ * default made every English-canned generation fire a second, unasserted LLM call, which showed up
+ * as "expected 1 call, received 2" across the content-generation suites.
+ *
+ * Tests that actually exercise Bangla pass `voiceProfile: { default_language: 'bangla' }`
+ * explicitly, which is what they already did.
+ */
 export const createTestTeam = async (
   overrides: {
     name?: string;
@@ -41,7 +51,7 @@ export const createTestTeam = async (
   Team.create({
     name: overrides.name ?? 'Test Team',
     created_by: overrides.createdBy ?? 'test-seed',
-    ...(overrides.voiceProfile ? { voice_profile: overrides.voiceProfile } : {}),
+    voice_profile: overrides.voiceProfile ?? { default_language: 'english' },
   });
 
 export const addTeamMember = async (teamId: string, userId: string, role: 'team_admin' | 'member' = 'member') =>

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireSuperAdmin, requireAuth } from '../../middleware/auth';
+import { authRateLimiter } from '../../middleware/rateLimit';
 import { validation } from '../../middleware/validation';
 import { UserController } from './user.controller';
 import { UserValidation } from './user.validation';
@@ -7,9 +8,10 @@ import { UserValidation } from './user.validation';
 // Authentication. Public: login, refresh-token, logout, forgot/reset password.
 // Authenticated: me, change-password.
 const authRouter = Router();
-authRouter.post('/login', validation(UserValidation.loginValidation), UserController.login);
+authRouter.post('/login', authRateLimiter, validation(UserValidation.loginValidation), UserController.login);
 authRouter.post(
   '/refresh-token',
+  authRateLimiter,
   validation(UserValidation.refreshTokenValidation),
   UserController.refreshToken,
 );
@@ -22,11 +24,13 @@ authRouter.post(
 );
 authRouter.post(
   '/forgot-password',
+  authRateLimiter,
   validation(UserValidation.forgotPasswordValidation),
   UserController.forgotPassword,
 );
 authRouter.post(
   '/reset-password',
+  authRateLimiter,
   validation(UserValidation.resetPasswordValidation),
   UserController.resetPassword,
 );

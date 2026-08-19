@@ -3,6 +3,7 @@ import config from '../../config';
 import { IRequestUser } from '../User/user.interface';
 import { ContentGenerationService } from '../ContentGeneration/contentGeneration.service';
 import { NewsItem } from '../NewsItem/newsItem.model';
+import { NewsItemTeamScoreService } from '../NewsItemTeamScore/newsItemTeamScore.service';
 import { Team } from '../Team/team.model';
 import { TeamService } from '../Team/team.service';
 import { IAutoGenerationSummary, IGeneratedContentFormats } from './generatedContent.interface';
@@ -40,15 +41,30 @@ export const runAutoGeneration = async (teamId?: string): Promise<IAutoGeneratio
         continue;
       }
 
-      const topNews = await NewsItem.find({
+      // Ranked by *this team's* opportunity score, not the shared one. This is the call that decides
+      // what the team wakes up to every morning, so scoring it against a pool of every team's brand
+      // voice — as this did before `news_item_team_scores` existed — meant a team's daily drafts could
+      // be chosen by how well items matched somebody else's voice. Falls back to the stored baseline
+      // for any item this team has no score for yet (see rankItemIdsForTeam).
+      const newsFilter = {
         ...(team.subscribed_categories.length ? { category: { $in: team.subscribed_categories } } : {}),
         created_at: { $gte: new Date(Date.now() - maxAgeHours * 3600 * 1000) },
         lifecycle: 'active',
-      })
-        .sort({ opportunity_score: -1, trend_score: -1 })
-        .limit(TOP_NEWS_PER_TEAM)
+      };
+      const rankedIds = await NewsItemTeamScoreService.rankItemIdsForTeam(
+        newsFilter,
+        tid,
+        0,
+        TOP_NEWS_PER_TEAM,
+        true,
+      );
+      const unordered = await NewsItem.find({ _id: { $in: rankedIds } })
         .select('_id title category impact_note')
         .lean();
+      const newsById = new Map(unordered.map((n) => [n._id.toString(), n]));
+      const topNews = rankedIds
+        .map((id) => newsById.get(id.toString()))
+        .filter((n): n is NonNullable<typeof n> => Boolean(n));
 
       let teamDrafts = 0;
       for (const newsItem of topNews) {

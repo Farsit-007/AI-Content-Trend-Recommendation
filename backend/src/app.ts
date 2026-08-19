@@ -7,11 +7,26 @@ import { pinoHttp } from 'pino-http';
 import config from './app/config';
 import { logger } from './app/lib/logger';
 import { pingRedis } from './app/lib/redis';
+import { globalRateLimiter } from './app/middleware/rateLimit';
 import { notFound } from './app/middleware/notFound';
 import { globalErrorHandler } from './app/middleware/globalErrorHandler';
 import router from './app/routes';
 
 const app: Application = express();
+
+// Express 5 defaults to the `simple` query parser, which does NOT expand `?field[$op]=x` into a
+// nested object. Pinned explicitly because QueryBuilder's safety depends on it: switching to
+// `extended` would let bracket notation reach Mongo as query operators. QueryBuilder allowlists
+// fields and accepts string values only, so it holds either way — but do not change this without
+// reading builder/QueryBuilder.ts first.
+app.set('query parser', 'simple');
+
+// How many reverse proxies sit in front of us. Rate limiting is IP-keyed, so getting this wrong in
+// either direction breaks it: too low and every user shares the proxy's bucket, too high and a
+// client can spoof X-Forwarded-For for a fresh bucket per request. See config.trust_proxy_hops.
+if (config.trust_proxy_hops > 0) {
+  app.set('trust proxy', config.trust_proxy_hops);
+}
 
 // Trailing slashes in WEB_URL would silently break the CORS origin match — the
 // browser's Origin header never has one — so normalize before comparing.
@@ -40,7 +55,9 @@ app.use(
   }),
 );
 
-app.use('/api/v1', router);
+// Broad per-IP ceiling. Mounted on the API router only, so `/health` stays unlimited for uptime
+// probes and the root liveness string keeps answering.
+app.use('/api/v1', globalRateLimiter, router);
 
 app.get('/', (_req: Request, res: Response) => {
   res.send(`Server is running.`);

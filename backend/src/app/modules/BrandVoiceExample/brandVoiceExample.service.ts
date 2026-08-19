@@ -5,7 +5,13 @@ import { httpStatus } from '../../utils/httpStatus';
 import { IRequestUser } from '../User/user.interface';
 import { IBrandVoiceExample } from './brandVoiceExample.interface';
 import { BrandVoiceExample } from './brandVoiceExample.model';
-import { brandVoiceExampleSearchableFields } from './brandVoiceExample.utils';
+import { NewsItemTeamScoreService } from '../NewsItemTeamScore/newsItemTeamScore.service';
+import {
+  brandVoiceExampleDefaultSort,
+  brandVoiceExampleFilterableFields,
+  brandVoiceExampleSearchableFields,
+  brandVoiceExampleSortableFields,
+} from './brandVoiceExample.utils';
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
   if (requestingUser.role === 'super_admin') return;
@@ -20,12 +26,21 @@ const createBrandVoiceExample = async (payload: Partial<IBrandVoiceExample>, req
   const embedding =
     payload.embedding ?? (await embedForTask('embedding', payload.content as string, { teamId: payload.team_id }));
   const result = await BrandVoiceExample.create({ ...payload, embedding });
+  // Every one of this team's news scores was measured against the pool this example just changed, so
+  // they are all stale. Fire-and-forget: the example is saved either way, and a stale score degrades
+  // to the platform baseline rather than breaking anything.
+  void NewsItemTeamScoreService.rescoreTeam(payload.team_id as string);
   return result;
 };
 
 const getAllBrandVoiceExamples = async (query: Record<string, unknown>, requestingUser: IRequestUser) => {
-  const brandVoiceExampleQuery = new QueryBuilder(BrandVoiceExample.find(), query)
-    .search(brandVoiceExampleSearchableFields)
+  const brandVoiceExampleQuery = new QueryBuilder(BrandVoiceExample.find(), query, {
+    searchableFields: brandVoiceExampleSearchableFields,
+    filterableFields: brandVoiceExampleFilterableFields,
+    sortableFields: brandVoiceExampleSortableFields,
+    defaultSort: brandVoiceExampleDefaultSort,
+  })
+    .search()
     .filter()
     .sort()
     .paginate();
@@ -62,6 +77,7 @@ const updateBrandVoiceExample = async (
     new: true,
     runValidators: true,
   });
+  if (result) void NewsItemTeamScoreService.rescoreTeam(result.team_id);
   return result;
 };
 
@@ -70,6 +86,7 @@ const deleteBrandVoiceExample = async (id: string, requestingUser: IRequestUser)
   if (!existing) return null;
 
   const result = await BrandVoiceExample.findByIdAndDelete(id);
+  if (result) void NewsItemTeamScoreService.rescoreTeam(result.team_id);
   return result;
 };
 

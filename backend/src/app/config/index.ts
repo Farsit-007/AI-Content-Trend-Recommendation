@@ -49,6 +49,38 @@ const envSchema = z.object({
     .string()
     .refine((v) => decodeKey(v) !== null, 'CREDENTIAL_ENCRYPTION_KEY must decode to exactly 32 bytes (openssl rand -base64 32)'),
 
+  // Outbound mail (password-reset delivery). All optional: with SMTP_HOST unset the mailer reports
+  // itself unconfigured and `forgotPassword` falls back to logging the link, which is exactly the
+  // pre-existing behavior — so an existing deployment keeps booting unchanged, it just still can't
+  // deliver a reset until these are set. See lib/mailer.ts.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().default('587'),
+  SMTP_SECURE: z.string().default('false'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  MAIL_FROM: z.string().optional(),
+
+  // Number of reverse-proxy hops in front of this server, for Express's `trust proxy`. This is
+  // load-bearing for rate limiting: behind Dokploy with this at 0, every request appears to come
+  // from the proxy's address, so one IP-keyed bucket is shared by all users and the auth limiter
+  // locks out the whole world at once. Set to 1 in production (Dokploy/Traefik). Left at 0 by
+  // default because trusting X-Forwarded-For with no proxy in front lets any client spoof its IP and
+  // mint a fresh rate-limit bucket per request.
+  TRUST_PROXY_HOPS: z.string().default('0'),
+
+  // Rate limiting. Windows are in minutes, maxes are requests per window.
+  // `RATE_LIMIT_ENABLED=false` disables every limiter — the integration suite sets this, since
+  // dozens of logins from one address in one test run is the point, not abuse.
+  RATE_LIMIT_ENABLED: z.string().default('true'),
+  RATE_LIMIT_AUTH_WINDOW_MINUTES: z.string().default('15'),
+  RATE_LIMIT_AUTH_MAX: z.string().default('10'),
+  RATE_LIMIT_GLOBAL_WINDOW_MINUTES: z.string().default('1'),
+  RATE_LIMIT_GLOBAL_MAX: z.string().default('120'),
+  // Per-team daily ceiling on LLM-spending endpoints (/content/generate, /content/refine, /chat).
+  // This is the limiter that actually protects the provider bill.
+  RATE_LIMIT_LLM_WINDOW_MINUTES: z.string().default('1440'),
+  RATE_LIMIT_LLM_MAX: z.string().default('200'),
+
   // Optional on purpose — if unset, the startup seed simply skips (see lib/seedSuperAdmin.ts).
   SUPER_ADMIN_EMAIL: z.string().email('SUPER_ADMIN_EMAIL must be a valid email').optional(),
   SUPER_ADMIN_PASSWORD: z.string().min(8, 'SUPER_ADMIN_PASSWORD must be at least 8 characters').optional(),
@@ -74,6 +106,12 @@ const envSchema = z.object({
   // Calibrated — re-run the D1 harness (`npm run verify:dedup-calibrate`) before changing.
   NEWS_INGESTION_HARD_DUP_THRESHOLD: z.string().default('0.9443'),
   NEWS_INGESTION_ADJUDICATION_MAX_BATCHES: z.string().default('5'),
+  // Ceiling on how many items one run may send to the categorization LLM — the only previously
+  // unbounded LLM cost in the pipeline (adjudication has its own cap above). Items over the cap are
+  // still STORED, with the same low-confidence fallback a parse failure takes, which sets
+  // needs_review; nothing is dropped. Ranked by trend_score, so the cap sheds the coldest items.
+  // Sized generously (a normal run stores well under this) — it is a runaway backstop, not a filter.
+  NEWS_INGESTION_MAX_CATEGORIZE_ITEMS: z.string().default('400'),
   NEWS_INGESTION_CRON: z.string().default('0 */3 * * *'),
   // Raises the GitHub Search API's unauthenticated rate limit (10/min, 60/hr) — optional, the
   // adapter works fine without it at this pipeline's call volume.
@@ -264,6 +302,34 @@ export default {
     name: env.SUPER_ADMIN_NAME,
   },
 
+  mail: {
+    host: env.SMTP_HOST,
+    port: Number(env.SMTP_PORT),
+    secure: env.SMTP_SECURE === 'true',
+    user: env.SMTP_USER,
+    password: env.SMTP_PASSWORD,
+    // Falls back to SMTP_USER, which is the correct From for most providers anyway.
+    from: env.MAIL_FROM ?? env.SMTP_USER,
+  },
+
+  trust_proxy_hops: Number(env.TRUST_PROXY_HOPS),
+
+  rate_limit: {
+    enabled: env.RATE_LIMIT_ENABLED === 'true',
+    auth: {
+      window_ms: Number(env.RATE_LIMIT_AUTH_WINDOW_MINUTES) * 60_000,
+      max: Number(env.RATE_LIMIT_AUTH_MAX),
+    },
+    global: {
+      window_ms: Number(env.RATE_LIMIT_GLOBAL_WINDOW_MINUTES) * 60_000,
+      max: Number(env.RATE_LIMIT_GLOBAL_MAX),
+    },
+    llm: {
+      window_ms: Number(env.RATE_LIMIT_LLM_WINDOW_MINUTES) * 60_000,
+      max: Number(env.RATE_LIMIT_LLM_MAX),
+    },
+  },
+
   auto_generation: {
     cron: env.AUTO_GENERATION_CRON,
     max_per_run: Number(env.AUTO_GENERATION_MAX_PER_RUN),
@@ -306,6 +372,7 @@ export default {
     semantic_dedup_threshold: Number(env.NEWS_INGESTION_SEMANTIC_DEDUP_THRESHOLD),
     hard_dup_threshold: Number(env.NEWS_INGESTION_HARD_DUP_THRESHOLD),
     adjudication_max_batches: Number(env.NEWS_INGESTION_ADJUDICATION_MAX_BATCHES),
+    max_categorize_items: Number(env.NEWS_INGESTION_MAX_CATEGORIZE_ITEMS),
     cron: env.NEWS_INGESTION_CRON,
     github_token: env.GITHUB_TOKEN,
     mastodon_instances: env.NEWS_INGESTION_MASTODON_INSTANCES.split(',')

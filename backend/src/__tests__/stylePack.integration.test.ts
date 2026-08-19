@@ -56,12 +56,16 @@ describe('Style pack CRUD', () => {
     expect(detailRes.body.data.example_count).toBe(1);
   });
 
-  it('rejects admin and regular users from mutating packs and examples', async () => {
-    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-mutate@example.test' });
+  // Only super_admin may mutate packs (requireSuperAdmin on every write route). This asserts the
+  // negative case for a regular user — the sole non-super_admin tier that exists now that the middle
+  // `admin` role has been removed. It previously looped over an `admin` actor too, but that actor was
+  // mechanically rewritten to `role: 'super_admin'` when the role was dropped, which inverted the
+  // test: it asserted a super_admin gets 403 on routes super_admins are explicitly allowed to call.
+  it('rejects regular users from mutating packs and examples', async () => {
     const user = await createTestUser({ email: 'user-stylepack-mutate@example.test' });
     const pack = await createPackDoc();
 
-    for (const requester of [admin, user]) {
+    for (const requester of [user]) {
       const token = createAuthToken(requester);
 
       const createRes = await request(app)
@@ -143,7 +147,9 @@ describe('include_inactive visibility', () => {
 
   it('includes inactive packs only for super_admin with include_inactive=true', async () => {
     const superAdmin = await createTestUser({ role: 'super_admin', email: 'super-stylepack-inactive-2@example.test' });
-    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-inactive@example.test' });
+    // A regular user, not a second super_admin: `include_inactive` is honoured for super_admins, so
+    // the negative half of "only for super_admin" has to be asserted with someone who isn't one.
+    const regularUser = await createTestUser({ email: 'user-stylepack-inactive@example.test' });
     const inactivePack = await createPackDoc({ is_active: false });
 
     const superAdminRes = await request(app)
@@ -151,10 +157,10 @@ describe('include_inactive visibility', () => {
       .set('Authorization', `Bearer ${createAuthToken(superAdmin)}`);
     expect(superAdminRes.body.data.some((p: { _id: string }) => p._id === inactivePack._id.toString())).toBe(true);
 
-    const adminRes = await request(app)
+    const regularRes = await request(app)
       .get('/api/v1/style-packs?include_inactive=true')
-      .set('Authorization', `Bearer ${createAuthToken(admin)}`);
-    expect(adminRes.body.data.some((p: { _id: string }) => p._id === inactivePack._id.toString())).toBe(false);
+      .set('Authorization', `Bearer ${createAuthToken(regularUser)}`);
+    expect(regularRes.body.data.some((p: { _id: string }) => p._id === inactivePack._id.toString())).toBe(false);
   });
 });
 
@@ -290,12 +296,11 @@ describe('Bulk example import', () => {
     expect(await StyleExample.countDocuments({ style_pack_id: pack._id.toString() })).toBe(0);
   });
 
-  it('rejects admin and regular users', async () => {
-    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-bulk@example.test' });
+  it('rejects regular users', async () => {
     const user = await createTestUser({ email: 'user-stylepack-bulk@example.test' });
     const pack = await createPackDoc();
 
-    for (const requester of [admin, user]) {
+    for (const requester of [user]) {
       const res = await request(app)
         .post(`/api/v1/style-packs/${pack._id}/examples/bulk`)
         .set('Authorization', `Bearer ${createAuthToken(requester)}`)
@@ -384,12 +389,11 @@ describe('Style card generation', () => {
     expect(stored?.style_card).toBeUndefined();
   });
 
-  it('rejects admin and regular users', async () => {
-    const admin = await createTestUser({ role: 'super_admin', email: 'admin-stylepack-card@example.test' });
+  it('rejects regular users', async () => {
     const user = await createTestUser({ email: 'user-stylepack-card@example.test' });
     const pack = await createPackDoc();
 
-    for (const requester of [admin, user]) {
+    for (const requester of [user]) {
       const res = await request(app)
         .post(`/api/v1/style-packs/${pack._id}/generate-card`)
         .set('Authorization', `Bearer ${createAuthToken(requester)}`);

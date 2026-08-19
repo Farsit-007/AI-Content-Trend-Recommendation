@@ -8,6 +8,7 @@ import { recordTombstones } from '../NewsDedupLedger/newsDedupLedger.service';
 import { INewsItem } from '../NewsItem/newsItem.interface';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { NewsItemCategoryOverride } from '../NewsItemCategoryOverride/newsItemCategoryOverride.model';
+import { NewsItemTeamScoreService } from '../NewsItemTeamScore/newsItemTeamScore.service';
 import { REFRESHABLE_SOURCES } from '../NewsRefresh/newsRefresh.fetchers';
 
 const LOCK_KEY = 'lock:news_retention';
@@ -175,6 +176,10 @@ export const runNewsRetention = async (): Promise<void> => {
       const batchIds = batch.map((item) => item._id);
       const overrideResult = await NewsItemCategoryOverride.deleteMany({ news_item_id: { $in: batchIds.map(String) } });
       counts.overrides_removed += overrideResult.deletedCount ?? 0;
+
+      // Per-team scores are meaningless once their item is gone, and nothing else would ever collect
+      // them — same reasoning as the override cleanup directly above.
+      await NewsItemTeamScoreService.deleteScoresForItems(batchIds as Types.ObjectId[]);
 
       const deleteResult = await NewsItem.deleteMany({ _id: { $in: batchIds } });
       counts.deleted += deleteResult.deletedCount ?? 0;

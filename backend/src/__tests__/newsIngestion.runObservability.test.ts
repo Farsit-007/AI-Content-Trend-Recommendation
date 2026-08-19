@@ -52,16 +52,20 @@ const oneHotEmbedBatch = () => {
   );
 };
 
+// Mirrors `categorizeBatch`'s `CategorizationOutcome` shape (items + the run's LLM/cap counters),
+// not a bare array — the pipeline reads `.items` and persists the counters to `ingestion_runs`.
 const passthroughCategorize = () =>
-  jest.fn().mockImplementation(async (items: { source: string }[]) =>
-    items.map((item) => ({
+  jest.fn().mockImplementation(async (items: { source: string }[]) => ({
+    items: items.map((item) => ({
       ...item,
       category: 'AI',
       impact_note: 'note',
       category_confidence: 0.9,
       audience_fit: 0.5,
     })),
-  );
+    llm_categorized: items.length,
+    cap_deferred: 0,
+  }));
 
 beforeAll(connectTestDb);
 afterEach(clearTestDb);

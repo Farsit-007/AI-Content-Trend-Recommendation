@@ -69,10 +69,17 @@ export const fetchNewsContext = async (
 ): Promise<RankedNewsContext> => {
   const since = new Date(Date.now() - config.chat.context_window_days * 24 * 3600 * 1000);
 
+  // The `.sort()` is load-bearing, not cosmetic. `context_pool_cap` truncates this query, so without
+  // an explicit order Mongo returns documents in natural order and the cap keeps an arbitrary slice —
+  // meaning that once the 7-day active window exceeds the cap, chat semantically ranks a effectively
+  // random subset of the pool and answers silently degrade as the product accumulates more data.
+  // Ordering by live trend score makes the cap drop the coldest tail instead.
   const items = await NewsItem.find(
     { lifecycle: 'active', created_at: { $gte: since } },
     { title: 1, snippet: 1, content: 1, category: 1, impact_note: 1, trend_score: 1, opportunity_score: 1, embedding: 1 },
-  ).limit(config.chat.context_pool_cap);
+  )
+    .sort({ current_trend_score: -1, created_at: -1 })
+    .limit(config.chat.context_pool_cap);
 
   return rankNewsItems(items, questionEmbedding);
 };

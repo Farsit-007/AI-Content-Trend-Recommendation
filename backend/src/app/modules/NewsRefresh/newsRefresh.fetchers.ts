@@ -13,7 +13,6 @@ export interface EngagementFetcherOutput {
   requestsUsed: number;
 }
 
-// eslint-disable-next-line no-unused-vars -- `items` names the parameter in this type signature only
 export type EngagementFetcher = (items: { source_id: string }[]) => Promise<EngagementFetcherOutput>;
 
 const HN_ITEM_URL = (id: string) => `https://hacker-news.firebaseio.com/v0/item/${id}.json`;

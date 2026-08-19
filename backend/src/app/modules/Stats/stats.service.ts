@@ -5,6 +5,7 @@ import { GeneratedContent } from '../GeneratedContent/generatedContent.model';
 import { IngestionRun } from '../IngestionRun/ingestionRun.model';
 import { IngestionRunService } from '../IngestionRun/ingestionRun.service';
 import { NewsItem } from '../NewsItem/newsItem.model';
+import { NewsItemTeamScoreService } from '../NewsItemTeamScore/newsItemTeamScore.service';
 import { StylePack } from '../StylePack/stylePack.model';
 import { Team, TeamMembership } from '../Team/team.model';
 import { User } from '../User/user.model';
@@ -46,12 +47,17 @@ const getTeamStats = async (teamId: string) => {
       .limit(5)
       .select('topic status source created_at')
       .lean(),
-    NewsItem.countDocuments({
-      lifecycle: { $ne: 'archived' },
-      opportunity_score: { $gte: HIGH_OPPORTUNITY_THRESHOLD },
-      created_at: { $gte: sevenDaysAgo },
-      ...(team.subscribed_categories.length ? { category: { $in: team.subscribed_categories } } : {}),
-    }),
+    // Counted against this team's own opportunity scores, so the number agrees with the badges the
+    // team sees on its feed rather than with a platform-wide average of every team's brand voice.
+    NewsItemTeamScoreService.countAboveOpportunityForTeam(
+      {
+        lifecycle: { $ne: 'archived' },
+        created_at: { $gte: sevenDaysAgo },
+        ...(team.subscribed_categories.length ? { category: { $in: team.subscribed_categories } } : {}),
+      },
+      teamId,
+      HIGH_OPPORTUNITY_THRESHOLD,
+    ),
   ]);
 
   const counts = { draft: 0, approved: 0, dismissed: 0 };

@@ -1,7 +1,6 @@
 import { Cpu, Palette } from 'lucide-react';
 import type { TUserPath } from '@/types';
-import StylePacks from '@/pages/dashboard/admin/StylePacks';
-import AIProviders from '@/pages/dashboard/admin/AIProviders';
+import { AIProviders, StylePacks } from './lazyPages';
 import { adminPaths } from './admin.routes';
 
 /** Super admins get everything an admin has, plus exclusive curation of the shared style library

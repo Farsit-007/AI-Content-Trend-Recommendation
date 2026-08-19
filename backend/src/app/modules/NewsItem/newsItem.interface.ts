@@ -35,6 +35,8 @@ export interface INewsItem {
   embedding: number[];
   opportunity_score?: number;
   category_confidence?: number;
+  /** LLM-judged 0-1 audience fit. Persisted so per-team `opportunity_score` stays recomputable. */
+  audience_fit?: number;
   needs_review: boolean;
   processed: boolean;
   created_at: Date;
