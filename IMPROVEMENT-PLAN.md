@@ -22,8 +22,9 @@
 
 ## Implementation status
 
-**20 of 23 done, 1 partial, 1 blocked on you, 1 removed by request.** Branch `chore/production-hardening`. Backend: typecheck
-clean, lint 0 errors, 561/571 tests passing. Frontend: **27 tests passing**, lint 0 errors, build clean.
+**20 of 23 done, 1 partial, 1 blocked on you, 1 removed by request.** All merged to `main`
+(`64ccdd0`). Backend: typecheck clean, lint 0 errors, 561/571 tests passing. Frontend: 27 tests
+passing, lint 0 errors, build clean. Nothing runs either suite automatically — see P0-4.
 
 Only `P4-3` is outstanding, and it cannot be done from here — see the flag register below.
 
@@ -47,7 +48,7 @@ Only `P4-3` is outstanding, and it cannot be done from here — see the flag reg
 | P3-1 code splitting | **Done** — every page is its own chunk |
 | P3-2 error boundary | **Done** — per-route boundary + router `errorElement` |
 | P3-3 streaming | **Done** — token streaming on `POST /chat/stream`; adapters gained `streamChatCompletion` for all three providers |
-| P3-4 frontend tests | **Done** — Vitest + Testing Library, 27 tests, a hard gate in CI from day one |
+| P3-4 frontend tests | **Done** — Vitest + Testing Library, 27 tests. Run with `npm test` in `frontend/` |
 | P4-1 key-reveal audit | **Done** — `llm.key_revealed` action |
 | P4-2 `default_models` validation | **Done** — see correction below |
 | P4-3 flag decisions | **Blocked on you** — needs live provider runs. See the register below |
