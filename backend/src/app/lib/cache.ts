@@ -34,9 +34,15 @@ export type CacheDomain =
   | 'chat:ctx'
   | 'feed';
 
-const stats = new Map<CacheDomain, { hits: number; misses: number; errors: number }>();
+const stats = new Map<
+  CacheDomain,
+  { hits: number; misses: number; errors: number }
+>();
 
-const bump = (domain: CacheDomain, field: 'hits' | 'misses' | 'errors'): void => {
+const bump = (
+  domain: CacheDomain,
+  field: 'hits' | 'misses' | 'errors',
+): void => {
   const entry = stats.get(domain) ?? { hits: 0, misses: 0, errors: 0 };
   entry[field] += 1;
   stats.set(domain, entry);
@@ -54,7 +60,10 @@ export const cacheStats = (): Record<string, CacheDomainStats> => {
   const out: Record<string, CacheDomainStats> = {};
   for (const [domain, s] of stats) {
     const total = s.hits + s.misses;
-    out[domain] = { ...s, hitRate: total === 0 ? 0 : Number((s.hits / total).toFixed(3)) };
+    out[domain] = {
+      ...s,
+      hitRate: total === 0 ? 0 : Number((s.hits / total).toFixed(3)),
+    };
   }
   return out;
 };
@@ -64,7 +73,8 @@ export const resetCacheStats = (): void => {
   stats.clear();
 };
 
-const buildKey = (domain: CacheDomain, id: string): string => `gs:${CACHE_VERSION}:${domain}:${id}`;
+const buildKey = (domain: CacheDomain, id: string): string =>
+  `gs:${CACHE_VERSION}:${domain}:${id}`;
 
 /**
  * Reads through the cache, computing and storing on a miss.
@@ -114,7 +124,10 @@ export const cached = async <T>(
 };
 
 /** Drops one entry. Call from the write path that invalidates it, not on a timer. */
-export const invalidate = async (domain: CacheDomain, id: string): Promise<void> => {
+export const invalidate = async (
+  domain: CacheDomain,
+  id: string,
+): Promise<void> => {
   try {
     await redis.del(buildKey(domain, id));
   } catch (err) {
@@ -136,7 +149,13 @@ export const invalidateDomain = async (domain: CacheDomain): Promise<void> => {
   try {
     let cursor = '0';
     do {
-      const [next, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 200);
+      const [next, keys] = await redis.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        200,
+      );
       cursor = next;
       if (keys.length > 0) await redis.del(...keys);
     } while (cursor !== '0');

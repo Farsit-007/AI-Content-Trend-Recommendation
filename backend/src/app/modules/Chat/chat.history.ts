@@ -29,7 +29,8 @@ export interface CompactedHistory {
  * away the cost this is meant to save. The prompt is told plainly that it is reading a condensed
  * transcript so it does not quote these as verbatim.
  */
-const SUMMARY_PREFIX = 'Earlier in this conversation (condensed, do not quote as verbatim):';
+const SUMMARY_PREFIX =
+  'Earlier in this conversation (condensed, do not quote as verbatim):';
 const SUMMARY_LINE_CHARS = 140;
 
 const summarize = (older: IChatMessage[]): string =>
@@ -38,7 +39,9 @@ const summarize = (older: IChatMessage[]): string =>
     ...older.map((m) => {
       const oneLine = m.content.replace(/\s+/g, ' ').trim();
       const clipped =
-        oneLine.length > SUMMARY_LINE_CHARS ? `${oneLine.slice(0, SUMMARY_LINE_CHARS)}…` : oneLine;
+        oneLine.length > SUMMARY_LINE_CHARS
+          ? `${oneLine.slice(0, SUMMARY_LINE_CHARS)}…`
+          : oneLine;
       return `- ${m.role}: ${clipped}`;
     }),
   ].join('\n');
@@ -80,5 +83,8 @@ export const compactHistory = (
     created_at: older[0].created_at,
   };
 
-  return { messages: [summaryMessage, ...recent], summarizedCount: older.length };
+  return {
+    messages: [summaryMessage, ...recent],
+    summarizedCount: older.length,
+  };
 };

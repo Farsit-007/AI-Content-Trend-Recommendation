@@ -41,6 +41,20 @@ COPY --from=build     /app/dist         ./dist
 COPY package.json ./
 USER node
 EXPOSE 5000
+
+# Liveness from inside the container, so an orchestrator restarts a process that is listening but
+# has lost Mongo or Redis — /health returns 503 in exactly that case, which a plain TCP check on the
+# port would report as healthy.
+#
+# `node -e` with global fetch rather than curl or wget: neither is in the slim image, and installing
+# one to check a health endpoint means shipping an extra package (and its CVE surface) into
+# production for the sake of one HTTP call node can already make.
+# start-period exceeds this app's own worst case: server.ts bounds verifyConnections() alone at 25s,
+# on top of the mongoose connect and seeding that precede it — a cold Atlas connect can land past
+# 20s, and a tighter window would kill a container that was merely still starting.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||5000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 # Exec form, not `npm start` — node runs as PID 1 and receives SIGTERM directly, so
 # Dokploy's graceful shutdown reaches the server.close() handler in src/server.ts.
 CMD ["node", "dist/server.js"]

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a valid MongoDB ObjectId');
+const objectId = z
+  .string()
+  .regex(/^[0-9a-fA-F]{24}$/, 'must be a valid MongoDB ObjectId');
 
 const askChatValidation = z.object({
   body: z.object({

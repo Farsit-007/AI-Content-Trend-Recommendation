@@ -19,7 +19,9 @@ const signAccessToken = (payload: Pick<IAuthPayload, 'id' | 'email'>): string =>
     expiresIn: config.jwt_expires_in,
   } as SignOptions);
 
-const signRefreshToken = (payload: Pick<IAuthPayload, 'id' | 'email'>): string =>
+const signRefreshToken = (
+  payload: Pick<IAuthPayload, 'id' | 'email'>,
+): string =>
   jwt.sign({ ...payload, token_type: 'refresh' }, config.jwt_refresh_secret, {
     expiresIn: config.jwt_refresh_expires_in,
   } as SignOptions);
@@ -29,7 +31,10 @@ const signRefreshToken = (payload: Pick<IAuthPayload, 'id' | 'email'>): string =
  * dead. Backdated 1s on write (see changePassword) so a token issued in the same second as
  * the change itself stays valid.
  */
-const issuedBeforePasswordChange = (user: { password_changed_at?: Date }, iat?: number): boolean => {
+const issuedBeforePasswordChange = (
+  user: { password_changed_at?: Date },
+  iat?: number,
+): boolean => {
   if (!user.password_changed_at || typeof iat !== 'number') return false;
   // iat has whole-second granularity; keep the change time fractional so the 1s backdate
   // isn't rounded away (flooring both sides would let a just-invalidated token survive).
@@ -55,13 +60,23 @@ const createUser = async (
   },
   requestingUserRole?: UserRole,
 ) => {
-  if (payload.role === 'super_admin' && requestingUserRole && requestingUserRole !== 'super_admin') {
-    throw new AppError(httpStatus.FORBIDDEN, 'Only a super_admin can create another super_admin');
+  if (
+    payload.role === 'super_admin' &&
+    requestingUserRole &&
+    requestingUserRole !== 'super_admin'
+  ) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      'Only a super_admin can create another super_admin',
+    );
   }
 
   const existing = await User.findOne({ email: payload.email.toLowerCase() });
   if (existing) {
-    throw new AppError(httpStatus.CONFLICT, 'An account with this email already exists');
+    throw new AppError(
+      httpStatus.CONFLICT,
+      'An account with this email already exists',
+    );
   }
 
   const password_hash = await bcrypt.hash(payload.password, BCRYPT_COST);
@@ -74,7 +89,9 @@ const createUser = async (
 
   const teamIds = payload.team_ids ?? [];
   if (teamIds.length) {
-    await TeamMembership.insertMany(teamIds.map((team_id) => ({ team_id, user_id: user._id })));
+    await TeamMembership.insertMany(
+      teamIds.map((team_id) => ({ team_id, user_id: user._id })),
+    );
   }
 
   return user;
@@ -84,16 +101,22 @@ const listUsers = async (teamId?: string) => {
   if (!teamId) {
     return User.find();
   }
-  const memberships = await TeamMembership.find({ team_id: teamId }).select('user_id');
+  const memberships = await TeamMembership.find({ team_id: teamId }).select(
+    'user_id',
+  );
   return User.find({ _id: { $in: memberships.map((m) => m.user_id) } });
 };
 
 const login = async (payload: { email: string; password: string }) => {
-  const user = await User.findOne({ email: payload.email.toLowerCase() }).select('+password_hash');
+  const user = await User.findOne({
+    email: payload.email.toLowerCase(),
+  }).select('+password_hash');
 
   // Same error for "no such user" and "wrong password" — a differing response would let an
   // attacker enumerate which emails have accounts.
-  const passwordMatches = user ? await bcrypt.compare(payload.password, user.password_hash) : false;
+  const passwordMatches = user
+    ? await bcrypt.compare(payload.password, user.password_hash)
+    : false;
   if (!user || !passwordMatches) {
     throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid email or password');
   }
@@ -116,16 +139,25 @@ const refreshToken = async (token: string) => {
   try {
     payload = jwt.verify(token, config.jwt_refresh_secret) as IAuthPayload;
   } catch {
-    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired refresh token');
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      'Invalid or expired refresh token',
+    );
   }
 
   if (payload.token_type !== 'refresh') {
-    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired refresh token');
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      'Invalid or expired refresh token',
+    );
   }
 
   const user = await User.findById(payload.id);
   if (!user || issuedBeforePasswordChange(user, payload.iat)) {
-    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired refresh token');
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      'Invalid or expired refresh token',
+    );
   }
 
   const tokenPayload = { id: user._id.toString(), email: user.email };
@@ -145,9 +177,15 @@ const changePassword = async (
     throw new AppError(httpStatus.NOT_FOUND, 'User not found');
   }
 
-  const matches = await bcrypt.compare(payload.old_password, user.password_hash);
+  const matches = await bcrypt.compare(
+    payload.old_password,
+    user.password_hash,
+  );
   if (!matches) {
-    throw new AppError(httpStatus.UNAUTHORIZED, 'Current password is incorrect');
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      'Current password is incorrect',
+    );
   }
 
   user.password_hash = await bcrypt.hash(payload.new_password, BCRYPT_COST);
@@ -184,12 +222,20 @@ const forgotPassword = async (email: string) => {
   }
 
   const reset_token = jwt.sign(
-    { id: user._id.toString(), email: user.email, token_type: 'password_reset' },
+    {
+      id: user._id.toString(),
+      email: user.email,
+      token_type: 'password_reset',
+    },
     config.jwt_secret,
     { expiresIn: '15m' },
   );
 
-  const delivered = await sendPasswordResetMail(user.email, reset_token, user.name);
+  const delivered = await sendPasswordResetMail(
+    user.email,
+    reset_token,
+    user.name,
+  );
   if (!delivered) {
     const message = isMailConfigured()
       ? 'Password reset token issued but the email failed to send — relay it manually'
@@ -199,26 +245,40 @@ const forgotPassword = async (email: string) => {
     logger.info({ email: user.email }, 'Password reset email sent');
   }
 
-  return { reset_token: config.node_env !== 'production' ? reset_token : undefined };
+  return {
+    reset_token: config.node_env !== 'production' ? reset_token : undefined,
+  };
 };
 
-const resetPassword = async (payload: { token: string; new_password: string }) => {
+const resetPassword = async (payload: {
+  token: string;
+  new_password: string;
+}) => {
   let tokenPayload: IAuthPayload;
   try {
     tokenPayload = jwt.verify(payload.token, config.jwt_secret) as IAuthPayload;
   } catch {
-    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired reset token');
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      'Invalid or expired reset token',
+    );
   }
 
   if (tokenPayload.token_type !== 'password_reset') {
-    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired reset token');
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      'Invalid or expired reset token',
+    );
   }
 
   const user = await User.findById(tokenPayload.id);
   // The password_changed_at check makes reset tokens single-use: once the password changes,
   // any reset token issued earlier (including this one) is rejected.
   if (!user || issuedBeforePasswordChange(user, tokenPayload.iat)) {
-    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid or expired reset token');
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      'Invalid or expired reset token',
+    );
   }
 
   user.password_hash = await bcrypt.hash(payload.new_password, BCRYPT_COST);
@@ -242,7 +302,6 @@ const getMe = async (userId: string) => {
   return { user, team_ids: teamIds, team_admin_team_ids: teamAdminTeamIds };
 };
 
-
 /**
  * Neither of the two mutations below may leave the platform without a super admin.
  *
@@ -254,7 +313,10 @@ const assertNotLastSuperAdmin = async (userId: string): Promise<void> => {
   const target = await User.findById(userId).select('role');
   if (target?.role !== 'super_admin') return;
 
-  const remaining = await User.countDocuments({ role: 'super_admin', _id: { $ne: userId } });
+  const remaining = await User.countDocuments({
+    role: 'super_admin',
+    _id: { $ne: userId },
+  });
   if (remaining === 0) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
@@ -272,7 +334,10 @@ const updateUser = async (
     await assertNotLastSuperAdmin(userId);
   }
 
-  const user = await User.findByIdAndUpdate(userId, payload, { new: true, runValidators: true });
+  const user = await User.findByIdAndUpdate(userId, payload, {
+    new: true,
+    runValidators: true,
+  });
   if (!user) {
     throw new AppError(httpStatus.NOT_FOUND, 'User not found');
   }
@@ -293,7 +358,10 @@ const deleteUser = async (userId: string, requestingUser: IRequestUser) => {
   // Deleting yourself is always a mistake and sometimes an unrecoverable one — you would lose the
   // session mid-request with no account to sign back in with.
   if (userId === requestingUser.id) {
-    throw new AppError(httpStatus.BAD_REQUEST, 'You cannot delete your own account');
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'You cannot delete your own account',
+    );
   }
   await assertNotLastSuperAdmin(userId);
 

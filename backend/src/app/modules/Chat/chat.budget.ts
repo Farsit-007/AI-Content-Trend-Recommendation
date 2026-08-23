@@ -19,7 +19,8 @@ import { ChatContextItem } from './chat.interface';
  */
 const CHARS_PER_TOKEN = 3;
 
-export const approxTokens = (text: string): number => Math.ceil(text.length / CHARS_PER_TOKEN);
+export const approxTokens = (text: string): number =>
+  Math.ceil(text.length / CHARS_PER_TOKEN);
 
 export interface BudgetedContext {
   items: ChatContextItem[];
@@ -39,7 +40,10 @@ export interface BudgetedContext {
  *  - **A too-large item is skipped, not truncated, once something is already in.** Cutting an item
  *    mid-sentence hands the model a fragment it may quote as if it were complete.
  */
-export const budgetContext = (items: ChatContextItem[], tokenBudget: number): BudgetedContext => {
+export const budgetContext = (
+  items: ChatContextItem[],
+  tokenBudget: number,
+): BudgetedContext => {
   const kept: ChatContextItem[] = [];
   let used = 0;
   let dropped = 0;

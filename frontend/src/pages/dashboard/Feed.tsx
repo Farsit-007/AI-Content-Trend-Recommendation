@@ -16,6 +16,7 @@ import {
 import { getNewsItems, type NewsItemDto } from '@/lib/api/news';
 import { DEFAULT_FEED_SORT } from '@/lib/constants';
 import { useTeamId } from '@/lib/useTeamId';
+import { useAuth } from '@/context/auth-context';
 import { timeAgo } from '@/lib/datetime';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DailyBrief } from '@/components/feed/DailyBrief';
 import { FeedControls } from '@/components/feed/FeedControls';
+import { SavedViews } from '@/components/feed/SavedViews';
 import { NewsCard } from '@/components/feed/NewsCard';
 import { NewsItemDialog } from '@/components/feed/NewsItemDialog';
 import { PageHeader } from '@/components/dashboard/PageHeader';
@@ -65,9 +68,12 @@ function SkeletonGrid() {
 
 export default function Feed() {
   const teamId = useTeamId();
+  const { user } = useAuth();
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [sort, setSort] = useState(DEFAULT_FEED_SORT);
   const [searchTerm, setSearchTerm] = useState('');
+  /** Cleared whenever a filter is touched directly, so the chip never claims a view it no longer matches. */
+  const [activeViewId, setActiveViewId] = useState<string | undefined>(undefined);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [view, setView] = useState<FeedView>(readStoredView);
 
@@ -238,15 +244,41 @@ export default function Feed() {
         }
       />
 
-      <div data-tour="feed-controls">
+      <div data-tour="feed-controls" className="flex flex-col gap-2">
         <FeedControls
           category={category}
-          onCategoryChange={setCategory}
+          onCategoryChange={(next) => {
+            setCategory(next);
+            setActiveViewId(undefined);
+          }}
           sort={sort}
-          onSortChange={setSort}
-          onSearchChange={setSearchTerm}
+          onSortChange={(next) => {
+            setSort(next);
+            setActiveViewId(undefined);
+          }}
+          onSearchChange={(next) => {
+            setSearchTerm(next);
+            setActiveViewId(undefined);
+          }}
         />
+        {user?._id && (
+          <SavedViews
+            userId={user._id}
+            current={{ category, sort, searchTerm: searchTerm || undefined }}
+            activeId={activeViewId}
+            onApply={(view) => {
+              setCategory(view.category);
+              setSort(view.sort);
+              setSearchTerm(view.searchTerm ?? '');
+              setActiveViewId(view.id);
+            }}
+          />
+        )}
       </div>
+
+      {/* Above the list, and only once the team is set up — briefing someone whose feed is empty
+          would just be a second empty panel over the one already explaining why. */}
+      {teamId && !teamNotReady && <DailyBrief teamId={teamId} sort={sort} />}
 
       {isFirstLoad ? (
         <SkeletonGrid />

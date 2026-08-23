@@ -11,6 +11,7 @@ import handleCastError from '../errors/handleCastError';
 import handleDuplicateError from '../errors/handleDuplicateError';
 import AppError from '../errors/AppError';
 import { reportError } from '../lib/errorReporting';
+import { getRequestId } from '../lib/requestContext';
 
 
 export const globalErrorHandler: ErrorRequestHandler = (
@@ -85,6 +86,9 @@ export const globalErrorHandler: ErrorRequestHandler = (
     success: false,
     message,
     errorSource,
+    // Echoed so a screenshot of an error is enough to find the exact request in the logs — without
+    // it, "it failed around 3pm" is the only thing anyone can search on.
+    request_id: getRequestId(),
     // Stack traces reveal file paths and internals — dev/test only, never production.
     ...(process.env.NODE_ENV !== 'production' ? { stack: err?.stack } : {}),
   });

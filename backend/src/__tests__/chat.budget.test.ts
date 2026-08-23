@@ -4,9 +4,15 @@ import {
   dedupeAgainstHistory,
 } from '../app/modules/Chat/chat.budget';
 import { compactHistory } from '../app/modules/Chat/chat.history';
-import { ChatContextItem, IChatMessage } from '../app/modules/Chat/chat.interface';
+import {
+  ChatContextItem,
+  IChatMessage,
+} from '../app/modules/Chat/chat.interface';
 
-const item = (content: string, overrides: Partial<ChatContextItem> = {}): ChatContextItem => ({
+const item = (
+  content: string,
+  overrides: Partial<ChatContextItem> = {},
+): ChatContextItem => ({
   source: 'news_item',
   content,
   ...overrides,
@@ -48,7 +54,10 @@ describe('context token budget', () => {
   it('skips rather than truncates an oversized item once something is already kept', () => {
     // A mid-sentence fragment invites the model to quote it as if complete.
     const small = item('short');
-    const result = budgetContext([small, item('x'.repeat(9000))], approxTokens('short') + 5);
+    const result = budgetContext(
+      [small, item('x'.repeat(9000))],
+      approxTokens('short') + 5,
+    );
 
     expect(result.items).toEqual([small]);
     expect(result.dropped).toBe(1);

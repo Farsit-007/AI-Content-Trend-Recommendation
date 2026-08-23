@@ -20,7 +20,8 @@ import { utcDateKey } from './llmUsage.service';
 
 const DAY_SECONDS = 24 * 3600;
 
-const budgetKey = (teamId: string, day: string): string => `llm:tokens:${teamId}:${day}`;
+const budgetKey = (teamId: string, day: string): string =>
+  `llm:tokens:${teamId}:${day}`;
 
 /** Both halves of the bill. Cached reads still cost, just less, so they are not discounted here. */
 export const totalTokens = (promptTokens = 0, completionTokens = 0): number =>
@@ -34,7 +35,10 @@ export const totalTokens = (promptTokens = 0, completionTokens = 0): number =>
  * existing key is cheap, and it means a key can never be left without one by a crash between
  * `INCRBY` and `EXPIRE`.
  */
-export const addTokenSpend = async (teamId: string | null, tokens: number): Promise<void> => {
+export const addTokenSpend = async (
+  teamId: string | null,
+  tokens: number,
+): Promise<void> => {
   if (!teamId || tokens <= 0 || config.rate_limit.llm.daily_tokens <= 0) return;
 
   try {
@@ -63,16 +67,28 @@ export interface BudgetStatus {
  * team's chat and generation would be a worse failure than briefly not enforcing a soft ceiling —
  * and the ledger still records what was spent, so nothing becomes invisible.
  */
-export const getBudgetStatus = async (teamId: string | null): Promise<BudgetStatus> => {
+export const getBudgetStatus = async (
+  teamId: string | null,
+): Promise<BudgetStatus> => {
   const limit = config.rate_limit.llm.daily_tokens;
   if (!teamId || limit <= 0) {
-    return { limit, spent: 0, remaining: Number.POSITIVE_INFINITY, exceeded: false };
+    return {
+      limit,
+      spent: 0,
+      remaining: Number.POSITIVE_INFINITY,
+      exceeded: false,
+    };
   }
 
   try {
     const raw = await redis.get(budgetKey(teamId, utcDateKey(new Date())));
     const spent = raw ? Number(raw) : 0;
-    return { limit, spent, remaining: Math.max(0, limit - spent), exceeded: spent >= limit };
+    return {
+      limit,
+      spent,
+      remaining: Math.max(0, limit - spent),
+      exceeded: spent >= limit,
+    };
   } catch (err) {
     logger.warn(
       { err: err instanceof Error ? err.message : err, teamId },

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -7,8 +8,10 @@ import { pinoHttp } from 'pino-http';
 import config from './app/config';
 import { logger } from './app/lib/logger';
 import { pingRedis } from './app/lib/redis';
+import { getRequestId } from './app/lib/requestContext';
 import { cacheStats } from './app/lib/cache';
 import { globalRateLimiter } from './app/middleware/rateLimit';
+import { requestId } from './app/middleware/requestId';
 import { notFound } from './app/middleware/notFound';
 import { globalErrorHandler } from './app/middleware/globalErrorHandler';
 import router from './app/routes';
@@ -40,6 +43,9 @@ const allowedOrigins = [
   ),
 ];
 
+// Mounted first — before body parsing and CORS — so a request that fails before it ever reaches a
+// route (malformed JSON, an over-limit body) still carries an id on its error response.
+app.use(requestId);
 app.use(helmet());
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
@@ -53,6 +59,11 @@ app.use(
   pinoHttp({
     logger,
     autoLogging: { ignore: (req) => req.url === '/health' },
+    // `requestId` already assigned the id and opened its ALS context — reuse it rather than letting
+    // pino-http mint a second, unrelated one, which would put two different ids on the same request.
+    // The `??` is unreachable in practice — `requestId` runs first and always sets one — but
+    // pino-http's type requires a definite id, and inventing a fallback here is safer than casting.
+    genReqId: () => getRequestId() ?? randomUUID(),
   }),
 );
 

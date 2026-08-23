@@ -25,10 +25,13 @@ const passThrough: RequestHandler = (_req, _res, next) => next();
 const store = () =>
   new RedisStore({
     // node-redis-style call signature expected by rate-limit-redis, mapped onto ioredis.
-    sendCommand: (...args: string[]) => redis.call(...(args as [string, ...string[]])) as Promise<never>,
+    sendCommand: (...args: string[]) =>
+      redis.call(...(args as [string, ...string[]])) as Promise<never>,
   });
 
-const build = (options: Partial<Options> & Pick<Options, 'windowMs' | 'limit'>): RequestHandler => {
+const build = (
+  options: Partial<Options> & Pick<Options, 'windowMs' | 'limit'>,
+): RequestHandler => {
   if (!config.rate_limit.enabled) return passThrough;
 
   return rateLimit({
@@ -53,7 +56,10 @@ export const authRateLimiter = build({
   limit: config.rate_limit.auth.max,
   skipSuccessfulRequests: true,
   keyGenerator: (req) => `rl:auth:${ipKeyGenerator(req.ip ?? '')}`,
-  message: { success: false, message: 'Too many attempts. Wait a few minutes and try again.' },
+  message: {
+    success: false,
+    message: 'Too many attempts. Wait a few minutes and try again.',
+  },
 });
 
 /**
@@ -65,7 +71,10 @@ export const globalRateLimiter = build({
   windowMs: config.rate_limit.global.window_ms,
   limit: config.rate_limit.global.max,
   keyGenerator: (req) => `rl:global:${ipKeyGenerator(req.ip ?? '')}`,
-  message: { success: false, message: 'Too many requests. Slow down and try again shortly.' },
+  message: {
+    success: false,
+    message: 'Too many requests. Slow down and try again shortly.',
+  },
 });
 
 /**
@@ -81,11 +90,14 @@ export const llmRateLimiter = build({
     const body = req.body as { team_id?: unknown } | undefined;
     const teamId = typeof body?.team_id === 'string' ? body.team_id : undefined;
     if (teamId) return `rl:llm:t:${teamId}`;
-    return req.user ? `rl:llm:u:${req.user.id}` : `rl:llm:ip:${ipKeyGenerator(req.ip ?? '')}`;
+    return req.user
+      ? `rl:llm:u:${req.user.id}`
+      : `rl:llm:ip:${ipKeyGenerator(req.ip ?? '')}`;
   },
   message: {
     success: false,
-    message: 'This team has reached its daily AI generation limit. It resets in 24 hours.',
+    message:
+      'This team has reached its daily AI generation limit. It resets in 24 hours.',
   },
 });
 
@@ -113,7 +125,9 @@ export const llmTokenBudget: RequestHandler = (req, res, next) => {
 
   const body = req.body as { team_id?: unknown } | undefined;
   const teamId =
-    typeof body?.team_id === 'string' ? body.team_id : (req.user?.team_ids?.[0] ?? null);
+    typeof body?.team_id === 'string'
+      ? body.team_id
+      : (req.user?.team_ids?.[0] ?? null);
 
   void getBudgetStatus(teamId).then((status) => {
     if (!status.exceeded) {

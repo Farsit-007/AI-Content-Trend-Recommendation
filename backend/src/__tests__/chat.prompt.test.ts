@@ -80,7 +80,9 @@ describe('chat prompt — cacheable prefix', () => {
     // This is the whole point: turn 2 re-reads blocks 0-1 from cache instead of paying for them.
     expect(second[0].content).toBe(first[0].content);
     expect(second[1].content).toBe(first[1].content);
-    expect(second[second.length - 1].content).not.toBe(first[first.length - 1].content);
+    expect(second[second.length - 1].content).not.toBe(
+      first[first.length - 1].content,
+    );
   });
 
   it('grows the cacheable prefix with the conversation, which is what clears the 1024-token floor', () => {
@@ -104,7 +106,8 @@ describe('chat prompt — cacheable prefix', () => {
 
     const second = turn(1);
     const third = turn(2);
-    const prefixOf = (ms: ReturnType<typeof turn>) => ms.filter((m) => m.cacheable).map((m) => m.content);
+    const prefixOf = (ms: ReturnType<typeof turn>) =>
+      ms.filter((m) => m.cacheable).map((m) => m.content);
 
     expect(prefixOf(second).length).toBe(4);
     expect(prefixOf(third).length).toBe(6);
@@ -126,7 +129,9 @@ describe('chat prompt — cacheable prefix', () => {
 
     expect(none[0].content).toBe(subscribed[0].content);
     expect(none[1].content).toBe(subscribed[1].content);
-    expect(none[none.length - 1].content).not.toBe(subscribed[subscribed.length - 1].content);
+    expect(none[none.length - 1].content).not.toBe(
+      subscribed[subscribed.length - 1].content,
+    );
   });
 
   it('keys the prefix on language, so a per-request override warms a second prefix rather than corrupting one', () => {

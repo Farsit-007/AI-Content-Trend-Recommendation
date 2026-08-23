@@ -476,14 +476,35 @@ Verified after each step: backend `typecheck` clean, `npm test` green, `lint` 0 
 | 3 | done | `lib/cache.ts` (versioned, degrade-open, SCAN-based invalidation, per-domain hit rates on `/health`); applied to `isTeamReady` and `resolveVoiceOptions` with write-path invalidation. |
 | 4 | done | `/dashboard/studio` with Compose/Library tabs (2.28 kB shell, both halves still separately code-split); `/generate` + `/drafts` redirect; streamed output autosaves so a closed tab no longer discards paid work, and Save steps aside afterwards instead of filing a duplicate. |
 | 5 | done | `team_admin` is a real tier: `getMe` now returns `team_admin_team_ids`, `lib/capabilities.ts` + `useCan()` replace scattered role checks, an **AI usage** page reads the Phase 2.1 ledger, `supperAdmin.routes.tsx` renamed, and `PATCH`/`DELETE /users/:id` close the create-and-read-only gap (guarded against removing the last super admin or yourself). |
-| 6 | partial | 6.2 done — the feed now explains its own ranking via `score_source`, which the API always returned and nothing rendered. 6.5 was **already satisfied** (three matching compound indexes exist; a fourth would cost writes for nothing). 6.1/6.3/6.4 not done — see below. |
-| 7 | not done | Chat UI parity (markdown, stop, citation chips, regenerate). |
-| 8 | not done | Request-id middleware, `Dockerfile.prod`, scheduler guard. |
+| 6 | done, except 6.1 verdicts | 6.2 the feed explains its own ranking via `score_source`. 6.3 `DailyBrief` — top 3 opportunities with a one-line why and one-click Write, reusing the feed's own query so the two can never disagree. 6.4 saved views (localStorage, per user id; trade-off documented in `lib/savedViews.ts`). 6.5 was **already satisfied** — three matching compound indexes exist. 6.1 needs live infra: runbook in §4c, verdicts are an operator session. |
+| 7 | done | Markdown rendering (react-markdown, no `rehype-raw` — model text is never treated as markup), citation chips wired to `sources`, Stop via AbortController, per-message copy/regenerate, multi-line composer with IME-safe Enter, streaming caret. |
+| 8 | done | Request-id via AsyncLocalStorage + pino `mixin` (correlated without threading it through any signature), echoed on `X-Request-Id` and in error bodies; `Dockerfile.prod` **already existed and was already sound** — only a HEALTHCHECK was missing; scheduler guard closes the one real gap (auto-generation had no lock while the other three did). No CI/CD, per the settled decision. |
 
 **Verified at this checkpoint:** backend **661/661** across 55 suites, frontend **27/27**, both typecheck
 clean, backend lint 0 errors / 185 warnings (unchanged baseline), frontend lint 0 errors / 1
 pre-existing warning, production build succeeds.
 
+
+## 4c. Phase 6.1 — flag decision runbook
+
+The three dormant flags cannot be decided from a code read: each one trades quality against cost or
+latency, and the answer depends on this deployment's own data. What follows is the whole decision
+reduced to three commands and three thresholds, so it is one operator session rather than a
+re-derivation. **Requires live Mongo + a configured LLM provider.**
+
+Run all three from `backend/`.
+
+| Flag | Command | Look at | Enable if |
+|---|---|---|---|
+| `NEWS_FEED_SEMANTIC_MATCH_ENABLED` | `npm run db:verify-indexes` | Whether `news_items_vector_index` reports `queryable: true`, with `category` and `category_group` among its filter fields | The index is queryable **and** feeds routinely under-fill a page (`meta.total < limit` for teams with narrow subscriptions). Otherwise leave it off — it adds a second query per request to fill space that is not actually empty. |
+| `CONTENT_CRITIQUE_ENABLED` | `npm run verify:bangla-bakeoff -- --critique both` | The paired outputs per topic, critique off vs on | A blind read prefers the critiqued output in a clear majority. It doubles the LLM calls per format, so a marginal win is a net loss. |
+| `STYLE_EXAMPLE_EMBED_BY_TOPIC_SUMMARY` | `npm run verify:style-pack-retrieval` | Which examples come back for a topic, per strategy | Topic-summary retrieval returns examples a human agrees are closer in *voice*. Embedding by content is cheaper and is the current default, so it wins ties. |
+
+**Record each verdict in this table and delete the losing branch.** A flag left undecided is a code
+path every future change has to keep working with no evidence it should exist — which is the actual
+cost of leaving these three as they are.
+
+---
 
 ## 5. Sequencing — by phase, not by calendar
 

@@ -32,13 +32,21 @@ export const resolveVoiceOptions = async (
 ): Promise<VoiceOptions> => {
   // Only the stored profile is cached, never the resolved result: `languageOverride` is per-request,
   // and folding it into the cached value would serve one caller's override to the next caller.
-  const profile = await cached('team:voice', teamId, VOICE_TTL_SECONDS, async () => {
-    const team = await Team.findById(teamId).select('voice_profile').lean().catch(() => null);
-    return {
-      default_language: team?.voice_profile?.default_language ?? null,
-      custom_instructions: team?.voice_profile?.custom_instructions ?? null,
-    };
-  });
+  const profile = await cached(
+    'team:voice',
+    teamId,
+    VOICE_TTL_SECONDS,
+    async () => {
+      const team = await Team.findById(teamId)
+        .select('voice_profile')
+        .lean()
+        .catch(() => null);
+      return {
+        default_language: team?.voice_profile?.default_language ?? null,
+        custom_instructions: team?.voice_profile?.custom_instructions ?? null,
+      };
+    },
+  );
 
   return {
     language: languageOverride ?? profile.default_language ?? 'bangla',

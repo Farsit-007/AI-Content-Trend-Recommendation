@@ -123,12 +123,10 @@ export const buildMessages = (
   // History is cacheable because a turn that already happened never changes. This is where the
   // prefix earns its keep: by turn three or four it is long enough to clear the providers' 1024-token
   // minimum, which the two static blocks alone (~250 tokens) never do on their own.
-  ...history.map(
-    (msg): AdapterChatMessage => ({
-      role: msg.role,
-      content: msg.content,
-      cacheable: true,
-    }),
-  ),
+  ...history.map((msg): AdapterChatMessage => ({
+    role: msg.role,
+    content: msg.content,
+    cacheable: true,
+  })),
   { role: 'user', content: buildUserTurn(question, context, tier) },
 ];

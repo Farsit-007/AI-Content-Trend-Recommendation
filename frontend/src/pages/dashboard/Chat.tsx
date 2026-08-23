@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { History, Info, Loader2, MessageSquare, Plus, Send, Sparkles } from 'lucide-react';
+import { History, Info, Loader2, MessageSquare, Plus, Send, Sparkles, Square } from 'lucide-react';
 
 import {
   askChat,
@@ -9,6 +9,7 @@ import {
   getConversationMessages,
   listConversations,
   type ChatContextTier,
+  type ChatSourceRef,
 } from '@/lib/api/chat';
 import { getTeam } from '@/lib/api/teams';
 import type { LanguageStyle } from '@/lib/api/content';
@@ -23,9 +24,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/dashboard/PageHeader';
+import { MarkdownMessage } from '@/components/chat/MarkdownMessage';
+import { MessageActions } from '@/components/chat/MessageActions';
 
 const LANGUAGE_OPTIONS: { value: LanguageStyle; label: string }[] = [
   { value: 'bangla', label: 'বাংলা' },
@@ -55,12 +58,19 @@ const TIER_NOTICE: Partial<Record<ChatContextTier, string>> = {
 interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
+  /** Citation targets for an assistant turn, from the stream's `context` event. */
+  sources?: ChatSourceRef[];
 }
 
 export default function Chat() {
   const teamId = useTeamId();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatTurn[]>([]);
+  /**
+   * Live stream, so Stop can abort it. The server already honours cancellation and persists whatever
+   * it produced, so aborting mid-answer keeps the partial text rather than discarding it.
+   */
+  const abortRef = useRef<AbortController | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [input, setInput] = useState('');
   const [contextTier, setContextTier] = useState<ChatContextTier | null>(null);
@@ -139,16 +149,46 @@ export default function Chat() {
           return next;
         });
 
-      await askChatStream(payload, {
-        onStart: setConversationId,
-        onContext: (tier) => setContextTier(tier),
-        onDelta: appendDelta,
-      });
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        await askChatStream(payload, {
+          onStart: setConversationId,
+          onContext: (tier, sources) => {
+            setContextTier(tier);
+            // Attached to the turn rather than held in page state: a citation belongs to the answer
+            // that made it, and page state would relabel older answers on the next question.
+            setMessages((prev) => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              if (last?.role === 'assistant') next[next.length - 1] = { ...last, sources };
+              return next;
+            });
+          },
+          onDelta: appendDelta,
+          signal: controller.signal,
+        });
+      } finally {
+        abortRef.current = null;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-conversations', teamId] });
     },
     onError: (err: Error) => {
+      // An abort is the user's own Stop, not a failure: the tokens already on screen are real and
+      // the backend has persisted them, so the turn stays exactly as it is.
+      if (err.name === 'AbortError') {
+        // Unless nothing had streamed yet — then there is no partial answer to keep, only an empty
+        // bubble that would sit there looking like a reply that never arrived.
+        setMessages((prev) => {
+          const last = prev.at(-1);
+          return last?.role === 'assistant' && last.content === '' ? prev.slice(0, -1) : prev;
+        });
+        return;
+      }
+
       toast.error(err.message || 'Chat failed');
       // Drop the question and the empty/partial answer together — leaving a half-finished bubble
       // with no error attached would read as a complete reply.
@@ -174,6 +214,27 @@ export default function Chat() {
     chatMutation.mutate({
       team_id: teamId,
       message: trimmed,
+      conversation_id: conversationId,
+      language,
+    });
+  };
+
+  /**
+   * Re-asks the previous question, replacing the answer in place.
+   *
+   * Drops the old assistant turn before re-sending so the reply arrives where the previous one was
+   * rather than appended beneath it — the same conversation continues, so `conversation_id` is
+   * deliberately kept: the model should see the exchange it is retrying.
+   */
+  const regenerateLast = () => {
+    if (chatMutation.isPending) return;
+    const lastQuestion = [...messages].reverse().find((m) => m.role === 'user');
+    if (!lastQuestion) return;
+
+    setMessages((prev) => (prev.at(-1)?.role === 'assistant' ? prev.slice(0, -1) : prev));
+    chatMutation.mutate({
+      team_id: teamId as string,
+      message: lastQuestion.content,
       conversation_id: conversationId,
       language,
     });
@@ -333,24 +394,55 @@ export default function Chat() {
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {messages.map((turn, i) => (
-                  <div
-                    key={i}
-                    className={cn('flex', turn.role === 'user' ? 'justify-end' : 'justify-start')}
-                  >
+                {messages.map((turn, i) => {
+                  const isLast = i === messages.length - 1;
+                  const isStreaming =
+                    isLast && turn.role === 'assistant' && chatMutation.isPending;
+                  return (
                     <div
+                      key={i}
                       className={cn(
-                        'max-w-[85%] rounded-xl px-4 py-2.5 text-sm whitespace-pre-wrap',
-                        turn.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'border border-border bg-muted text-foreground/90',
+                        'group/msg flex flex-col gap-1',
+                        turn.role === 'user' ? 'items-end' : 'items-start',
                       )}
                     >
-                      {turn.content}
+                      <div
+                        className={cn(
+                          'max-w-[85%] rounded-xl px-4 py-2.5 text-sm',
+                          turn.role === 'user'
+                            ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
+                            : 'border border-border bg-muted text-foreground/90',
+                        )}
+                      >
+                        {turn.role === 'assistant' ? (
+                          <>
+                            <MarkdownMessage content={turn.content} sources={turn.sources} />
+                            {isStreaming && turn.content.length > 0 && (
+                              <span
+                                aria-hidden="true"
+                                className="ml-0.5 inline-block h-3.5 w-1.5 bg-current align-middle motion-safe:animate-pulse"
+                              />
+                            )}
+                          </>
+                        ) : (
+                          turn.content
+                        )}
+                      </div>
+                      {turn.content.length > 0 && !isStreaming && (
+                        <MessageActions
+                          content={turn.content}
+                          onRegenerate={
+                            isLast && turn.role === 'assistant' ? regenerateLast : undefined
+                          }
+                          regenerateDisabled={chatMutation.isPending}
+                        />
+                      )}
                     </div>
-                  </div>
-                ))}
-                {chatMutation.isPending && (
+                  );
+                })}
+                {/* Only before the first token — once text is flowing the caret carries the signal,
+                    and two indicators at once reads as two things happening. */}
+                {chatMutation.isPending && messages.at(-1)?.content === '' && (
                   <div className="flex justify-start">
                     <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-muted-foreground">
                       <Loader2 className="size-3.5 animate-spin" /> Thinking…
@@ -377,26 +469,42 @@ export default function Chat() {
               e.preventDefault();
               send(input);
             }}
-            className="flex items-center gap-2"
+            className="flex items-end gap-2"
           >
-            <Input
+            <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about trends, categories, or a specific story…"
-              className="flex-1"
+              onKeyDown={(e) => {
+                // Enter sends, Shift+Enter breaks the line — what every comparable assistant does,
+                // and the reason a single-line input was the wrong control for a question that can
+                // reasonably run to a paragraph.
+                // `isComposing` guards IME users — Bengali phonetic input included: Enter there
+                // confirms the candidate word, and treating it as send would mangle every message.
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  send(input);
+                }
+              }}
+              rows={1}
+              placeholder="Ask about trends, categories, or a specific story…  (Shift+Enter for a new line)"
+              className="max-h-40 min-h-9 flex-1 resize-y py-2"
             />
-            <Button
-              type="submit"
-              disabled={!input.trim() || chatMutation.isPending}
-              className="btn-glow gap-2"
-            >
-              {chatMutation.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
+            {chatMutation.isPending ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => abortRef.current?.abort()}
+                className="gap-2"
+              >
+                <Square className="size-4" />
+                <span className="hidden sm:inline">Stop</span>
+              </Button>
+            ) : (
+              <Button type="submit" disabled={!input.trim()} className="btn-glow gap-2">
                 <Send className="size-4" />
-              )}
-              <span className="hidden sm:inline">Send</span>
-            </Button>
+                <span className="hidden sm:inline">Send</span>
+              </Button>
+            )}
           </form>
 
           <p className="flex items-center gap-1 text-xs text-muted-foreground">

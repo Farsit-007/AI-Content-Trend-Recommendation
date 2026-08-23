@@ -6,7 +6,10 @@ import { IRequestUser } from '../User/user.interface';
 import { ActivityLogService } from '../ActivityLog/activityLog.service';
 import { NewsCategoryTaxonomyService } from '../NewsCategoryTaxonomy/newsCategoryTaxonomy.service';
 import { BrandVoiceExample } from '../BrandVoiceExample/brandVoiceExample.model';
-import { LlmModelCapability, LlmTask } from '../LlmProvider/llmProvider.interface';
+import {
+  LlmModelCapability,
+  LlmTask,
+} from '../LlmProvider/llmProvider.interface';
 import { LlmModel } from '../LlmProvider/llmProvider.model';
 import { ITeam, TeamMemberRole } from './team.interface';
 import { Team, TeamMembership } from './team.model';
@@ -15,14 +18,21 @@ const MAX_CUSTOM_CATEGORIES = 20;
 
 /** Every team id a user belongs to. Used by `requireAuth` to populate `req.user.team_ids`. */
 const getTeamIdsForUser = async (userId: string): Promise<string[]> => {
-  const memberships = await TeamMembership.find({ user_id: userId }).select('team_id');
+  const memberships = await TeamMembership.find({ user_id: userId }).select(
+    'team_id',
+  );
   return memberships.map((m) => m.team_id.toString());
 };
 
 /** Subset of the above where the user is specifically `team_admin`. Used by `requireAuth` to
  *  populate `req.user.team_admin_team_ids` — see `requireTeamAdmin`. */
-const getTeamAdminTeamIdsForUser = async (userId: string): Promise<string[]> => {
-  const memberships = await TeamMembership.find({ user_id: userId, role: 'team_admin' }).select('team_id');
+const getTeamAdminTeamIdsForUser = async (
+  userId: string,
+): Promise<string[]> => {
+  const memberships = await TeamMembership.find({
+    user_id: userId,
+    role: 'team_admin',
+  }).select('team_id');
   return memberships.map((m) => m.team_id.toString());
 };
 
@@ -35,12 +45,20 @@ const createTeam = async (
   const team = await Team.create({ ...payload, created_by: createdBy });
 
   if (memberUserIds.length) {
-    const users = await User.find({ _id: { $in: memberUserIds } }).select('_id');
+    const users = await User.find({ _id: { $in: memberUserIds } }).select(
+      '_id',
+    );
     if (users.length !== new Set(memberUserIds).size) {
-      throw new AppError(httpStatus.BAD_REQUEST, 'One or more member user ids do not exist');
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        'One or more member user ids do not exist',
+      );
     }
     if (teamAdminId && !memberUserIds.includes(teamAdminId)) {
-      throw new AppError(httpStatus.BAD_REQUEST, 'team_admin_id must be one of the provided member_ids');
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        'team_admin_id must be one of the provided member_ids',
+      );
     }
     await TeamMembership.insertMany(
       memberUserIds.map((user_id) => ({
@@ -68,13 +86,18 @@ const getTeamById = async (teamId: string) => {
   }
 
   const [memberships, team_ready] = await Promise.all([
-    TeamMembership.find({ team_id: teamId }).populate('user_id', 'name email role'),
+    TeamMembership.find({ team_id: teamId }).populate(
+      'user_id',
+      'name email role',
+    ),
     isTeamReady(teamId),
   ]);
   // `team_role` (team_admin/member) is distinct from the populated user's own `role` (the global
   // super_admin/user tier) — merged onto the same object here so the frontend gets one flat shape.
   const members = memberships.map((m) => {
-    const user = m.user_id as unknown as { toObject: () => Record<string, unknown> };
+    const user = m.user_id as unknown as {
+      toObject: () => Record<string, unknown>;
+    };
     return { ...user.toObject(), team_role: m.role };
   });
   return { team, members, team_ready };
@@ -94,7 +117,9 @@ const isTeamReady = async (teamId: string): Promise<boolean> =>
   // stale `false` shows them an empty-state screen they have just fixed. A minute is short enough
   // that nobody files a bug about it, and long enough to collapse a page's worth of requests.
   cached('team:ready', teamId, TEAM_READY_TTL_SECONDS, async () => {
-    const team = await Team.findById(teamId).select('subscribed_categories').lean();
+    const team = await Team.findById(teamId)
+      .select('subscribed_categories')
+      .lean();
     if (!team || team.subscribed_categories.length === 0) {
       return false;
     }
@@ -112,22 +137,35 @@ const isTeamReady = async (teamId: string): Promise<boolean> =>
  *
  * Rejecting at write time turns that into an error the admin can act on, at the moment they can.
  */
-const assertDefaultModelsResolvable = async (defaultModels: ITeam['default_models']): Promise<void> => {
-  const entries = Object.entries(defaultModels ?? {}).filter(([, id]) => Boolean(id)) as [LlmTask, string][];
+const assertDefaultModelsResolvable = async (
+  defaultModels: ITeam['default_models'],
+): Promise<void> => {
+  const entries = Object.entries(defaultModels ?? {}).filter(([, id]) =>
+    Boolean(id),
+  ) as [LlmTask, string][];
   if (entries.length === 0) return;
 
-  const models = await LlmModel.find({ _id: { $in: entries.map(([, id]) => id) } });
+  const models = await LlmModel.find({
+    _id: { $in: entries.map(([, id]) => id) },
+  });
   const byId = new Map(models.map((m) => [m._id.toString(), m]));
 
   for (const [task, modelId] of entries) {
     const model = byId.get(modelId);
     if (!model) {
-      throw new AppError(httpStatus.BAD_REQUEST, `default_models.${task}: no LLM model exists with id ${modelId}`);
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        `default_models.${task}: no LLM model exists with id ${modelId}`,
+      );
     }
     if (!model.is_active) {
-      throw new AppError(httpStatus.BAD_REQUEST, `default_models.${task}: model "${model.display_name}" is not active`);
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        `default_models.${task}: model "${model.display_name}" is not active`,
+      );
     }
-    const required: LlmModelCapability = task === 'embedding' ? 'embedding' : 'chat';
+    const required: LlmModelCapability =
+      task === 'embedding' ? 'embedding' : 'chat';
     if (!model.capabilities.includes(required)) {
       throw new AppError(
         httpStatus.BAD_REQUEST,
@@ -142,7 +180,12 @@ const updateTeam = async (
   payload: Partial<
     Pick<
       ITeam,
-      'name' | 'description' | 'voice_profile' | 'subscribed_categories' | 'default_style_pack_id' | 'default_models'
+      | 'name'
+      | 'description'
+      | 'voice_profile'
+      | 'subscribed_categories'
+      | 'default_style_pack_id'
+      | 'default_models'
     >
   >,
   requestingUser: IRequestUser,
@@ -152,9 +195,15 @@ const updateTeam = async (
   }
 
   const dedupedPayload = payload.subscribed_categories
-    ? { ...payload, subscribed_categories: [...new Set(payload.subscribed_categories)] }
+    ? {
+        ...payload,
+        subscribed_categories: [...new Set(payload.subscribed_categories)],
+      }
     : payload;
-  const team = await Team.findByIdAndUpdate(teamId, dedupedPayload, { new: true, runValidators: true });
+  const team = await Team.findByIdAndUpdate(teamId, dedupedPayload, {
+    new: true,
+    runValidators: true,
+  });
   if (!team) {
     throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
   }
@@ -194,16 +243,29 @@ const addMember = async (
   role: TeamMemberRole = 'member',
   requestingUser: IRequestUser,
 ) => {
-  const [team, user] = await Promise.all([Team.findById(teamId), User.findById(userId)]);
+  const [team, user] = await Promise.all([
+    Team.findById(teamId),
+    User.findById(userId),
+  ]);
   if (!team) throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
   if (!user) throw new AppError(httpStatus.NOT_FOUND, 'User not found');
 
-  const existing = await TeamMembership.findOne({ team_id: teamId, user_id: userId });
+  const existing = await TeamMembership.findOne({
+    team_id: teamId,
+    user_id: userId,
+  });
   if (existing) {
-    throw new AppError(httpStatus.CONFLICT, 'User is already a member of this team');
+    throw new AppError(
+      httpStatus.CONFLICT,
+      'User is already a member of this team',
+    );
   }
 
-  const membership = await TeamMembership.create({ team_id: teamId, user_id: userId, role });
+  const membership = await TeamMembership.create({
+    team_id: teamId,
+    user_id: userId,
+    role,
+  });
 
   void ActivityLogService.recordActivity({
     team_id: teamId,
@@ -217,10 +279,20 @@ const addMember = async (
   return membership;
 };
 
-const removeMember = async (teamId: string, userId: string, requestingUser: IRequestUser) => {
-  const membership = await TeamMembership.findOne({ team_id: teamId, user_id: userId });
+const removeMember = async (
+  teamId: string,
+  userId: string,
+  requestingUser: IRequestUser,
+) => {
+  const membership = await TeamMembership.findOne({
+    team_id: teamId,
+    user_id: userId,
+  });
   if (!membership) {
-    throw new AppError(httpStatus.NOT_FOUND, 'User is not a member of this team');
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      'User is not a member of this team',
+    );
   }
   if (membership.role === 'team_admin') {
     await assertNotLastTeamAdmin(teamId, userId);
@@ -243,14 +315,20 @@ const removeMember = async (teamId: string, userId: string, requestingUser: IReq
 /** A team must always keep at least one team_admin — thrown before the caller's own
  *  role-change/removal would drop the count to zero. `excludingUserId` is the member being
  *  demoted/removed, so it doesn't count itself as "still a team_admin". */
-const assertNotLastTeamAdmin = async (teamId: string, excludingUserId: string): Promise<void> => {
+const assertNotLastTeamAdmin = async (
+  teamId: string,
+  excludingUserId: string,
+): Promise<void> => {
   const remaining = await TeamMembership.countDocuments({
     team_id: teamId,
     role: 'team_admin',
     user_id: { $ne: excludingUserId },
   });
   if (remaining === 0) {
-    throw new AppError(httpStatus.BAD_REQUEST, 'A team must always have at least one team admin');
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'A team must always have at least one team admin',
+    );
   }
 };
 
@@ -260,9 +338,15 @@ const setMemberRole = async (
   role: TeamMemberRole,
   requestingUser: IRequestUser,
 ) => {
-  const membership = await TeamMembership.findOne({ team_id: teamId, user_id: userId });
+  const membership = await TeamMembership.findOne({
+    team_id: teamId,
+    user_id: userId,
+  });
   if (!membership) {
-    throw new AppError(httpStatus.NOT_FOUND, 'User is not a member of this team');
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      'User is not a member of this team',
+    );
   }
   if (membership.role === 'team_admin' && role === 'member') {
     await assertNotLastTeamAdmin(teamId, userId);
@@ -304,12 +388,20 @@ const addCustomCategory = async (teamId: string, category: string) => {
     throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
   }
 
-  const existing = [...taxonomyCategories, ...team.custom_categories].map((c) => c.toLowerCase());
+  const existing = [...taxonomyCategories, ...team.custom_categories].map((c) =>
+    c.toLowerCase(),
+  );
   if (existing.includes(category.toLowerCase())) {
-    throw new AppError(httpStatus.BAD_REQUEST, 'That category already exists for this team');
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'That category already exists for this team',
+    );
   }
   if (team.custom_categories.length >= MAX_CUSTOM_CATEGORIES) {
-    throw new AppError(httpStatus.BAD_REQUEST, `A team may have at most ${MAX_CUSTOM_CATEGORIES} custom categories`);
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `A team may have at most ${MAX_CUSTOM_CATEGORIES} custom categories`,
+    );
   }
 
   team.custom_categories.push(category);
@@ -324,9 +416,14 @@ const removeCustomCategory = async (teamId: string, category: string) => {
   }
 
   const before = team.custom_categories.length;
-  team.custom_categories = team.custom_categories.filter((c) => c.toLowerCase() !== category.toLowerCase());
+  team.custom_categories = team.custom_categories.filter(
+    (c) => c.toLowerCase() !== category.toLowerCase(),
+  );
   if (team.custom_categories.length === before) {
-    throw new AppError(httpStatus.NOT_FOUND, 'That custom category does not exist for this team');
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      'That custom category does not exist for this team',
+    );
   }
 
   await team.save();
