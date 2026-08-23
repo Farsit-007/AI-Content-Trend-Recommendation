@@ -10,9 +10,31 @@ export interface AskChatPayload {
   language?: LanguageStyle;
 }
 
+/**
+ * How wide the backend had to search this team's feed before it found anything.
+ *
+ *  - `subscribed` — matched the team's own categories. The normal case; nothing to show.
+ *  - `broadened`  — nothing matched literally, so the search widened to the broader groups those
+ *                   subscriptions belong to. Worth telling the user: the answer is adjacent to what
+ *                   they follow rather than squarely inside it.
+ *  - `none`       — this team's feed has nothing on the question. The backend refuses to answer from
+ *                   general knowledge, so the reply will say so.
+ */
+export type ChatContextTier = 'subscribed' | 'broadened' | 'none';
+
+/** One numbered context block the answer may cite as `[n]`. */
+export interface ChatSourceRef {
+  n: number;
+  source: 'news_item' | 'draft' | 'brand_voice' | 'team_profile';
+  ref_id?: string;
+  label?: string;
+}
+
 export interface AskChatResponse {
   conversation_id: string;
   reply: string;
+  context_tier?: ChatContextTier;
+  sources?: ChatSourceRef[];
 }
 
 /** POST /chat — news-grounded conversational Q&A, scoped to the team's subscribed categories
@@ -24,6 +46,12 @@ export function askChat(payload: AskChatPayload): Promise<AskChatResponse> {
 export interface AskChatStreamHandlers {
   /** Fires once, before any text — carries the conversation id to thread follow-ups onto. */
   onStart?: (conversationId: string) => void;
+  /**
+   * Fires once after retrieval and before the first token, with how the team's feed was searched
+   * and what the answer can cite. Separate from `onStart` because the tier isn't known until
+   * retrieval finishes, while the conversation id has to be available immediately.
+   */
+  onContext?: (tier: ChatContextTier, sources: ChatSourceRef[]) => void;
   /** Fires per token chunk. Append, don't replace. */
   onDelta: (text: string) => void;
   /** Fires once with the complete reply, after it has been persisted server-side. */
@@ -46,8 +74,16 @@ export async function askChatStream(payload: AskChatPayload, handlers: AskChatSt
   await streamSse('/chat/stream', payload, {
     signal: handlers.signal,
     onEvent: (event, data) => {
-      const d = data as { conversation_id?: string; text?: string; reply?: string; message?: string };
+      const d = data as {
+        conversation_id?: string;
+        text?: string;
+        reply?: string;
+        message?: string;
+        context_tier?: ChatContextTier;
+        sources?: ChatSourceRef[];
+      };
       if (event === 'start' && d.conversation_id) handlers.onStart?.(d.conversation_id);
+      else if (event === 'context' && d.context_tier) handlers.onContext?.(d.context_tier, d.sources ?? []);
       else if (event === 'delta' && d.text) handlers.onDelta(d.text);
       else if (event === 'done') handlers.onDone?.(d.reply ?? '');
       else if (event === 'error') streamError = d.message ?? 'Chat request failed';

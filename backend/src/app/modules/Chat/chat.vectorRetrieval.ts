@@ -1,3 +1,5 @@
+import { FilterQuery } from 'mongoose';
+import { INewsItem } from '../NewsItem/newsItem.interface';
 import { NewsItem } from '../NewsItem/newsItem.model';
 import { NewsCandidate } from './chat.retrieval';
 
@@ -34,6 +36,7 @@ export const findChatContextByVector = async (
   questionEmbedding: number[],
   since: Date,
   limit: number,
+  scopeFilter: FilterQuery<INewsItem> = {},
 ): Promise<NewsCandidate[]> => {
   if (limit <= 0) return [];
 
@@ -46,9 +49,20 @@ export const findChatContextByVector = async (
         numCandidates: NUM_CANDIDATES,
         limit,
         // Pre-filter, applied during the vector search rather than after it, so the limit is spent
-        // on eligible items instead of being eaten by archived or out-of-window ones. Both fields
-        // must be indexed as `filter` fields on the Atlas index for this to be accepted.
-        filter: { lifecycle: 'active', created_at: { $gte: since } },
+        // on eligible items instead of being eaten by archived or out-of-window ones. Every field
+        // named here must be indexed as a `filter` field on the Atlas index for this to be
+        // accepted — see scripts/createVectorIndexes.ts.
+        //
+        // `scopeFilter` is the asking team's category scope and is *not* optional in practice: a
+        // filter applied after the search would spend `limit` on other teams' items and then throw
+        // them away, which is both wasteful and — once the limit is exhausted — silently wrong.
+        // It has to run inside the search, which is why `category` and `category_group` were added
+        // to the index's filter fields.
+        filter: {
+          lifecycle: 'active',
+          created_at: { $gte: since },
+          ...scopeFilter,
+        },
       },
     },
     {

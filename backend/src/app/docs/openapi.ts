@@ -4,11 +4,7 @@
  * Single source of truth for the `/api/v1` surface. Served as raw JSON at
  * `/api/v1/openapi.json` and rendered via Swagger UI at `/api/v1/docs`.
  */
-import {
-  ErrorEnvelope,
-  Meta,
-  SuccessEnvelope,
-} from './components';
+import { ErrorEnvelope, Meta, SuccessEnvelope } from './components';
 import { buildResourcePaths } from './paths';
 import { authTeamPaths } from './authTeamPaths';
 import { contentGenerationPaths } from './contentGenerationPaths';
@@ -21,6 +17,7 @@ import {
   AddCategoryRequest,
   AskChatRequest,
   AskChatResponse,
+  ChatSourceRef,
   BrandVoiceExample,
   BrandVoiceExampleCreate,
   BrandVoiceExampleUpdate,
@@ -74,13 +71,40 @@ export const openApiDocument = {
     { name: 'Auth', description: 'Login and current-user session.' },
     { name: 'Users', description: 'Admin-only user account management.' },
     { name: 'Teams', description: 'Growth teams and their membership.' },
-    { name: 'News Items', description: 'Ingested news/trend items with engagement and scoring.' },
-    { name: 'Brand Voice Examples', description: 'Reference examples of the desired brand voice, scoped per team.' },
-    { name: 'Content Generation', description: 'RAG-grounded generation of multi-format social content from a topic or news item.' },
-    { name: 'Chat', description: "Conversational Q&A grounded in the team's own trending news." },
-    { name: 'Generated Content', description: 'Persisted generated content drafts; auto-generated daily per team in their brand voice.' },
-    { name: 'Style Packs', description: 'Globally shared, super_admin-curated writer styles (packs + examples) teams can opt into.' },
-    { name: 'LLM Providers', description: 'Super-admin-managed registry of LLM providers, encrypted API keys, and per-provider model catalogs, wired into live generation via per-task model resolution (request > team default > global default > .env bootstrap).' },
+    {
+      name: 'News Items',
+      description: 'Ingested news/trend items with engagement and scoring.',
+    },
+    {
+      name: 'Brand Voice Examples',
+      description:
+        'Reference examples of the desired brand voice, scoped per team.',
+    },
+    {
+      name: 'Content Generation',
+      description:
+        'RAG-grounded generation of multi-format social content from a topic or news item.',
+    },
+    {
+      name: 'Chat',
+      description:
+        "Conversational Q&A grounded in the team's own trending news.",
+    },
+    {
+      name: 'Generated Content',
+      description:
+        'Persisted generated content drafts; auto-generated daily per team in their brand voice.',
+    },
+    {
+      name: 'Style Packs',
+      description:
+        'Globally shared, super_admin-curated writer styles (packs + examples) teams can opt into.',
+    },
+    {
+      name: 'LLM Providers',
+      description:
+        'Super-admin-managed registry of LLM providers, encrypted API keys, and per-provider model catalogs, wired into live generation via per-task model resolution (request > team default > global default > .env bootstrap).',
+    },
   ],
   paths: {
     ...authTeamPaths,
@@ -127,6 +151,7 @@ export const openApiDocument = {
       CreateDraftRequest,
       AskChatRequest,
       AskChatResponse,
+      ChatSourceRef,
       SourceSummary,
       IngestionSummary,
       SetNewsItemOverrideRequest,
@@ -175,10 +200,15 @@ export const openApiDocument = {
       AuthTokens: {
         type: 'object',
         properties: {
-          token: { type: 'string', description: 'Short-lived JWT access token — send as `Authorization: Bearer`.' },
+          token: {
+            type: 'string',
+            description:
+              'Short-lived JWT access token — send as `Authorization: Bearer`.',
+          },
           refresh_token: {
             type: 'string',
-            description: 'Long-lived refresh token; also set as an httpOnly cookie for browser clients.',
+            description:
+              'Long-lived refresh token; also set as an httpOnly cookie for browser clients.',
           },
           user: { $ref: '#/components/schemas/User' },
         },

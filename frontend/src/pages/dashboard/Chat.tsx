@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { History, Loader2, MessageSquare, Plus, Send, Sparkles } from 'lucide-react';
+import { History, Info, Loader2, MessageSquare, Plus, Send, Sparkles } from 'lucide-react';
 
-import { askChat, askChatStream, getConversationMessages, listConversations } from '@/lib/api/chat';
+import {
+  askChat,
+  askChatStream,
+  getConversationMessages,
+  listConversations,
+  type ChatContextTier,
+} from '@/lib/api/chat';
 import { getTeam } from '@/lib/api/teams';
 import type { LanguageStyle } from '@/lib/api/content';
 import { useTeamId } from '@/lib/useTeamId';
@@ -32,6 +38,20 @@ const SUGGESTED_PROMPTS = [
   'Give me 3 content angles from today’s feed',
 ];
 
+/**
+ * Shown when the backend had to search wider than the team's own categories, or found nothing at
+ * all. `subscribed` deliberately renders nothing — the normal case needs no explanation, and a
+ * banner on every answer would train people to ignore it.
+ */
+const TIER_NOTICE: Partial<Record<ChatContextTier, string>> = {
+  broadened:
+    'Nothing in your exact categories matched, so this answer draws on the broader groups they ' +
+    'belong to — adjacent to what you follow, not squarely inside it.',
+  none:
+    "Your team's feed has nothing on this. Answers stay grounded in your own data, so there is " +
+    'nothing to draw on — try subscribing to another category in Team Settings.',
+};
+
 interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
@@ -43,6 +63,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [input, setInput] = useState('');
+  const [contextTier, setContextTier] = useState<ChatContextTier | null>(null);
   const [languageOverride, setLanguageOverride] = useState<LanguageStyle | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Auto-resume the most recent conversation on mount, exactly once — without this guard, the
@@ -69,6 +90,9 @@ export default function Chat() {
     const history = await getConversationMessages(teamId, targetConversationId);
     setConversationId(targetConversationId);
     setMessages(history.map((m) => ({ role: m.role, content: m.content })));
+    // The tier describes the last answer's retrieval, which isn't replayed from stored history —
+    // keeping a stale banner would attach it to the wrong answer.
+    setContextTier(null);
   };
 
   // Resume the most recent past conversation once the list has loaded, unless the user has
@@ -88,6 +112,7 @@ export default function Chat() {
     hasAutoResumedRef.current = true;
     setConversationId(undefined);
     setMessages([]);
+    setContextTier(null);
   };
 
   /**
@@ -116,6 +141,7 @@ export default function Chat() {
 
       await askChatStream(payload, {
         onStart: setConversationId,
+        onContext: (tier) => setContextTier(tier),
         onDelta: appendDelta,
       });
     },
@@ -143,6 +169,8 @@ export default function Chat() {
     hasAutoResumedRef.current = true;
     setMessages((prev) => [...prev, { role: 'user', content: trimmed }]);
     setInput('');
+    // Cleared up front: the previous answer's tier must not appear to describe the new question.
+    setContextTier(null);
     chatMutation.mutate({
       team_id: teamId,
       message: trimmed,
@@ -332,6 +360,16 @@ export default function Chat() {
               </div>
             )}
           </div>
+
+          {contextTier && TIER_NOTICE[contextTier] && (
+            <p
+              role="status"
+              className="flex items-start gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-muted-foreground"
+            >
+              <Info className="mt-px size-3.5 shrink-0 text-amber-400" />
+              {TIER_NOTICE[contextTier]}
+            </p>
+          )}
 
           <form
             data-tour="chat-input"

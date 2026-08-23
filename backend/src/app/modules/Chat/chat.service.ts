@@ -1,22 +1,38 @@
 import { randomUUID } from 'crypto';
 import AppError from '../../errors/AppError';
 import config from '../../config';
-import { chatCompletionForTask, embedForTask, streamChatCompletionForTask } from '../../lib/modelResolution';
+import {
+  chatCompletionForTask,
+  embedForTask,
+  streamChatCompletionForTask,
+} from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
 import { LanguageStyle } from '../Team/team.interface';
 import { resolveVoiceOptions } from '../../lib/voiceProfile';
 import { httpStatus } from '../../utils/httpStatus';
 import { IRequestUser } from '../User/user.interface';
 import { TeamService } from '../Team/team.service';
-import { ChatRequest, ChatResponse, ConversationSummary, IChatMessage } from './chat.interface';
+import {
+  ChatContextTier,
+  ChatRequest,
+  ChatResponse,
+  ChatSourceRef,
+  ConversationSummary,
+  IChatMessage,
+} from './chat.interface';
 import { ChatMessage } from './chat.model';
-import { buildMessages } from './chat.prompt';
-import { fetchConversationHistory, fetchNewsContext } from './chat.retrieval';
+import { buildMessages, buildSourceRefs } from './chat.prompt';
+import { buildTeamCorpus } from './chat.corpus';
+import { fetchConversationHistory } from './chat.retrieval';
+import { resolveTeamChatContext } from './chat.teamContext';
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
   if (requestingUser.role === 'super_admin') return;
   if (!requestingUser.team_ids.includes(teamId)) {
-    throw new AppError(httpStatus.FORBIDDEN, 'You do not have access to this team');
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      'You do not have access to this team',
+    );
   }
 };
 
@@ -30,13 +46,50 @@ const NOT_READY_GUIDANCE: Record<LanguageStyle, string> = {
     'and add a brand-voice example so I can ground answers in your feed.',
 };
 
-const askChat = async (payload: ChatRequest, requestingUser: IRequestUser): Promise<ChatResponse> => {
+/**
+ * One log line per answered question, identical on both the buffered and streaming paths.
+ *
+ * `tier` is the field to watch in production: a rising share of `broadened` means teams are
+ * subscribed too narrowly for their own feed, and any `none` at all is a team being told "I have
+ * nothing on that" — both are product signals, not just diagnostics.
+ */
+const logRetrievalQuality = (
+  teamId: string,
+  corpus: {
+    tier: ChatContextTier;
+    context: unknown[];
+    diagnostics: Record<string, number>;
+  },
+  streaming: boolean,
+) => {
+  logger.info(
+    {
+      teamId,
+      tier: corpus.tier,
+      contextCount: corpus.context.length,
+      ...corpus.diagnostics,
+      lowRelevance:
+        corpus.diagnostics.newsTopSimilarity <
+        config.chat.context_low_relevance_threshold,
+      streaming,
+    },
+    '[Chat] context retrieval quality',
+  );
+};
+
+const askChat = async (
+  payload: ChatRequest,
+  requestingUser: IRequestUser,
+): Promise<ChatResponse> => {
   assertTeamAccess(payload.team_id, requestingUser);
 
   const conversationId = payload.conversation_id ?? randomUUID();
 
   if (!(await TeamService.isTeamReady(payload.team_id))) {
-    const { language } = await resolveVoiceOptions(payload.team_id, payload.language);
+    const { language } = await resolveVoiceOptions(
+      payload.team_id,
+      payload.language,
+    );
     const reply = NOT_READY_GUIDANCE[language];
 
     await ChatMessage.create({
@@ -55,24 +108,29 @@ const askChat = async (payload: ChatRequest, requestingUser: IRequestUser): Prom
     return { conversation_id: conversationId, reply };
   }
 
-  const [questionEmbedding, history, voiceOptions] = await Promise.all([
+  const [questionEmbedding, history, teamContext] = await Promise.all([
     embedForTask('embedding', payload.message, { teamId: payload.team_id }),
     fetchConversationHistory(payload.team_id, conversationId),
-    resolveVoiceOptions(payload.team_id, payload.language),
+    resolveTeamChatContext(payload.team_id, payload.language),
   ]);
 
-  const retrieval = await fetchNewsContext(questionEmbedding);
-  logger.info(
-    {
-      teamId: payload.team_id,
-      topSimilarity: retrieval.topSimilarity,
-      poolSize: retrieval.poolSize,
-      contextCount: retrieval.context.length,
-      lowRelevance: retrieval.topSimilarity < config.chat.context_low_relevance_threshold,
-    },
-    '[Chat] context retrieval quality',
+  const corpus = await buildTeamCorpus(
+    payload.message,
+    questionEmbedding,
+    teamContext,
   );
-  const messages = buildMessages(payload.message, retrieval.context, history, voiceOptions);
+  logRetrievalQuality(payload.team_id, corpus, false);
+
+  const messages = buildMessages(
+    payload.message,
+    corpus.context,
+    history,
+    {
+      language: teamContext.language,
+      custom_instructions: teamContext.customInstructions,
+    },
+    corpus.tier,
+  );
 
   await ChatMessage.create({
     team_id: payload.team_id,
@@ -83,10 +141,19 @@ const askChat = async (payload: ChatRequest, requestingUser: IRequestUser): Prom
 
   let reply: string;
   try {
-    reply = await chatCompletionForTask('chat', messages, { teamId: payload.team_id, temperature: 0.7 });
+    reply = await chatCompletionForTask('chat', messages, {
+      teamId: payload.team_id,
+      temperature: 0.7,
+    });
   } catch (err) {
-    logger.error({ err: err instanceof Error ? err.message : err }, '[Chat] LLM call failed');
-    throw new AppError(httpStatus.BAD_GATEWAY, 'Chat request failed — please try again');
+    logger.error(
+      { err: err instanceof Error ? err.message : err },
+      '[Chat] LLM call failed',
+    );
+    throw new AppError(
+      httpStatus.BAD_GATEWAY,
+      'Chat request failed — please try again',
+    );
   }
 
   await ChatMessage.create({
@@ -96,12 +163,24 @@ const askChat = async (payload: ChatRequest, requestingUser: IRequestUser): Prom
     content: reply,
   });
 
-  return { conversation_id: conversationId, reply };
+  return {
+    conversation_id: conversationId,
+    reply,
+    context_tier: corpus.tier,
+    sources: buildSourceRefs(corpus.context),
+  };
 };
 
 export interface ChatStreamHandlers {
   /** Called once, before the first token, with the conversation id the client should keep using. */
   onStart: (conversationId: string) => void;
+  /**
+   * Called once, after retrieval and before the first token, with how the context was scoped and
+   * what it can be cited against. Sent as its own event rather than folded into `onStart` because
+   * the tier is not known until retrieval has run, and `onStart` has to fire immediately so the
+   * client can pin the conversation id.
+   */
+  onContext?: (tier: ChatContextTier, sources: ChatSourceRef[]) => void;
   onDelta: (text: string) => void;
   /** Called with the complete reply once it has been persisted. */
   onDone: (reply: string) => void;
@@ -134,10 +213,18 @@ const askChatStream = async (
   handlers.onStart(conversationId);
 
   const persist = (role: 'user' | 'assistant', content: string) =>
-    ChatMessage.create({ team_id: payload.team_id, conversation_id: conversationId, role, content });
+    ChatMessage.create({
+      team_id: payload.team_id,
+      conversation_id: conversationId,
+      role,
+      content,
+    });
 
   if (!(await TeamService.isTeamReady(payload.team_id))) {
-    const { language } = await resolveVoiceOptions(payload.team_id, payload.language);
+    const { language } = await resolveVoiceOptions(
+      payload.team_id,
+      payload.language,
+    );
     const reply = NOT_READY_GUIDANCE[language];
     await persist('user', payload.message);
     await persist('assistant', reply);
@@ -146,25 +233,30 @@ const askChatStream = async (
     return;
   }
 
-  const [questionEmbedding, history, voiceOptions] = await Promise.all([
+  const [questionEmbedding, history, teamContext] = await Promise.all([
     embedForTask('embedding', payload.message, { teamId: payload.team_id }),
     fetchConversationHistory(payload.team_id, conversationId),
-    resolveVoiceOptions(payload.team_id, payload.language),
+    resolveTeamChatContext(payload.team_id, payload.language),
   ]);
 
-  const retrieval = await fetchNewsContext(questionEmbedding);
-  logger.info(
-    {
-      teamId: payload.team_id,
-      topSimilarity: retrieval.topSimilarity,
-      poolSize: retrieval.poolSize,
-      contextCount: retrieval.context.length,
-      lowRelevance: retrieval.topSimilarity < config.chat.context_low_relevance_threshold,
-      streaming: true,
-    },
-    '[Chat] context retrieval quality',
+  const corpus = await buildTeamCorpus(
+    payload.message,
+    questionEmbedding,
+    teamContext,
   );
-  const messages = buildMessages(payload.message, retrieval.context, history, voiceOptions);
+  logRetrievalQuality(payload.team_id, corpus, true);
+  handlers.onContext?.(corpus.tier, buildSourceRefs(corpus.context));
+
+  const messages = buildMessages(
+    payload.message,
+    corpus.context,
+    history,
+    {
+      language: teamContext.language,
+      custom_instructions: teamContext.customInstructions,
+    },
+    corpus.tier,
+  );
 
   await persist('user', payload.message);
 
@@ -179,11 +271,17 @@ const askChatStream = async (
       handlers.onDelta(delta);
     }
   } catch (err) {
-    logger.error({ err: err instanceof Error ? err.message : err }, '[Chat] streaming LLM call failed');
+    logger.error(
+      { err: err instanceof Error ? err.message : err },
+      '[Chat] streaming LLM call failed',
+    );
     // A mid-stream failure after partial output: keep what the user already saw rather than
     // discarding it, then surface the failure so they know the answer is incomplete.
     if (reply.length > 0) await persist('assistant', reply);
-    throw new AppError(httpStatus.BAD_GATEWAY, 'Chat request failed — please try again');
+    throw new AppError(
+      httpStatus.BAD_GATEWAY,
+      'Chat request failed — please try again',
+    );
   }
 
   if (reply.length > 0) {
@@ -196,7 +294,9 @@ const CONVERSATION_LIST_LIMIT = 50;
 const PREVIEW_MAX_CHARS = 140;
 
 const preview = (content: string): string =>
-  content.length > PREVIEW_MAX_CHARS ? `${content.slice(0, PREVIEW_MAX_CHARS)}…` : content;
+  content.length > PREVIEW_MAX_CHARS
+    ? `${content.slice(0, PREVIEW_MAX_CHARS)}…`
+    : content;
 
 interface ConversationAggregateRow {
   _id: string;
@@ -211,7 +311,10 @@ interface ConversationAggregateRow {
  * `{ team_id, conversation_id, created_at }` compound index rather than introducing a separate
  * collection to keep in sync (see chat-conversation-history design.md decision 2).
  */
-const listConversations = async (teamId: string, requestingUser: IRequestUser): Promise<ConversationSummary[]> => {
+const listConversations = async (
+  teamId: string,
+  requestingUser: IRequestUser,
+): Promise<ConversationSummary[]> => {
   assertTeamAccess(teamId, requestingUser);
 
   const rows = await ChatMessage.aggregate<ConversationAggregateRow>([
@@ -250,7 +353,10 @@ const getConversationMessages = async (
 ): Promise<IChatMessage[]> => {
   assertTeamAccess(teamId, requestingUser);
 
-  return ChatMessage.find({ team_id: teamId, conversation_id: conversationId }).sort({ created_at: 1 });
+  return ChatMessage.find({
+    team_id: teamId,
+    conversation_id: conversationId,
+  }).sort({ created_at: 1 });
 };
 
 export const ChatService = {
