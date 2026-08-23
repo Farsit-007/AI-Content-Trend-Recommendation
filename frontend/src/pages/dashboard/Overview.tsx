@@ -19,7 +19,10 @@ import {
 import { useAuth } from '@/context/auth-context';
 import { useTeamId } from '@/lib/useTeamId';
 import { getOverviewStats } from '@/lib/api/stats';
-import { cn } from '@/lib/utils';
+import { timeAgo } from '@/lib/datetime';
+import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { PageHelp } from '@/components/dashboard/PageHelp';
@@ -30,23 +33,12 @@ const roleLabel: Record<string, string> = {
   user: 'Member',
 };
 
-const STATUS_CHIP: Record<string, string> = {
-  draft: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-400',
-  approved:
-    'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-400',
-  dismissed: 'border-border bg-muted text-muted-foreground',
+/** Draft status -> badge tone, shared with the Drafts page's vocabulary. */
+const STATUS_VARIANT: Record<string, 'trend' | 'opportunity' | 'muted'> = {
+  draft: 'trend',
+  approved: 'opportunity',
+  dismissed: 'muted',
 };
-
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.round(diffMs / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days}d ago`;
-}
 
 export default function Overview() {
   const { user } = useAuth();
@@ -77,7 +69,7 @@ export default function Overview() {
         <div className="flex items-center gap-2">
           <Link
             to="/dashboard/guide"
-            className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-sm text-violet-700 transition hover:bg-violet-500/10 dark:border-violet-400/30 dark:bg-violet-400/5 dark:text-violet-300 dark:hover:bg-violet-400/10"
+            className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-sm text-brand transition hover:bg-violet-500/10 dark:border-violet-400/30 dark:bg-violet-400/5 dark:hover:bg-violet-400/10"
           >
             <Sparkles className="size-3.5" /> How Growth Studio works
           </Link>
@@ -94,18 +86,22 @@ export default function Overview() {
       )}
 
       {query.isError && (
-        <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
-          <AlertTriangle className="size-6 text-red-500 dark:text-red-400" />
-          <p className="text-sm text-muted-foreground">Couldn't load your stats. Try refreshing the page.</p>
+        <div className="glass-card rounded-xl">
+          <ErrorState
+            title="Could not load your stats"
+            error={query.error}
+            onRetry={() => query.refetch()}
+          />
         </div>
       )}
 
       {!query.isLoading && !query.isError && !stats?.team && !stats?.system && (
-        <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
-          <Users className="size-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            You don't belong to a team yet — ask an admin to add you to one.
-          </p>
+        <div className="glass-card rounded-xl">
+          <EmptyState
+            icon={Users}
+            title="You are not on a team yet"
+            description="Ask an admin to add you to one — the feed, drafts, and chat are all team-scoped."
+          />
         </div>
       )}
 
@@ -119,7 +115,7 @@ export default function Overview() {
           {stats.system.alerting_sources_count > 0 && (
             <Link
               to="/dashboard/admin/pipeline"
-              className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 transition hover:bg-amber-500/15 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300 dark:hover:bg-amber-400/15"
+              className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-trend transition hover:bg-amber-500/15 dark:border-amber-400/30 dark:bg-amber-400/10 dark:hover:bg-amber-400/15"
             >
               <span className="flex items-center gap-2">
                 <AlertTriangle className="size-4" />
@@ -136,14 +132,14 @@ export default function Overview() {
               label="News items in the catalog"
               value={stats.system.total_news_items.toLocaleString()}
               hint={`+${stats.system.news_items_last_24h.toLocaleString()} in the last 24h`}
-              accent="amber"
+              accent="trend"
               to="/dashboard/feed"
             />
             <StatCard
               icon={Building2}
               label="Teams"
               value={stats.system.total_teams}
-              accent="sky"
+              accent="info"
               to="/dashboard/admin/teams"
             />
             <StatCard
@@ -151,7 +147,7 @@ export default function Overview() {
               label="User accounts"
               value={stats.system.total_users}
               hint={`${stats.system.users_by_role.admin + stats.system.users_by_role.super_admin} admin${stats.system.users_by_role.admin + stats.system.users_by_role.super_admin === 1 ? '' : 's'}, ${stats.system.users_by_role.user} member${stats.system.users_by_role.user === 1 ? '' : 's'}`}
-              accent="violet"
+              accent="brand"
               to="/dashboard/admin/users"
             />
             <StatCard
@@ -159,7 +155,7 @@ export default function Overview() {
               label="Drafts generated platform-wide"
               value={stats.system.total_drafts}
               hint={`${stats.system.drafts_by_status.approved} approved`}
-              accent="emerald"
+              accent="opportunity"
             />
           </div>
 
@@ -214,7 +210,7 @@ export default function Overview() {
           {stats.team.is_cold_start && (
             <Link
               to="/dashboard/settings/team"
-              className="flex items-center justify-between gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-3 text-sm text-violet-800 transition hover:bg-violet-500/15 dark:border-violet-400/30 dark:bg-violet-400/10 dark:text-violet-200 dark:hover:bg-violet-400/15"
+              className="flex items-center justify-between gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-3 text-sm text-brand transition hover:bg-violet-500/15 dark:border-violet-400/30 dark:bg-violet-400/10 dark:hover:bg-violet-400/15"
             >
               <span className="flex items-center gap-2">
                 <Mic className="size-4" />
@@ -232,7 +228,7 @@ export default function Overview() {
               label="Drafts"
               value={stats.team.drafts.total}
               hint={`${stats.team.drafts.draft} awaiting review`}
-              accent="amber"
+              accent="trend"
               to="/dashboard/drafts"
             />
             <StatCard
@@ -240,7 +236,7 @@ export default function Overview() {
               label="High-opportunity stories this week"
               value={stats.team.high_opportunity_items_count}
               hint="score ≥ 7.5"
-              accent="emerald"
+              accent="opportunity"
               to="/dashboard/feed"
             />
             <StatCard
@@ -248,14 +244,14 @@ export default function Overview() {
               label="Brand voice examples"
               value={stats.team.brand_voice_examples_count}
               hint={stats.team.is_cold_start ? 'cold start — add some' : 'grounding every generation'}
-              accent="violet"
+              accent="brand"
               to="/dashboard/settings/team"
             />
             <StatCard
               icon={Users}
               label="Team members"
               value={stats.team.members_count}
-              accent="sky"
+              accent="info"
               to="/dashboard/settings/team"
             />
           </div>
@@ -265,23 +261,26 @@ export default function Overview() {
               <h3 className="font-medium text-foreground">Recent drafts</h3>
               <Link
                 to="/dashboard/drafts"
-                className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 hover:underline dark:text-violet-300"
+                className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
               >
                 View all <ArrowRight className="size-3" />
               </Link>
             </div>
 
             {stats.team.recent_drafts.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-6 text-center">
-                <Inbox className="size-5 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Nothing generated yet.{' '}
-                  <Link to="/dashboard/generate" className="text-violet-700 hover:underline dark:text-violet-300">
-                    Generate your first draft
+              <EmptyState
+                icon={Inbox}
+                title="Nothing generated yet"
+                description="Turn a trending story into a ready-to-post draft."
+                action={
+                  <Link
+                    to="/dashboard/generate"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline"
+                  >
+                    Generate your first draft <ArrowRight className="size-3.5" />
                   </Link>
-                  .
-                </p>
-              </div>
+                }
+              />
             ) : (
               <ul className="flex flex-col gap-1.5">
                 {stats.team.recent_drafts.map((draft) => (
@@ -292,9 +291,9 @@ export default function Overview() {
                     <span className="min-w-0 truncate text-sm text-foreground/90">{draft.topic}</span>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="text-xs text-muted-foreground">{timeAgo(draft.created_at)}</span>
-                      <span className={cn('rounded-full border px-2 py-0.5 text-xs capitalize', STATUS_CHIP[draft.status])}>
+                      <Badge variant={STATUS_VARIANT[draft.status] ?? 'muted'} className="capitalize">
                         {draft.status}
-                      </span>
+                      </Badge>
                     </div>
                   </li>
                 ))}
@@ -362,7 +361,7 @@ function QuickAction({
       to={to}
       className="glass-card group flex items-center gap-3 rounded-xl p-4 transition hover:border-violet-500/40 dark:hover:border-violet-400/30"
     >
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-700 dark:bg-violet-400/10 dark:text-violet-300">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-brand dark:bg-violet-400/10">
         <Icon className="size-5" />
       </div>
       <div className="min-w-0 flex-1">

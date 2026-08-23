@@ -76,7 +76,7 @@ export function Hero() {
             <div className="border-border flex items-center gap-2 border-b pb-3">
               <TrendingUp className="size-4 text-violet-500" />
               <span className="text-sm font-medium">Trend Feed</span>
-              <span className="ml-auto flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+              <span className="ml-auto flex items-center gap-1.5 text-xs text-opportunity">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
                 Live
               </span>
@@ -95,7 +95,7 @@ export function Hero() {
                     {item.hot && <Flame className="size-3.5 text-amber-500" />}
                     <span className="text-sm font-medium">{item.tag}</span>
                   </div>
-                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span className="text-xs font-semibold text-opportunity">
                     {item.delta}
                   </span>
                 </motion.div>
@@ -103,7 +103,7 @@ export function Hero() {
             </div>
 
             <div className="mt-3 rounded-lg border border-violet-500/20 bg-violet-500/10 p-3">
-              <p className="text-xs text-violet-700 dark:text-violet-200">
+              <p className="text-xs text-brand">
                 <Sparkles className="mr-1 inline size-3" />
                 Suggested: “5 ways AI agents are reshaping growth teams”
               </p>

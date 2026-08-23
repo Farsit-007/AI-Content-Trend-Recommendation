@@ -2,14 +2,14 @@ import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-/* The 300/400 weights only clear contrast against a dark surface — on the light theme's white
-   card they wash out, so each accent pairs a darker light-mode ink with the original dark one. */
+/* Each accent is a semantic token from index.css that already carries its own light/dark ink, so
+   no `dark:` partner is needed here — that hand-paired scheme is exactly what let StatCard and
+   ScoreMeter disagree about what "amber" meant. The dropped `rose` entry had no call sites. */
 const ACCENTS = {
-  violet: 'bg-violet-500/10 text-violet-700 dark:bg-violet-400/10 dark:text-violet-300',
-  amber: 'bg-amber-500/10 text-amber-700 dark:bg-amber-400/10 dark:text-amber-400',
-  emerald: 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-400',
-  sky: 'bg-sky-500/10 text-sky-700 dark:bg-sky-400/10 dark:text-sky-300',
-  rose: 'bg-rose-500/10 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300',
+  brand: 'bg-brand-surface text-brand',
+  trend: 'bg-trend-surface text-trend',
+  opportunity: 'bg-opportunity-surface text-opportunity',
+  info: 'bg-info-surface text-info',
 } as const;
 
 interface StatCardProps {
@@ -23,9 +23,9 @@ interface StatCardProps {
 
 /** A single KPI tile — the Overview page's core visual unit, for both team-scoped and
  *  system-wide numbers. Optionally links somewhere relevant (e.g. drafts count -> Drafts). */
-export function StatCard({ icon: Icon, label, value, hint, accent = 'violet', to }: StatCardProps) {
+export function StatCard({ icon: Icon, label, value, hint, accent = 'brand', to }: StatCardProps) {
   const content = (
-    <div className="glass-card flex flex-col gap-3 rounded-xl p-4 transition hover:border-violet-500/40 dark:hover:border-white/20">
+    <div className="glass-card flex flex-col gap-3 rounded-xl p-4 transition hover:border-brand/40 dark:hover:border-white/20">
       <div className="flex items-center justify-between">
         <div className={cn('flex size-9 items-center justify-center rounded-lg', ACCENTS[accent])}>
           <Icon className="size-4.5" />

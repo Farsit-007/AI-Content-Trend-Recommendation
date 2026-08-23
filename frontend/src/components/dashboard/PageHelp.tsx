@@ -59,7 +59,7 @@ export function PageHelp({ guideKey }: PageHelpProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Sparkles className="size-4.5 text-violet-600 dark:text-violet-300" />
+            <Sparkles className="size-4.5 text-brand" />
             {guide.title}
           </DialogTitle>
           <DialogDescription>What this page does, why it exists, and how to use it.</DialogDescription>
@@ -71,11 +71,11 @@ export function PageHelp({ guideKey }: PageHelpProps) {
           <GuideSection icon={ListChecks} label="How to use it" text={guide.how} />
           {guide.tips && guide.tips.length > 0 && (
             <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 dark:border-violet-400/20 dark:bg-violet-400/5">
-              <p className="mb-1.5 text-xs font-medium text-violet-700 dark:text-violet-300">Good to know</p>
+              <p className="mb-1.5 text-xs font-medium text-brand">Good to know</p>
               <ul className="flex flex-col gap-1 text-muted-foreground">
                 {guide.tips.map((tip) => (
                   <li key={tip} className="flex gap-1.5">
-                    <span className="text-violet-600 dark:text-violet-400">•</span> {tip}
+                    <span className="text-brand">•</span> {tip}
                   </li>
                 ))}
               </ul>

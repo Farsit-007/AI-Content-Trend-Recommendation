@@ -32,12 +32,30 @@
   --ring: oklch(0.55 0.24 295);
   --sidebar: hsl(0 0% 98%);
   --sidebar-foreground: hsl(240 5.3% 26.1%);
-  --sidebar-primary: hsl(240 5.9% 10%);
-  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-primary: oklch(0.55 0.24 295);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: hsl(240 4.8% 95.9%);
   --sidebar-accent-foreground: hsl(240 5.9% 10%);
   --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --sidebar-ring: oklch(0.55 0.24 295);
+
+  /*
+   * Semantic accents. Four roles, one definition each — before this existed, "trending" was
+   * amber-700 in StatCard but amber-600 in ScoreMeter/ScorePill, and the 600 variants fail WCAG AA
+   * on the light theme's white card (amber-600 is 3.19:1, emerald-600 is 3.67:1, against the 4.5
+   * needed for the text-xs numerals they were used on). Every ink below clears AA in both themes:
+   * light 5.05/5.37/7.29, dark 10.43/9.27/9.63 against --card.
+   *
+   * `-surface` is the 10%-alpha tint for icon chips and badges, never for text.
+   */
+  --brand: oklch(0.491 0.27 292.581); /* violet-700 */
+  --brand-surface: oklch(0.606 0.25 292.717 / 10%); /* violet-500/10 */
+  --trend: oklch(0.555 0.163 48.998); /* amber-700 */
+  --trend-surface: oklch(0.769 0.188 70.08 / 10%); /* amber-500/10 */
+  --opportunity: oklch(0.508 0.118 165.612); /* emerald-700 */
+  --opportunity-surface: oklch(0.696 0.17 162.48 / 10%); /* emerald-500/10 */
+  --info: oklch(0.5 0.134 242.749); /* sky-700 — org/people counts, the 4th KPI hue */
+  --info-surface: oklch(0.685 0.169 237.323 / 10%); /* sky-500/10 */
 }
 
 .dark {
@@ -62,12 +80,22 @@
   --ring: oklch(0.65 0.24 295);
   --sidebar: hsl(240 5.9% 10%);
   --sidebar-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-primary: hsl(224.3 76.3% 48%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-primary: oklch(0.65 0.24 295);
+  --sidebar-primary-foreground: oklch(0.145 0 0);
   --sidebar-accent: hsl(240 3.7% 15.9%);
   --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
   --sidebar-border: hsl(240 3.7% 15.9%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --sidebar-ring: oklch(0.65 0.24 295);
+
+  /* Dark-theme inks for the semantic accents declared in :root. */
+  --brand: oklch(0.811 0.111 293.571); /* violet-300 */
+  --brand-surface: oklch(0.702 0.183 293.541 / 10%); /* violet-400/10 */
+  --trend: oklch(0.828 0.189 84.429); /* amber-400 */
+  --trend-surface: oklch(0.828 0.189 84.429 / 10%);
+  --opportunity: oklch(0.765 0.177 163.223); /* emerald-400 */
+  --opportunity-surface: oklch(0.765 0.177 163.223 / 10%);
+  --info: oklch(0.828 0.111 230.318); /* sky-300 */
+  --info-surface: oklch(0.746 0.16 232.661 / 10%); /* sky-400/10 */
 }
 
 @theme inline {
@@ -102,6 +130,17 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+
+  /* Semantic accents -> `text-brand`, `bg-trend-surface`, `text-opportunity`, … Each already
+     carries its own light/dark value, so these utilities need no `dark:` partner. */
+  --color-brand: var(--brand);
+  --color-brand-surface: var(--brand-surface);
+  --color-trend: var(--trend);
+  --color-trend-surface: var(--trend-surface);
+  --color-opportunity: var(--opportunity);
+  --color-opportunity-surface: var(--opportunity-surface);
+  --color-info: var(--info);
+  --color-info-surface: var(--info-surface);
 }
 
 @layer base {

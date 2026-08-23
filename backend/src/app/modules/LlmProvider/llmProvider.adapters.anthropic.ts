@@ -16,7 +16,9 @@ const splitSystemMessage = (messages: AdapterChatMessage[]): { system?: string; 
 };
 
 export const anthropicAdapter = (apiKey: string): LlmProviderAdapter => {
-  const client = new Anthropic({ apiKey, timeout: 60_000, maxRetries: 1 });
+  // maxRetries 0: key-pool failover in lib/modelResolution.ts owns retry policy — an SDK retry
+  // would re-send to the same rate-limited key.
+  const client = new Anthropic({ apiKey, timeout: 60_000, maxRetries: 0 });
 
   return {
     chatCompletion: async (model: string, messages: AdapterChatMessage[], temperature: number): Promise<string> => {

@@ -2,14 +2,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, UserCog } from "lucide-react";
 
 import { useAuth } from "@/context/auth-context";
 import { useChangePassword } from "@/hooks/useAuthMutations";
 import { ApiError } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHelp } from "@/components/dashboard/PageHelp";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
   Card,
   CardContent,
@@ -66,15 +66,12 @@ export default function Account() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">Account</h1>
-          <p className="text-muted-foreground text-sm">
-            {user?.email} · {user?.role}
-          </p>
-        </div>
-        <PageHelp guideKey="account" />
-      </div>
+      <PageHeader
+        title="Account"
+        icon={UserCog}
+        guideKey="account"
+        description={`${user?.email ?? ''} · ${user?.role ?? ''}`}
+      />
 
       <Card className="w-full max-w-md">
         <CardHeader>

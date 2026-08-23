@@ -103,7 +103,7 @@ export function FormatCard({
       />
 
       {config && (
-        <p className={cn('text-xs', outOfRange ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground')}>
+        <p className={cn('text-xs', outOfRange ? 'text-trend' : 'text-muted-foreground')}>
           {count} {config.unit}
           {config.min && config.max && ` (target: ${config.min}-${config.max} ${config.unit})`}
           {!config.min && config.max && ` (max ${config.max} ${config.unit})`}
@@ -129,7 +129,7 @@ export function FormatCard({
               type="button"
               disabled={busy}
               onClick={() => onRefine(chip.instruction)}
-              className="rounded-full border border-violet-400/30 bg-violet-400/10 px-2.5 py-1 text-xs text-violet-800 dark:text-violet-200 transition hover:bg-violet-400/20 disabled:pointer-events-none disabled:opacity-50"
+              className="rounded-full border border-violet-400/30 bg-violet-400/10 px-2.5 py-1 text-xs text-brand transition hover:bg-violet-400/20 disabled:pointer-events-none disabled:opacity-50"
             >
               {chip.label}
             </button>

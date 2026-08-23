@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { TeamProvider } from "@/context/TeamProvider";
 import { TourProvider } from "@/context/TourProvider";
 import { Navbar } from "@/components/shared/Navbar";
+import { CommandPalette } from "@/components/shared/CommandPalette";
 import { TourOverlay } from "@/components/tour/TourOverlay";
 import { WelcomeTourModal } from "@/components/tour/WelcomeTourModal";
 import { useNewsIngestionWatcher } from "@/hooks/useNewsIngestionWatcher";
@@ -31,6 +32,7 @@ export function MainLayout() {
         </SidebarProvider>
         <TourOverlay />
         <WelcomeTourModal />
+        <CommandPalette />
       </TourProvider>
     </TeamProvider>
   );

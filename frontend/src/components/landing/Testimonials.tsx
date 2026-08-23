@@ -6,7 +6,7 @@ function Card({ t }: { t: Testimonial }) {
     <figure className="glass-card w-80 shrink-0 rounded-2xl p-6">
       <blockquote className="text-sm">“{t.quote}”</blockquote>
       <figcaption className="mt-5 flex items-center gap-3">
-        <span className="flex size-9 items-center justify-center rounded-full bg-violet-500/20 text-xs font-semibold text-violet-600 dark:text-violet-300">
+        <span className="flex size-9 items-center justify-center rounded-full bg-violet-500/20 text-xs font-semibold text-brand">
           {t.initials}
         </span>
         <span>

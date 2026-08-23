@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import type { StylePackDto } from '@/lib/api/stylePacks';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface StylePackSectionProps {
   stylePacks: StylePackDto[];
@@ -9,6 +16,9 @@ interface StylePackSectionProps {
   isSaving: boolean;
   onSave: (id: string | undefined) => void;
 }
+
+/** Radix Select has no empty-string value, so "no pack" needs its own sentinel. */
+const NONE_STYLE_PACK = 'none';
 
 export function StylePackSection({ stylePacks, currentId, canManageTeam, isSaving, onSave }: StylePackSectionProps) {
   // The parent remounts this component (via `key`) whenever `currentId` changes underneath it
@@ -29,20 +39,22 @@ export function StylePackSection({ stylePacks, currentId, canManageTeam, isSavin
 
       {canManageTeam ? (
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={selected ?? ''}
-            onChange={(e) => setSelected(e.target.value || undefined)}
-            className="h-9 min-w-48 rounded-md border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+          <Select
+            value={selected ?? NONE_STYLE_PACK}
+            onValueChange={(value) => setSelected(value === NONE_STYLE_PACK ? undefined : value)}
           >
-            <option value="" className="bg-background text-foreground">
-              None
-            </option>
-            {stylePacks.map((pack) => (
-              <option key={pack._id} value={pack._id} className="bg-background text-foreground">
-                {pack.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="min-w-48" aria-label="Default style pack">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE_STYLE_PACK}>None</SelectItem>
+              {stylePacks.map((pack) => (
+                <SelectItem key={pack._id} value={pack._id}>
+                  {pack.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             type="button"
             disabled={!dirty || isSaving}

@@ -69,7 +69,7 @@ function GenerateMockup() {
           <span className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-pulse bg-violet-500" />
         </p>
         <div className="mt-3 flex gap-2">
-          <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-xs text-violet-600 dark:text-violet-300">
+          <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-xs text-brand">
             On-brand voice
           </span>
           <span className="bg-secondary rounded-full px-2.5 py-1 text-xs">
@@ -92,7 +92,7 @@ function ChatMockup() {
         <div className="bg-secondary ml-auto w-fit max-w-[80%] rounded-2xl rounded-br-sm px-3 py-2">
           What should we post about this week?
         </div>
-        <div className="w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-cyan-500/15 px-3 py-2 text-cyan-700 dark:text-cyan-100">
+        <div className="w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-brand-surface px-3 py-2 text-brand">
           “AI Agents” is spiking {trends[0].delta}. Draft a thread now?
         </div>
       </div>

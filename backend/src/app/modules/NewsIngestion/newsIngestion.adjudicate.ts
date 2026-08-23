@@ -1,6 +1,8 @@
 import { ADJUDICATION_SYSTEM_PROMPT } from '../../../scripts/dedupCalibrationPairs';
 import { chatCompletionForTask } from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
+import { mapWithConcurrency } from '../../lib/concurrency';
+import config from '../../config';
 
 const BATCH_SIZE = 10;
 
@@ -112,15 +114,19 @@ export const adjudicatePairs = async (
     batches.push(inputs.slice(i, i + BATCH_SIZE));
   }
 
-  await Promise.all(
-    batches.map(async (batch, batchIndex) => {
+  // Bounded rather than Promise.all: adjudication used to burst up to `maxBatches` (5) LLM calls at
+  // once, on top of categorization's own burst in the same run.
+  await mapWithConcurrency(
+    batches.map((batch, batchIndex) => ({ batch, batchIndex })),
+    config.news_ingestion.llm_concurrency,
+    async ({ batch, batchIndex }) => {
       if (batchIndex >= maxBatches) {
         batch.forEach((p) => results.set(p.id, FALLBACK));
         return;
       }
       const batchResults = await judgeBatch(batch);
       batchResults.forEach((result, id) => results.set(id, result));
-    }),
+    },
   );
 
   return results;

@@ -34,7 +34,7 @@ export function ActiveTasksIndicator() {
   const uniqueLabels = [...new Set(pendingKeys.map((key) => TASK_LABELS[key] ?? key))];
 
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-400/10 px-3 py-1 text-xs text-violet-800 dark:text-violet-200">
+    <div className="flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-400/10 px-3 py-1 text-xs text-brand">
       <Loader2 className="size-3 animate-spin" />
       <span className="hidden sm:inline">{uniqueLabels.join(', ')} running…</span>
       <span className="sm:hidden">{pendingKeys.length}</span>

@@ -7,6 +7,9 @@ jest.mock('../app/config', () => ({
     // throws LlmNotConfiguredError without one) — this test exercises exactly that tier.
     openrouter_api_key: 'test-placeholder-openrouter-key',
     embedding_model: 'test-embedding-model',
+    // Key-pool failover (modelResolution.runWithKeyFailover) reads the attempt cap and the
+    // cooldown bounds on every call, including the bootstrap tier this test exercises.
+    llm: { max_key_attempts: 3, key_cooldown_default_seconds: 60, key_cooldown_max_seconds: 900 },
     // newsDedupLedger.model.ts reads this at import time (schema-definition-time TTL index).
     news_ingestion: { dedup_ledger_ttl_days: 30 },
   },

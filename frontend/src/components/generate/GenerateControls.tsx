@@ -5,6 +5,13 @@ import type { StylePackDto } from '@/lib/api/stylePacks';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const LANGUAGE_OPTIONS: { value: LanguageStyle; label: string }[] = [
   { value: 'bangla', label: 'বাংলা' },
@@ -18,6 +25,9 @@ const FORMAT_OPTIONS: { value: FormatId; label: string }[] = [
   { value: 'youtube_idea', label: 'YouTube idea' },
   { value: 'caption', label: 'Caption' },
 ];
+
+/** Radix Select has no empty-string value, so "unset" needs its own sentinel. */
+const UNSET = 'unset';
 
 interface NewsItemContext {
   title: string;
@@ -66,14 +76,14 @@ export function GenerateControls({
     <div className="glass-card flex flex-col gap-4 rounded-xl p-4">
       {newsItemContext ? (
         <div className="rounded-lg border border-violet-400/30 bg-violet-400/10 p-3">
-          <p className="mb-1 text-xs font-medium text-violet-700 dark:text-violet-300">Generating from your feed</p>
+          <p className="mb-1 text-xs font-medium text-brand">Generating from your feed</p>
           <p className="text-sm font-medium text-foreground">{newsItemContext.title}</p>
           {newsItemContext.url && (
             <a
               href={newsItemContext.url}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 inline-flex items-center gap-1 text-xs text-violet-700 dark:text-violet-300 hover:underline"
+              className="mt-1 inline-flex items-center gap-1 text-xs text-brand hover:underline"
             >
               Source <ExternalLink className="size-3" />
             </a>
@@ -117,21 +127,22 @@ export function GenerateControls({
           <label htmlFor="generate-style-pack" className="text-xs font-medium text-muted-foreground">
             Style pack
           </label>
-          <select
-            id="generate-style-pack"
-            value={stylePackId ?? ''}
-            onChange={(e) => onStylePackChange(e.target.value || undefined)}
-            className="h-9 rounded-md border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+          <Select
+            value={stylePackId ?? UNSET}
+            onValueChange={(value) => onStylePackChange(value === UNSET ? undefined : value)}
           >
-            <option value="" className="bg-background text-foreground">
-              None
-            </option>
-            {stylePacks.map((pack) => (
-              <option key={pack._id} value={pack._id} className="bg-background text-foreground">
-                {pack.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="generate-style-pack">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={UNSET}>None</SelectItem>
+              {stylePacks.map((pack) => (
+                <SelectItem key={pack._id} value={pack._id}>
+                  {pack.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -140,21 +151,22 @@ export function GenerateControls({
           <label htmlFor="generate-model" className="text-xs font-medium text-muted-foreground">
             Model
           </label>
-          <select
-            id="generate-model"
-            value={llmModelId ?? ''}
-            onChange={(e) => onLlmModelChange(e.target.value || undefined)}
-            className="h-9 rounded-md border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+          <Select
+            value={llmModelId ?? UNSET}
+            onValueChange={(value) => onLlmModelChange(value === UNSET ? undefined : value)}
           >
-            <option value="" className="bg-background text-foreground">
-              Default (team/platform default)
-            </option>
-            {activeModels.map((model) => (
-              <option key={model._id} value={model._id} className="bg-background text-foreground">
-                {model.display_name} ({model.provider_name})
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="generate-model">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={UNSET}>Default (team/platform default)</SelectItem>
+              {activeModels.map((model) => (
+                <SelectItem key={model._id} value={model._id}>
+                  {model.display_name} ({model.provider_name})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -171,7 +183,7 @@ export function GenerateControls({
                 className={cn(
                   'rounded-full border px-3 py-1 text-xs font-medium transition',
                   active
-                    ? 'border-violet-500/60 bg-violet-500/15 text-violet-700 dark:border-violet-400/50 dark:bg-violet-400/15 dark:text-violet-200'
+                    ? 'border-violet-500/60 bg-violet-500/15 text-brand dark:border-violet-400/50 dark:bg-violet-400/15'
                     : 'border-border text-muted-foreground hover:border-violet-500/40 hover:text-foreground',
                 )}
               >

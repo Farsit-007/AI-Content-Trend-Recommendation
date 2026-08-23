@@ -36,7 +36,7 @@ function StepCard({ step, icon: Icon, title, description, to, cta }: StepCardPro
       className="glass-card group flex flex-col gap-3 rounded-xl p-5 transition hover:border-violet-400/30"
     >
       <div className="flex items-center justify-between">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-violet-400/10 text-violet-700 dark:text-violet-300">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-violet-400/10 text-brand">
           <Icon className="size-4.5" />
         </div>
         <span className="text-xs font-medium text-muted-foreground">Step {step}</span>
@@ -45,7 +45,7 @@ function StepCard({ step, icon: Icon, title, description, to, cta }: StepCardPro
         <h3 className="font-semibold text-foreground">{title}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
-      <span className="mt-auto inline-flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300 group-hover:underline">
+      <span className="mt-auto inline-flex items-center gap-1 text-xs font-medium text-brand group-hover:underline">
         {cta} <ArrowRight className="size-3" />
       </span>
     </Link>
@@ -89,7 +89,7 @@ export default function Guide() {
   return (
     <div className="flex flex-col gap-8 pb-8">
       <div className="glass-card flex flex-col gap-3 rounded-xl p-6 sm:p-8">
-        <div className="flex items-center gap-2 text-violet-700 dark:text-violet-300">
+        <div className="flex items-center gap-2 text-brand">
           <BookOpen className="size-5" />
           <span className="text-sm font-medium">Guide</span>
         </div>
@@ -159,7 +159,7 @@ export default function Guide() {
           </p>
           <Link
             to="/dashboard/settings/team"
-            className="inline-flex w-fit items-center gap-1 text-sm font-medium text-violet-700 dark:text-violet-300 hover:underline"
+            className="inline-flex w-fit items-center gap-1 text-sm font-medium text-brand hover:underline"
           >
             Open Team Settings <ArrowRight className="size-3.5" />
           </Link>
@@ -185,7 +185,7 @@ export default function Guide() {
 
         {(isTeamAdmin || isSuperAdmin) && (
           <>
-            <p className="mt-2 text-sm font-medium text-violet-700 dark:text-violet-300">Team admin — everything above, plus:</p>
+            <p className="mt-2 text-sm font-medium text-brand">Team admin — everything above, plus:</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <CapabilityRow
                 icon={Settings}
@@ -205,7 +205,7 @@ export default function Guide() {
 
         {isSuperAdmin && (
           <>
-            <p className="mt-2 text-sm font-medium text-violet-700 dark:text-violet-300">Super admin — everything above, plus:</p>
+            <p className="mt-2 text-sm font-medium text-brand">Super admin — everything above, plus:</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <CapabilityRow
                 icon={Shield}
@@ -243,7 +243,7 @@ export default function Guide() {
       </section>
 
       <section className="glass-card flex flex-col gap-2 rounded-xl p-5">
-        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+        <div className="flex items-center gap-2 text-opportunity">
           <CheckCircle2 className="size-4" />
           <span className="text-sm font-medium">Good to know</span>
         </div>

@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown, Compass } from "lucide-react";
+import { Check, ChevronsUpDown, Compass, Search } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 
 import { useAuth } from "@/context/auth-context";
@@ -10,6 +10,7 @@ import { buildSidebarTour, SIDEBAR_TOUR_ID } from "@/lib/tours";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ActiveTasksIndicator } from "./ActiveTasksIndicator";
+import { OPEN_COMMAND_PALETTE_EVENT } from "./CommandPalette";
 import { ThemeToggle } from "./ThemeToggle";
 
 /** Roles rendered in a friendlier form in the account area. */
@@ -46,7 +47,7 @@ function TeamSwitcher() {
               className="flex cursor-pointer items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
             >
               <span className="truncate">{team.name}</span>
-              {team._id === teamId && <Check className="size-3.5 shrink-0 text-violet-600 dark:text-violet-400" />}
+              {team._id === teamId && <Check className="size-3.5 shrink-0 text-brand" />}
             </DropdownMenuPrimitive.Item>
           ))}
         </DropdownMenuPrimitive.Content>
@@ -78,6 +79,19 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))}
+            className="gap-2 text-muted-foreground"
+            aria-label="Open the command palette"
+          >
+            <Search className="size-4" />
+            <span className="hidden sm:inline">Search</span>
+            <kbd className="hidden rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] sm:inline">
+              ⌘K
+            </kbd>
+          </Button>
           <ActiveTasksIndicator />
           {showTakeTour && (
             <Button variant="outline" size="sm" onClick={handleTakeTour} className="gap-1.5">

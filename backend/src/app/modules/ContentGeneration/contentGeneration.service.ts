@@ -225,6 +225,22 @@ const generateOneFormat = async (
     : parsed;
 };
 
+/**
+ * A provider 429 is transient and actionable — the upstream literally says "retry shortly" — but the
+ * generic copy hid that behind "Could not generate <format>". Since DEFAULT_FORMATS is now a single
+ * format, one pooled rate-limit reads to the user as "generation is broken" rather than "try again
+ * in a moment". Only the retryable case is distinguished; everything else stays generic so provider
+ * internals never reach the UI.
+ */
+const isProviderRateLimit = (err: unknown): boolean =>
+  (err as { status?: number } | null)?.status === 429 ||
+  (err instanceof Error && /(^|\s)429(\s|$)|rate[- ]?limit/i.test(err.message));
+
+const describeFormatFailure = (format: FormatId, err: unknown): string =>
+  isProviderRateLimit(err)
+    ? `The AI provider is rate-limited right now, so ${format} could not be generated. Try again in a moment.`
+    : `Could not generate ${format}. The other formats are unaffected.`;
+
 const logGenerated = (payload: GenerateContentRequest, requestingUser: IRequestUser, formats: FormatId[]) => {
   void ActivityLogService.recordActivity({
     team_id: payload.team_id,
@@ -261,7 +277,12 @@ const generateContent = async (
     );
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : err }, '[ContentGeneration] LLM call failed');
-    throw new AppError(httpStatus.BAD_GATEWAY, 'Content generation failed — please try again');
+    throw new AppError(
+      httpStatus.BAD_GATEWAY,
+      isProviderRateLimit(err)
+        ? 'The AI provider is rate-limited right now. Try again in a moment.'
+        : 'Content generation failed — please try again',
+    );
   }
 
   for (const [format, value] of formatResults) {
@@ -323,7 +344,7 @@ const generateContentStream = async (
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.error({ err: message, format }, '[ContentGeneration] format failed during streaming generation');
-      handlers.onFormatError(format, `Could not generate ${format}. The other formats are unaffected.`);
+      handlers.onFormatError(format, describeFormatFailure(format, err));
     }
   }
 

@@ -45,7 +45,7 @@ export function WelcomeTourModal() {
     <Dialog open={open} onOpenChange={(next) => !next && handleSkip()}>
       <DialogContent showCloseButton={false} className="max-w-md text-center sm:text-left">
         <DialogHeader>
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-violet-400/10 text-violet-700 dark:text-violet-300 sm:mx-0">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-violet-400/10 text-brand sm:mx-0">
             <Compass className="size-6" />
           </div>
           <DialogTitle className="text-xl">Welcome to Growth Studio, {user?.name?.split(' ')[0]}!</DialogTitle>

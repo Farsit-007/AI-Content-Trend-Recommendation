@@ -26,6 +26,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScoreMeter } from './ScoreMeter';
+import { ScorePill } from './ScorePill';
+import { Stat } from './Stat';
 
 interface NewsItemDialogProps {
   newsItemId: string | null;
@@ -197,44 +199,6 @@ function DetailCover({ item }: { item: NewsItemDto }) {
   );
 }
 
-function ScorePill({
-  icon: Icon,
-  label,
-  value,
-  variant,
-}: {
-  icon: typeof Flame;
-  label: string;
-  value: number;
-  variant: 'amber' | 'emerald';
-}) {
-  const clamped = Math.max(0, Math.min(10, value));
-  return (
-    <span
-      className={
-        variant === 'amber'
-          ? 'inline-flex items-center gap-1 font-semibold tabular-nums text-amber-600 dark:text-amber-400'
-          : 'inline-flex items-center gap-1 font-semibold tabular-nums text-emerald-600 dark:text-emerald-400'
-      }
-    >
-      <Icon className="size-3.5" aria-hidden="true" />
-      {clamped.toFixed(1)}
-      <span className="sr-only">{label} score out of 10</span>
-    </span>
-  );
-}
-
-function Stat({ icon: Icon, value, label }: { icon: typeof Star; value: number; label: string }) {
-  if (!value) return null;
-  return (
-    <span className="inline-flex items-center gap-1 tabular-nums">
-      <Icon className="size-3.5" aria-hidden="true" />
-      {value}
-      <span className="sr-only">{label}</span>
-    </span>
-  );
-}
-
 /** Small, dependency-free "3 hours ago" / "2 days ago" formatter. */
 function formatRelativeAge(iso: string): string {
   const deltaMs = Date.now() - new Date(iso).getTime();
@@ -319,7 +283,7 @@ export function NewsItemDialog({ newsItemId, onOpenChange }: NewsItemDialogProps
                 {logo ? (
                   <img src={logo} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-4.5 object-contain" />
                 ) : (
-                  <ExternalLink className="size-4 text-neutral-500" aria-hidden="true" />
+                  <ExternalLink className="size-4 text-muted-foreground" aria-hidden="true" />
                 )}
               </span>
               <span className="min-w-0 truncate text-sm font-medium text-foreground capitalize">
@@ -369,10 +333,10 @@ export function NewsItemDialog({ newsItemId, onOpenChange }: NewsItemDialogProps
 
               {/* Tags. */}
               {item.category && (
-                <div className="mt-4 flex flex-wrap items-center gap-1.5 text-xs font-medium text-violet-700 dark:text-violet-300">
+                <div className="mt-4 flex flex-wrap items-center gap-1.5 text-xs font-medium text-brand">
                   <span>#{item.category.replace(/\s+/g, '')}</span>
                   {item.is_overridden && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-400">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-trend dark:border-amber-400/30 dark:bg-amber-400/10">
                       <PenLine className="size-3" /> Corrected by your team
                     </span>
                   )}
@@ -381,9 +345,9 @@ export function NewsItemDialog({ newsItemId, onOpenChange }: NewsItemDialogProps
 
               {/* Metadata row — scores and source engagement. */}
               <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <ScorePill icon={Flame} label="Trend" value={item.trend_score} variant="amber" />
+                <ScorePill icon={Flame} label="Trend" value={item.trend_score} variant="trend" />
                 {typeof item.opportunity_score === 'number' && (
-                  <ScorePill icon={Target} label="Opportunity" value={item.opportunity_score} variant="emerald" />
+                  <ScorePill icon={Target} label="Opportunity" value={item.opportunity_score} variant="opportunity" />
                 )}
                 <Stat icon={ThumbsUp} value={item.engagement.points} label="points" />
                 <Stat icon={MessageCircle} value={item.engagement.comments} label="comments" />
@@ -420,7 +384,7 @@ export function NewsItemDialog({ newsItemId, onOpenChange }: NewsItemDialogProps
                   href={item.url}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="inline-flex items-center gap-1.5 text-sm break-all text-violet-700 hover:underline dark:text-violet-300"
+                  className="inline-flex items-center gap-1.5 text-sm break-all text-brand hover:underline"
                 >
                   <ExternalLink className="size-3.5 shrink-0" /> Read on {hostname}
                 </a>
@@ -437,9 +401,9 @@ export function NewsItemDialog({ newsItemId, onOpenChange }: NewsItemDialogProps
               </div>
 
               <div className="flex flex-col gap-1.5 border-t border-border pt-4">
-                <ScoreMeter label="Trend" value={item.trend_score} variant="amber" />
+                <ScoreMeter label="Trend" value={item.trend_score} variant="trend" />
                 {typeof item.opportunity_score === 'number' && (
-                  <ScoreMeter label="Opportunity" value={item.opportunity_score} variant="emerald" />
+                  <ScoreMeter label="Opportunity" value={item.opportunity_score} variant="opportunity" />
                 )}
               </div>
 

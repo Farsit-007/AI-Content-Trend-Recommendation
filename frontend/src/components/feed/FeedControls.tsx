@@ -47,7 +47,7 @@ export function FeedControls({ category, onCategoryChange, sort, onSortChange, o
               className={cn(
                 'rounded-full border px-3 py-1 text-xs font-medium transition',
                 isActive
-                  ? 'border-violet-500/60 bg-violet-500/15 text-violet-700 dark:border-violet-400/50 dark:bg-violet-400/15 dark:text-violet-200'
+                  ? 'border-violet-500/60 bg-violet-500/15 text-brand dark:border-violet-400/50 dark:bg-violet-400/15'
                   : 'border-border text-muted-foreground hover:border-violet-500/40 hover:text-foreground',
               )}
             >

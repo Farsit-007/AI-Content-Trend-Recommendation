@@ -1,4 +1,5 @@
 import AppError from '../../errors/AppError';
+import { getKeyCooldowns, getKeyFailureCounts } from '../../lib/llmKeyHealth';
 import { decrypt, encrypt } from '../../lib/crypto';
 import { httpStatus } from '../../utils/httpStatus';
 import { ILlmModel, ILlmProvider, LlmModelCapability, LlmProviderType, LlmTask } from './llmProvider.interface';
@@ -11,7 +12,34 @@ const createProvider = async (payload: Pick<ILlmProvider, 'provider_type' | 'nam
 const listProviders = async () => {
   // `encrypted_key` is `select: false` on the key subdocument schema — this naturally returns
   // only masked key metadata (key_last4, label, is_active, created_at) without extra effort here.
-  return LlmProvider.find().sort('-created_at');
+  const providers = await LlmProvider.find().sort('-created_at');
+
+  // Decorate each key with its live health. A key silently resting after a 429 is exactly the
+  // state an operator needs to see — without it, "why is nothing generating?" has no answer in
+  // the UI at all.
+  const keyIds = providers.flatMap((provider) => provider.keys.map((key) => key._id.toString()));
+  const [cooldowns, failureCounts] = await Promise.all([
+    getKeyCooldowns(keyIds),
+    getKeyFailureCounts(keyIds),
+  ]);
+  const cooldownByKeyId = new Map(cooldowns.map((cooldown) => [cooldown.key_id, cooldown]));
+
+  return providers.map((provider) => {
+    const json = provider.toJSON() as unknown as {
+      keys: Record<string, unknown>[];
+    };
+    json.keys = json.keys.map((key) => {
+      const keyId = String(key._id);
+      const cooldown = cooldownByKeyId.get(keyId);
+      return {
+        ...key,
+        cooldown_remaining_ms: cooldown?.remaining_ms ?? null,
+        cooldown_reason: cooldown?.reason ?? null,
+        recent_failure_count: failureCounts[keyId] ?? 0,
+      };
+    });
+    return json;
+  });
 };
 
 const getProvider = async (id: string) => {

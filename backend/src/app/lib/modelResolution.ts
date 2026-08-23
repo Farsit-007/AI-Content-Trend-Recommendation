@@ -8,6 +8,8 @@ import { AdapterChatMessage, getAdapter } from '../modules/LlmProvider/llmProvid
 import { LlmModelCapability, LlmProviderType, LlmTask } from '../modules/LlmProvider/llmProvider.interface';
 import { LlmModel, LlmProvider, LlmTaskDefault } from '../modules/LlmProvider/llmProvider.model';
 import { Team } from '../modules/Team/team.model';
+import { classifyLlmError } from './llmErrors';
+import { getCoolingDownKeyIds, markKeyCooldown, nextRotationOffset, rotate } from './llmKeyHealth';
 
 export type { LlmTask } from '../modules/LlmProvider/llmProvider.interface';
 export { LLM_TASKS } from '../modules/LlmProvider/llmProvider.interface';
@@ -83,21 +85,28 @@ const resolveBootstrap = (task: LlmTask): ResolvedModel => {
  * returns `null` — soft-fail-through, never a thrown error, matching `resolveStylePack`'s
  * philosophy elsewhere in this codebase.
  */
-const tryResolveFromModelId = async (
+interface TierCandidates {
+  /** Keys ready to serve, in the order they should be tried. */
+  available: ResolvedModel[];
+  /** Keys currently on cooldown — a last resort, used only when nothing else is left. */
+  cooling: ResolvedModel[];
+}
+
+const resolveTierCandidates = async (
   llmModelId: string,
   task: LlmTask,
   source: 'request' | 'team' | 'global',
   excludeKeyId?: string,
-): Promise<ResolvedModel | null> => {
+): Promise<TierCandidates> => {
   if (!Types.ObjectId.isValid(llmModelId)) {
     logger.warn({ task, source, llmModelId }, '[modelResolution] llm_model_id is not a valid ObjectId, falling through');
-    return null;
+    return { available: [], cooling: [] };
   }
 
   const model = await LlmModel.findById(llmModelId);
   if (!model || !model.is_active) {
     logger.warn({ task, source, llmModelId }, '[modelResolution] LlmModel not found or inactive, falling through');
-    return null;
+    return { available: [], cooling: [] };
   }
 
   const capability = requiredCapability(task);
@@ -106,7 +115,7 @@ const tryResolveFromModelId = async (
       { task, source, llmModelId, capability, modelCapabilities: model.capabilities },
       '[modelResolution] LlmModel lacks the required capability for this task, falling through',
     );
-    return null;
+    return { available: [], cooling: [] };
   }
 
   const provider = await LlmProvider.findById(model.provider_id).select('+keys.encrypted_key');
@@ -115,25 +124,54 @@ const tryResolveFromModelId = async (
       { task, source, llmModelId, providerId: model.provider_id },
       '[modelResolution] LlmProvider not found or inactive, falling through',
     );
-    return null;
+    return { available: [], cooling: [] };
   }
 
-  const key = provider.keys.find((k) => k.is_active && (!excludeKeyId || k._id.toString() !== excludeKeyId));
-  if (!key) {
+  const eligible = provider.keys.filter(
+    (k) => k.is_active && (!excludeKeyId || k._id.toString() !== excludeKeyId),
+  );
+  if (eligible.length === 0) {
     logger.warn(
       { task, source, llmModelId, providerId: provider._id, excludeKeyId },
       '[modelResolution] LlmProvider has no available active key, falling through',
     );
-    return null;
+    return { available: [], cooling: [] };
   }
 
-  return {
+  // Round-robin the starting position so a multi-key pool actually spreads load. Picking
+  // `keys[0]` every time means the first key absorbs all traffic and rate-limits on its own while
+  // the rest of the pool sits idle.
+  const offset = await nextRotationOffset(provider._id.toString(), eligible.length);
+  const ordered = rotate(eligible, offset);
+
+  const coolingIds = await getCoolingDownKeyIds(ordered.map((k) => k._id.toString()));
+  const toResolved = (k: (typeof ordered)[number]): ResolvedModel => ({
     source,
     provider_type: provider.provider_type,
     model_id: model.model_id,
-    api_key: decrypt(key.encrypted_key),
-    key_id: key._id.toString(),
+    api_key: decrypt(k.encrypted_key),
+    key_id: k._id.toString(),
+  });
+
+  return {
+    available: ordered.filter((k) => !coolingIds.has(k._id.toString())).map(toResolved),
+    cooling: ordered.filter((k) => coolingIds.has(k._id.toString())).map(toResolved),
   };
+};
+
+/**
+ * Single best key for a tier — the shape the four-tier resolver and its callers have always used.
+ * Prefers a key that is not resting; a cooling-down key is still returned when it is all there is,
+ * because reporting *which* model would serve a request must not depend on transient key health.
+ */
+const tryResolveFromModelId = async (
+  llmModelId: string,
+  task: LlmTask,
+  source: 'request' | 'team' | 'global',
+  excludeKeyId?: string,
+): Promise<ResolvedModel | null> => {
+  const { available, cooling } = await resolveTierCandidates(llmModelId, task, source, excludeKeyId);
+  return available[0] ?? cooling[0] ?? null;
 };
 
 /**
@@ -169,6 +207,138 @@ export const resolveModelForTask = async (task: LlmTask, context: ResolveContext
   return resolveBootstrap(task);
 };
 
+/**
+ * The ordered list of keys this request may try, across every tier.
+ *
+ * Ordering is deliberate: all *available* keys first (rotated, so load spreads), then the bootstrap
+ * env key, then keys that are on cooldown. A resting key goes behind bootstrap because it is known
+ * to have just failed, whereas the bootstrap credential is a different account entirely — but it
+ * stays in the list, because "every key is resting" must degrade to a likely-429 rather than to a
+ * hard outage.
+ */
+const buildCandidates = async (task: LlmTask, ctx: ResolveContext): Promise<ResolvedModel[]> => {
+  const { teamId, requestModelId, excludeKeyId } = ctx;
+
+  const available: ResolvedModel[] = [];
+  const cooling: ResolvedModel[] = [];
+  const seenKeyIds = new Set<string>();
+
+  const collect = ({ available: ready, cooling: resting }: TierCandidates) => {
+    // A key can be reachable from more than one tier (e.g. team and global point at the same
+    // model). Deduplicate, or the attempt budget gets spent re-trying one credential.
+    for (const candidate of ready) {
+      if (candidate.key_id && !seenKeyIds.has(candidate.key_id)) {
+        seenKeyIds.add(candidate.key_id);
+        available.push(candidate);
+      }
+    }
+    for (const candidate of resting) {
+      if (candidate.key_id && !seenKeyIds.has(candidate.key_id)) {
+        seenKeyIds.add(candidate.key_id);
+        cooling.push(candidate);
+      }
+    }
+  };
+
+  if (requestModelId) {
+    collect(await resolveTierCandidates(requestModelId, task, 'request', excludeKeyId));
+  }
+
+  if (teamId) {
+    const team = await Team.findById(teamId).select('default_models');
+    const teamModelId = team?.default_models?.[task];
+    if (teamModelId) {
+      collect(await resolveTierCandidates(teamModelId, task, 'team', excludeKeyId));
+    }
+  }
+
+  const globalDefault = await LlmTaskDefault.findOne({ task });
+  if (globalDefault) {
+    collect(await resolveTierCandidates(globalDefault.llm_model_id.toString(), task, 'global', excludeKeyId));
+  }
+
+  const ordered = [...available];
+  try {
+    ordered.push(resolveBootstrap(task));
+  } catch {
+    // No bootstrap env key configured — expected for a DB-configured deployment.
+  }
+  ordered.push(...cooling);
+
+  if (ordered.length === 0) {
+    throw new LlmNotConfiguredError(`task "${task}"`);
+  }
+  return ordered;
+};
+
+/**
+ * Runs `attempt` against the key pool, moving to the next key when one fails.
+ *
+ * Three properties matter here, and each replaces a specific weakness of the single-retry version
+ * this supersedes:
+ *
+ * - **The whole pool is reachable.** One retry could only ever reach the second key, so a third or
+ *   fourth key was dead weight. Attempts are still capped by `LLM_MAX_KEY_ATTEMPTS` so a large pool
+ *   cannot turn one request into a paid call per key.
+ * - **A failing key is remembered.** A 429 puts that key on a Redis cooldown, so the *next* request
+ *   skips it instead of paying the same rejection again.
+ * - **Permanent failures do not fan out.** A 400 or 404 fails identically on every key, so it is
+ *   reported immediately rather than burning another billable call to prove it.
+ */
+const runWithKeyFailover = async <T>(
+  task: LlmTask,
+  opts: ResolveContext,
+  label: string,
+  attempt: (resolved: ResolvedModel) => Promise<T>,
+): Promise<T> => {
+  const candidates = await buildCandidates(task, opts);
+  const pool = candidates.slice(0, Math.max(1, config.llm.max_key_attempts));
+
+  let firstErr: unknown;
+
+  for (let index = 0; index < pool.length; index += 1) {
+    const candidate = pool[index];
+    try {
+      return await attempt(candidate);
+    } catch (err) {
+      if (firstErr === undefined) firstErr = err;
+
+      const classified = classifyLlmError(err);
+      if (candidate.key_id && classified.cooldownMs > 0) {
+        await markKeyCooldown(candidate.key_id, classified.cooldownMs, classified.kind);
+      }
+
+      const context = {
+        task,
+        label,
+        source: candidate.source,
+        provider: candidate.provider_type,
+        model: candidate.model_id,
+        keyId: candidate.key_id,
+        status: classified.status,
+        kind: classified.kind,
+        attempt: index + 1,
+        poolSize: pool.length,
+        err: err instanceof Error ? err.message : err,
+      };
+
+      if (!classified.shouldFailover) {
+        logger.warn(context, '[modelResolution] provider call failed permanently — another key cannot help');
+        throw err;
+      }
+
+      if (index === pool.length - 1) {
+        logger.warn(context, '[modelResolution] provider call failed and the key pool is exhausted');
+        break;
+      }
+
+      logger.warn(context, '[modelResolution] provider call failed, failing over to the next key');
+    }
+  }
+
+  throw firstErr;
+};
+
 export interface TaskCallOptions {
   teamId?: string;
   requestModelId?: string;
@@ -187,42 +357,19 @@ export const chatCompletionForTask = async (
   messages: AdapterChatMessage[],
   opts: TaskCallOptions = {},
 ): Promise<string> => {
-  const resolved = await resolveModelForTask(task, opts);
   const temperature = opts.temperature ?? 0.7;
 
-  if (resolved.source === 'bootstrap') {
-    return chatCompletion({ model: resolved.model_id, messages: messages as ChatMessage[], temperature });
-  }
-
-  try {
-    return await getAdapter(resolved.provider_type, resolved.api_key).chatCompletion(resolved.model_id, messages, temperature);
-  } catch (primaryErr) {
-    logger.warn(
-      {
-        task,
-        provider: resolved.provider_type,
-        model: resolved.model_id,
-        err: primaryErr instanceof Error ? primaryErr.message : primaryErr,
-      },
-      '[modelResolution] Resolved chat completion failed, attempting failover to the next available key',
-    );
-
-    let retry: ResolvedModel;
-    try {
-      retry = await resolveModelForTask(task, { ...opts, excludeKeyId: resolved.key_id });
-    } catch {
-      // Nothing left to fail over to (e.g. single key, no bootstrap env key) — the original
-      // provider failure is the error worth reporting, not the resolution fallthrough.
-      throw primaryErr;
-    }
-    if (retry.key_id === resolved.key_id) {
-      throw primaryErr;
-    }
-    if (retry.source === 'bootstrap') {
-      return chatCompletion({ model: retry.model_id, messages: messages as ChatMessage[], temperature });
-    }
-    return getAdapter(retry.provider_type, retry.api_key).chatCompletion(retry.model_id, messages, temperature);
-  }
+  return runWithKeyFailover(task, opts, 'chat completion', (resolved) =>
+    // The bootstrap tier keeps delegating to the static client, including its own
+    // LLM_MODEL_FALLBACK retry — behavioural identity for a deployment with no providers configured.
+    resolved.source === 'bootstrap'
+      ? chatCompletion({ model: resolved.model_id, messages: messages as ChatMessage[], temperature })
+      : getAdapter(resolved.provider_type, resolved.api_key).chatCompletion(
+          resolved.model_id,
+          messages,
+          temperature,
+        ),
+  );
 };
 
 /**
@@ -245,7 +392,6 @@ export async function* streamChatCompletionForTask(
   opts: TaskCallOptions = {},
 ): AsyncGenerator<string> {
   const temperature = opts.temperature ?? 0.7;
-  const resolved = await resolveModelForTask(task, opts);
 
   const openStream = async (r: ResolvedModel): Promise<AsyncIterable<string> | null> => {
     if (r.source === 'bootstrap') return null;
@@ -254,38 +400,93 @@ export async function* streamChatCompletionForTask(
     return adapter.streamChatCompletion(r.model_id, messages, temperature);
   };
 
-  let stream: AsyncIterable<string> | null;
-  try {
-    stream = await openStream(resolved);
-  } catch (primaryErr) {
-    logger.warn(
-      {
-        task,
-        provider: resolved.provider_type,
-        model: resolved.model_id,
-        err: primaryErr instanceof Error ? primaryErr.message : primaryErr,
-      },
-      '[modelResolution] Resolved stream failed to open, attempting failover to the next available key',
-    );
+  // Opening the stream gets the full pool treatment; everything after the first token does not.
+  // `runWithKeyFailover` is deliberately not reused here — it would have to own the iteration too,
+  // and a retry once tokens are flowing would splice two different completions into one answer.
+  const candidates = (await buildCandidates(task, opts)).slice(0, Math.max(1, config.llm.max_key_attempts));
 
-    let retry: ResolvedModel;
+  type PrimedStream = { iterator: AsyncIterator<string>; first: IteratorResult<string> } | null;
+
+  /**
+   * Opens the stream *and pulls its first chunk*.
+   *
+   * The pull is the load-bearing part. Adapter `streamChatCompletion`s are async generators, so
+   * merely calling one returns a generator object without executing a line of its body — a 429 or
+   * connection error would surface only once the caller iterated, by which point we are past the
+   * point where switching keys is safe. Requesting the first chunk here forces the connection to
+   * happen inside the failover loop, which is what makes "fail over before the first token" true
+   * rather than aspirational.
+   */
+  const primeStream = async (r: ResolvedModel): Promise<PrimedStream> => {
+    const raw = await openStream(r);
+    if (!raw) return null;
+    const iterator = raw[Symbol.asyncIterator]();
+    const first = await iterator.next();
+    return { iterator, first };
+  };
+
+  let primed: PrimedStream = null;
+  let opened = false;
+  let firstErr: unknown;
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
     try {
-      retry = await resolveModelForTask(task, { ...opts, excludeKeyId: resolved.key_id });
-    } catch {
-      throw primaryErr;
+      primed = await primeStream(candidate);
+      opened = true;
+      break;
+    } catch (err) {
+      if (firstErr === undefined) firstErr = err;
+
+      const classified = classifyLlmError(err);
+      if (candidate.key_id && classified.cooldownMs > 0) {
+        await markKeyCooldown(candidate.key_id, classified.cooldownMs, classified.kind);
+      }
+
+      const context = {
+        task,
+        source: candidate.source,
+        provider: candidate.provider_type,
+        model: candidate.model_id,
+        keyId: candidate.key_id,
+        status: classified.status,
+        kind: classified.kind,
+        attempt: index + 1,
+        poolSize: candidates.length,
+        err: err instanceof Error ? err.message : err,
+      };
+
+      if (!classified.shouldFailover) {
+        logger.warn(context, '[modelResolution] stream failed to open permanently — another key cannot help');
+        throw err;
+      }
+      if (index === candidates.length - 1) {
+        logger.warn(context, '[modelResolution] stream failed to open and the key pool is exhausted');
+        break;
+      }
+      logger.warn(context, '[modelResolution] stream failed to open, failing over to the next key');
     }
-    if (retry.key_id === resolved.key_id) throw primaryErr;
-    stream = await openStream(retry);
   }
 
-  if (!stream) {
+  if (!opened) {
+    throw firstErr;
+  }
+
+  if (!primed) {
     // No streaming path available — emit the buffered answer as a single chunk so the caller's
     // consumption code is identical.
     yield await chatCompletionForTask(task, messages, opts);
     return;
   }
 
-  yield* stream;
+  // Past this point the answer has started reaching the client, so a failure is surfaced rather
+  // than retried: splicing a second completion onto a half-sent one would corrupt the answer.
+  if (!primed.first.done) {
+    yield primed.first.value;
+  }
+  for (let next = await primed.iterator.next(); !next.done; next = await primed.iterator.next()) {
+    yield next.value;
+  }
 }
 
 export interface EmbedTaskCallOptions {
@@ -295,41 +496,11 @@ export interface EmbedTaskCallOptions {
 
 /** Single-text embedding resolved dynamically for `task`. Mirrors `chatCompletionForTask` exactly. */
 export const embedForTask = async (task: LlmTask, text: string, opts: EmbedTaskCallOptions = {}): Promise<number[]> => {
-  const resolved = await resolveModelForTask(task, opts);
-
-  if (resolved.source === 'bootstrap') {
-    return embed(text);
-  }
-
-  try {
-    return await getAdapter(resolved.provider_type, resolved.api_key).embed(resolved.model_id, text);
-  } catch (primaryErr) {
-    logger.warn(
-      {
-        task,
-        provider: resolved.provider_type,
-        model: resolved.model_id,
-        err: primaryErr instanceof Error ? primaryErr.message : primaryErr,
-      },
-      '[modelResolution] Resolved embedding failed, attempting failover to the next available key',
-    );
-
-    let retry: ResolvedModel;
-    try {
-      retry = await resolveModelForTask(task, { ...opts, excludeKeyId: resolved.key_id });
-    } catch {
-      // Nothing left to fail over to (e.g. single key, no bootstrap env key) — the original
-      // provider failure is the error worth reporting, not the resolution fallthrough.
-      throw primaryErr;
-    }
-    if (retry.key_id === resolved.key_id) {
-      throw primaryErr;
-    }
-    if (retry.source === 'bootstrap') {
-      return embed(text);
-    }
-    return getAdapter(retry.provider_type, retry.api_key).embed(retry.model_id, text);
-  }
+  return runWithKeyFailover(task, opts, 'embedding', (resolved) =>
+    resolved.source === 'bootstrap'
+      ? embed(text)
+      : getAdapter(resolved.provider_type, resolved.api_key).embed(resolved.model_id, text),
+  );
 };
 
 /** Batch embedding resolved dynamically for `task`. Mirrors `chatCompletionForTask` exactly. */
@@ -340,41 +511,11 @@ export const embedBatchForTask = async (
 ): Promise<number[][]> => {
   if (texts.length === 0) return [];
 
-  const resolved = await resolveModelForTask(task, opts);
-
-  if (resolved.source === 'bootstrap') {
-    return embedBatch(texts);
-  }
-
-  try {
-    return await getAdapter(resolved.provider_type, resolved.api_key).embedBatch(resolved.model_id, texts);
-  } catch (primaryErr) {
-    logger.warn(
-      {
-        task,
-        provider: resolved.provider_type,
-        model: resolved.model_id,
-        err: primaryErr instanceof Error ? primaryErr.message : primaryErr,
-      },
-      '[modelResolution] Resolved batch embedding failed, attempting failover to the next available key',
-    );
-
-    let retry: ResolvedModel;
-    try {
-      retry = await resolveModelForTask(task, { ...opts, excludeKeyId: resolved.key_id });
-    } catch {
-      // Nothing left to fail over to (e.g. single key, no bootstrap env key) — the original
-      // provider failure is the error worth reporting, not the resolution fallthrough.
-      throw primaryErr;
-    }
-    if (retry.key_id === resolved.key_id) {
-      throw primaryErr;
-    }
-    if (retry.source === 'bootstrap') {
-      return embedBatch(texts);
-    }
-    return getAdapter(retry.provider_type, retry.api_key).embedBatch(retry.model_id, texts);
-  }
+  return runWithKeyFailover(task, opts, 'batch embedding', (resolved) =>
+    resolved.source === 'bootstrap'
+      ? embedBatch(texts)
+      : getAdapter(resolved.provider_type, resolved.api_key).embedBatch(resolved.model_id, texts),
+  );
 };
 
 /**

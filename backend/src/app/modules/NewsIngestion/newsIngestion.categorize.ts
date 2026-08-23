@@ -2,8 +2,13 @@ import { chatCompletionForTask } from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
 import { NewsCategoryTaxonomyService } from '../NewsCategoryTaxonomy/newsCategoryTaxonomy.service';
 import { CategorizedNewsItem, NEWS_CATEGORIES, NewsCategory, ScoredNewsItem } from './newsIngestion.interface';
+import { mapWithConcurrency } from '../../lib/concurrency';
+import config from '../../config';
 
-const BATCH_SIZE = 10;
+// 20, not 10: the provider limit that actually bites is requests-per-interval, not tokens, so
+// halving the call count for the same items is a straight win. A 37-item run drops from 4 calls to
+// 2. Kept well below the point where one batch's JSON reply risks truncation.
+const BATCH_SIZE = 20;
 
 interface LlmCategorization {
   id: number;
@@ -195,7 +200,10 @@ export const categorizeBatch = async (
   // normalized-key lookup/race guard, just not by prompt-grounding for that one run.
   const knownCategories = await NewsCategoryTaxonomyService.listAllCategories();
 
-  const results = await Promise.all(batches.map((batch) => categorizeOneBatch(batch, knownCategories)));
+  // Bounded rather than Promise.all — see config.news_ingestion.llm_concurrency.
+  const results = await mapWithConcurrency(batches, config.news_ingestion.llm_concurrency, (batch) =>
+    categorizeOneBatch(batch, knownCategories),
+  );
   return {
     items: [...results.flat(), ...deferred.map(fallbackCategorize)],
     llm_categorized: items.length,

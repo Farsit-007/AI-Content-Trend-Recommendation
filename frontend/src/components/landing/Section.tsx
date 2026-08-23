@@ -46,7 +46,7 @@ export function Section({
             {eyebrow && (
               <div
                 className={cn(
-                  'glass-card mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium text-violet-600 dark:text-violet-300',
+                  'glass-card mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium text-brand',
                 )}
               >
                 {eyebrow}

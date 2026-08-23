@@ -4,17 +4,17 @@ interface ScoreMeterProps {
   label: string;
   /** Score on a 0-10 scale. */
   value: number;
-  variant: 'amber' | 'emerald';
+  variant: 'trend' | 'opportunity';
 }
 
 const VARIANT_FILL: Record<ScoreMeterProps['variant'], string> = {
-  amber: 'bg-amber-400',
-  emerald: 'bg-emerald-400',
+  trend: 'bg-trend',
+  opportunity: 'bg-opportunity',
 };
 
 const VARIANT_TEXT: Record<ScoreMeterProps['variant'], string> = {
-  amber: 'text-amber-600 dark:text-amber-400',
-  emerald: 'text-emerald-600 dark:text-emerald-400',
+  trend: 'text-trend',
+  opportunity: 'text-opportunity',
 };
 
 /** A tiny inline 0-10 meter — track + colored fill + numeric value. No chart library needed. */

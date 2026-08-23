@@ -47,6 +47,8 @@ export interface GetNewsItemsParams {
   page?: number;
   limit?: number;
   team_id?: string;
+  /** Retention state. The backend defaults to `active`; the admin catalog can ask for archived rows. */
+  lifecycle?: 'active' | 'archived';
 }
 
 export function getNewsItems(
@@ -91,6 +93,8 @@ export interface UpdateNewsItemPayload {
   category?: string;
   impact_note?: string;
   opportunity_score?: number;
+  /** Retention state — archiving takes a story out of the feed without deleting the record. */
+  lifecycle?: 'active' | 'archived';
 }
 
 /** PATCH /news-items/:id (admin) — corrects the shared/global record for every team. */

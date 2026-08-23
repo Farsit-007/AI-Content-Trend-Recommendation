@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Sparkles } from 'lucide-react';
 import {
   DEFAULT_FORMATS,
   generateContent,
@@ -22,7 +23,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { GenerateControls } from '@/components/generate/GenerateControls';
 import { FormatCard } from '@/components/generate/FormatCard';
 import { YoutubeIdeaCard } from '@/components/generate/YoutubeIdeaCard';
-import { PageHelp } from '@/components/dashboard/PageHelp';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/dashboard/PageHeader';
 
 interface LocationState {
   newsItemId?: string;
@@ -203,9 +205,15 @@ export default function Generate() {
 
   if (!teamId) {
     return (
-      <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
-        <h1 className="text-lg font-semibold">Generate</h1>
-        <p className="text-sm text-muted-foreground">You need to belong to a team to generate content.</p>
+      <div className="flex flex-col gap-4">
+        <PageHeader title="Generate" icon={Sparkles} guideKey="generate" />
+        <div className="glass-card rounded-xl">
+          <EmptyState
+            icon={Sparkles}
+            title="No team yet"
+            description="Generation is team-scoped — it needs a team's voice and brand-voice examples."
+          />
+        </div>
       </div>
     );
   }
@@ -214,10 +222,12 @@ export default function Generate() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Generate</h1>
-        <PageHelp guideKey="generate" />
-      </div>
+      <PageHeader
+        title="Generate"
+        icon={Sparkles}
+        guideKey="generate"
+        description="Turn a story or a topic into ready-to-post drafts, in your team's voice."
+      />
 
       <div data-tour="generate-controls">
       <GenerateControls

@@ -30,6 +30,14 @@ export interface LlmProviderKeyDto {
   label?: string;
   is_active: boolean;
   created_at: string;
+  /**
+   * Live key health, from the backend's Redis cooldown store. A key that just rate-limited is held
+   * out of rotation for this long; `null` means it is serving traffic normally.
+   */
+  cooldown_remaining_ms?: number | null;
+  cooldown_reason?: 'rate_limited' | 'exhausted' | 'bad_key' | 'transient' | 'permanent' | null;
+  /** Failures attributed to this key in the last 24h. */
+  recent_failure_count?: number;
 }
 
 export interface LlmProviderDto {

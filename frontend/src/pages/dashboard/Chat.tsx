@@ -1,16 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
 import { History, Loader2, MessageSquare, Plus, Send, Sparkles } from 'lucide-react';
+
 import { askChat, askChatStream, getConversationMessages, listConversations } from '@/lib/api/chat';
 import { getTeam } from '@/lib/api/teams';
 import type { LanguageStyle } from '@/lib/api/content';
 import { useTeamId } from '@/lib/useTeamId';
+import { timeAgo } from '@/lib/datetime';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
-import { PageHelp } from '@/components/dashboard/PageHelp';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/dashboard/PageHeader';
 
 const LANGUAGE_OPTIONS: { value: LanguageStyle; label: string }[] = [
   { value: 'bangla', label: 'বাংলা' },
@@ -46,7 +55,8 @@ export default function Chat() {
     queryFn: () => getTeam(teamId as string),
     enabled: Boolean(teamId),
   });
-  const language = languageOverride ?? teamQuery.data?.team.voice_profile?.default_language ?? 'bangla';
+  const language =
+    languageOverride ?? teamQuery.data?.team.voice_profile?.default_language ?? 'bangla';
 
   const conversationsQuery = useQuery({
     queryKey: ['chat-conversations', teamId],
@@ -99,7 +109,8 @@ export default function Chat() {
         setMessages((prev) => {
           const next = [...prev];
           const last = next[next.length - 1];
-          if (last?.role === 'assistant') next[next.length - 1] = { ...last, content: last.content + text };
+          if (last?.role === 'assistant')
+            next[next.length - 1] = { ...last, content: last.content + text };
           return next;
         });
 
@@ -132,165 +143,230 @@ export default function Chat() {
     hasAutoResumedRef.current = true;
     setMessages((prev) => [...prev, { role: 'user', content: trimmed }]);
     setInput('');
-    chatMutation.mutate({ team_id: teamId, message: trimmed, conversation_id: conversationId, language });
+    chatMutation.mutate({
+      team_id: teamId,
+      message: trimmed,
+      conversation_id: conversationId,
+      language,
+    });
   };
 
   if (!teamId) {
     return (
-      <div className="glass-card flex flex-col items-center gap-2 rounded-xl p-8 text-center">
-        <h1 className="text-lg font-semibold">Chat</h1>
-        <p className="text-sm text-muted-foreground">You need to belong to a team to ask Growth Studio.</p>
+      <div className="flex flex-col gap-4">
+        <PageHeader accent="Ask" title="Growth Studio" icon={MessageSquare} guideKey="chat" />
+        <div className="glass-card rounded-xl">
+          <EmptyState
+            icon={MessageSquare}
+            title="No team yet"
+            description="You need to belong to a team to ask Growth Studio — answers come from its feed."
+          />
+        </div>
       </div>
     );
   }
 
+  const conversations = conversationsQuery.data ?? [];
+
   return (
     <div className="flex h-[calc(100svh-8rem)] flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold">
-            Ask <span className="gradient-text">Growth Studio</span>
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            News-grounded Q&A — answers are pulled from your team's feed, not general knowledge.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="inline-flex w-fit rounded-md border border-border p-0.5">
-            {LANGUAGE_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setLanguageOverride(option.value)}
-                className={cn(
-                  'rounded px-3 py-1 text-sm transition',
-                  language === option.value ? 'bg-violet-600 text-white' : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <DropdownMenuPrimitive.Root>
-            <DropdownMenuPrimitive.Trigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <History className="size-3.5" />
-                <span className="hidden sm:inline">History</span>
-              </Button>
-            </DropdownMenuPrimitive.Trigger>
-            <DropdownMenuPrimitive.Portal>
-              <DropdownMenuPrimitive.Content
-                align="end"
-                className="z-50 max-h-80 min-w-64 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
-              >
-                {(conversationsQuery.data ?? []).length === 0 ? (
-                  <p className="px-2 py-1.5 text-xs text-muted-foreground">No past conversations yet.</p>
+      <PageHeader
+        accent="Ask"
+        title="Growth Studio"
+        icon={MessageSquare}
+        guideKey="chat"
+        description="News-grounded Q&A — answers are pulled from your team's feed, not general knowledge."
+        actions={
+          <>
+            <Tabs
+              value={language}
+              onValueChange={(value) => setLanguageOverride(value as LanguageStyle)}
+            >
+              <TabsList>
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <TabsTrigger key={option.value} value={option.value}>
+                    {option.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+
+            {/* Below lg the conversation rail is hidden, so history stays reachable as a menu. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 lg:hidden">
+                  <History className="size-3.5" />
+                  History
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-80 w-72 overflow-y-auto">
+                {conversations.length === 0 ? (
+                  <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                    No past conversations yet.
+                  </p>
                 ) : (
-                  conversationsQuery.data?.map((conv) => (
-                    <DropdownMenuPrimitive.Item
+                  conversations.map((conv) => (
+                    <DropdownMenuItem
                       key={conv.conversation_id}
                       onSelect={() => void loadConversation(conv.conversation_id)}
                       className={cn(
-                        'flex cursor-pointer flex-col gap-0.5 rounded-sm px-2 py-1.5 text-xs outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground',
+                        'flex flex-col items-start gap-0.5',
                         conv.conversation_id === conversationId && 'bg-muted',
                       )}
                     >
-                      <span className="truncate text-foreground">{conv.last_message_preview}</span>
-                      <span className="text-muted-foreground">
-                        {conv.message_count} message{conv.message_count === 1 ? '' : 's'} ·{' '}
-                        {new Date(conv.last_activity_at).toLocaleString()}
+                      <span className="line-clamp-1 text-xs text-foreground">
+                        {conv.last_message_preview}
                       </span>
-                    </DropdownMenuPrimitive.Item>
+                      <span className="text-xs text-muted-foreground">
+                        {conv.message_count} message{conv.message_count === 1 ? '' : 's'} ·{' '}
+                        {timeAgo(conv.last_activity_at)}
+                      </span>
+                    </DropdownMenuItem>
                   ))
                 )}
-              </DropdownMenuPrimitive.Content>
-            </DropdownMenuPrimitive.Portal>
-          </DropdownMenuPrimitive.Root>
-          <Button variant="outline" size="sm" onClick={startNewChat} className="gap-1.5">
-            <Plus className="size-3.5" />
-            <span className="hidden sm:inline">New chat</span>
-          </Button>
-          <PageHelp guideKey="chat" />
-        </div>
-      </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-      <div ref={scrollRef} className="glass-card flex-1 overflow-y-auto rounded-xl p-4">
-        {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full bg-violet-400/10">
-              <MessageSquare className="size-6 text-violet-700 dark:text-violet-300" />
-            </div>
-            <div>
-              <p className="font-medium text-foreground">Ask anything about your feed</p>
-              <p className="text-sm text-muted-foreground">
-                Try one of these, or type your own question below.
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {SUGGESTED_PROMPTS.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => send(prompt)}
-                  className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-violet-400/40 hover:text-foreground"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
+            <Button variant="outline" size="sm" onClick={startNewChat} className="gap-1.5">
+              <Plus className="size-3.5" />
+              <span className="hidden sm:inline">New chat</span>
+            </Button>
+          </>
+        }
+      />
+
+      <div className="flex min-h-0 flex-1 gap-4">
+        {/* Conversation rail — a persistent list beats a dropdown once there is real history. */}
+        <aside className="glass-card hidden w-64 shrink-0 flex-col overflow-hidden rounded-xl lg:flex">
+          <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+            <History className="size-3.5 text-muted-foreground" />
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Conversations
+            </p>
           </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {messages.map((turn, i) => (
-              <div
-                key={i}
-                className={cn('flex', turn.role === 'user' ? 'justify-end' : 'justify-start')}
-              >
-                <div
-                  className={cn(
-                    'max-w-[85%] rounded-xl px-4 py-2.5 text-sm whitespace-pre-wrap',
-                    turn.role === 'user'
-                      ? 'bg-violet-600 text-white'
-                      : 'border border-border bg-muted text-foreground/90',
-                  )}
-                >
-                  {turn.content}
+          <div className="flex-1 overflow-y-auto p-2">
+            {conversationsQuery.isLoading ? (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">Loading…</p>
+            ) : conversations.length === 0 ? (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                Nothing yet — your questions show up here.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {conversations.map((conv) => (
+                  <li key={conv.conversation_id}>
+                    <button
+                      type="button"
+                      onClick={() => void loadConversation(conv.conversation_id)}
+                      className={cn(
+                        'flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50',
+                        conv.conversation_id === conversationId && 'bg-brand-surface',
+                      )}
+                    >
+                      <span className="line-clamp-2 text-xs text-foreground">
+                        {conv.last_message_preview}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {conv.message_count} msg · {timeAgo(conv.last_activity_at)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div ref={scrollRef} className="glass-card flex-1 overflow-y-auto rounded-xl p-4">
+            {messages.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+                <div className="flex size-12 items-center justify-center rounded-full bg-brand-surface">
+                  <MessageSquare className="size-6 text-brand" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Ask anything about your feed</p>
+                  <p className="text-sm text-muted-foreground">
+                    Try one of these, or type your own question below.
+                  </p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {SUGGESTED_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => send(prompt)}
+                      className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-brand/40 hover:text-foreground"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))}
-            {chatMutation.isPending && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-muted-foreground">
-                  <Loader2 className="size-3.5 animate-spin" /> Thinking…
-                </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {messages.map((turn, i) => (
+                  <div
+                    key={i}
+                    className={cn('flex', turn.role === 'user' ? 'justify-end' : 'justify-start')}
+                  >
+                    <div
+                      className={cn(
+                        'max-w-[85%] rounded-xl px-4 py-2.5 text-sm whitespace-pre-wrap',
+                        turn.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'border border-border bg-muted text-foreground/90',
+                      )}
+                    >
+                      {turn.content}
+                    </div>
+                  </div>
+                ))}
+                {chatMutation.isPending && (
+                  <div className="flex justify-start">
+                    <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-muted-foreground">
+                      <Loader2 className="size-3.5 animate-spin" /> Thinking…
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
 
-      <form
-        data-tour="chat-input"
-        onSubmit={(e) => {
-          e.preventDefault();
-          send(input);
-        }}
-        className="flex items-center gap-2"
-      >
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about trends, categories, or a specific story…"
-          className="flex-1"
-        />
-        <Button type="submit" disabled={!input.trim() || chatMutation.isPending} className="btn-glow gap-2">
-          {chatMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          <span className="hidden sm:inline">Send</span>
-        </Button>
-      </form>
-      <p className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Sparkles className="size-3" /> Every answer is grounded in your team's actual news feed — not invented.
-      </p>
+          <form
+            data-tour="chat-input"
+            onSubmit={(e) => {
+              e.preventDefault();
+              send(input);
+            }}
+            className="flex items-center gap-2"
+          >
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask about trends, categories, or a specific story…"
+              className="flex-1"
+            />
+            <Button
+              type="submit"
+              disabled={!input.trim() || chatMutation.isPending}
+              className="btn-glow gap-2"
+            >
+              {chatMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Send className="size-4" />
+              )}
+              <span className="hidden sm:inline">Send</span>
+            </Button>
+          </form>
+
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Sparkles className="size-3" /> Every answer is grounded in your team&apos;s actual news
+            feed — not invented.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

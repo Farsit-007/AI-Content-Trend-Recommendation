@@ -18,6 +18,8 @@ import type { NewsItemDto } from '@/lib/api/news';
 import { splitNewsTitle } from '@/lib/newsTitle';
 import { isSourceLogoUrl, sourceLogoFor } from '@/lib/sourceLogos';
 import { cn } from '@/lib/utils';
+import { ScorePill } from './ScorePill';
+import { Stat } from './Stat';
 
 interface NewsCardProps {
   item: NewsItemDto;
@@ -50,49 +52,6 @@ function formatRelativeAge(iso: string): string {
   if (Math.abs(deltaHours) < 24) return rtf.format(-deltaHours, 'hour');
   const deltaDays = Math.round(deltaHours / 24);
   return rtf.format(-deltaDays, 'day');
-}
-
-/** Compact 0-10 score pill for the metadata line. Full labelled meters live in the drawer. */
-function ScorePill({
-  icon: Icon,
-  label,
-  value,
-  variant,
-}: {
-  icon: typeof Flame;
-  label: string;
-  value: number;
-  variant: 'amber' | 'emerald';
-}) {
-  const clamped = Math.max(0, Math.min(10, value));
-  return (
-    // No `title` tooltip: the metadata row is pointer-events-none so clicks reach the card's
-    // overlay button, which also means a native tooltip could never fire. The sr-only text is
-    // what carries the meaning for assistive tech.
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 font-semibold tabular-nums',
-        variant === 'amber' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400',
-      )}
-    >
-      <Icon className="size-3.5" aria-hidden="true" />
-      {clamped.toFixed(1)}
-      <span className="sr-only">{label} score out of 10</span>
-    </span>
-  );
-}
-
-/** A single engagement stat — rendered only when non-zero, so GitHub-only stars and
- *  HN-only comments don't leave a row of meaningless "0"s on every other source's cards. */
-function Stat({ icon: Icon, value, label }: { icon: typeof Star; value: number; label: string }) {
-  if (!value) return null;
-  return (
-    <span className="inline-flex items-center gap-1.5 tabular-nums">
-      <Icon className="size-4" aria-hidden="true" />
-      {value}
-      <span className="sr-only">{label}</span>
-    </span>
-  );
 }
 
 export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
@@ -147,7 +106,7 @@ export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
           {logo ? (
             <img src={logo} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-4.5 object-contain" />
           ) : (
-            <CategoryIcon className="size-4 text-neutral-500" aria-hidden="true" />
+            <CategoryIcon className="size-4 text-muted-foreground" aria-hidden="true" />
           )}
         </span>
         <a
@@ -173,7 +132,7 @@ export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
 
       {/* Tags row — their PostTags renders #hashtags. */}
       {item.category && (
-        <div className="pointer-events-none relative z-10 mx-4 mt-2 flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300">
+        <div className="pointer-events-none relative z-10 mx-4 mt-2 flex items-center gap-1 text-xs font-medium text-brand">
           <span>#{item.category.replace(/\s+/g, '')}</span>
           {item.is_overridden && <PenLine className="size-3" aria-label="Category manually overridden" />}
         </div>
@@ -183,9 +142,9 @@ export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
       <div className="pointer-events-none relative z-10 mx-4 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span>{age}</span>
         <span aria-hidden="true">·</span>
-        <ScorePill icon={Flame} label="Trend" value={item.trend_score} variant="amber" />
+        <ScorePill icon={Flame} label="Trend" value={item.trend_score} variant="trend" />
         {typeof item.opportunity_score === 'number' && (
-          <ScorePill icon={Target} label="Opportunity" value={item.opportunity_score} variant="emerald" />
+          <ScorePill icon={Target} label="Opportunity" value={item.opportunity_score} variant="opportunity" />
         )}
       </div>
 

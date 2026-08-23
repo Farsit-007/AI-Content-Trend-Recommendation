@@ -32,8 +32,21 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
   LLM_MODEL_STANDARD: z.string().default('meta-llama/llama-3.1-8b-instruct'),
   LLM_MODEL_CONTENT: z.string().default('meta-llama/llama-3.1-8b-instruct'),
-  LLM_MODEL_FALLBACK: z.string().default('google/gemma-2-9b-it:free'),
+  // Was google/gemma-2-9b-it:free, which OpenRouter now 404s ("No endpoints found") — a dead
+  // last-resort model is worse than none, since it turns one failure into two.
+  LLM_MODEL_FALLBACK: z.string().default('google/gemma-3-27b-it'),
   EMBEDDING_MODEL: z.string().default('openai/text-embedding-3-small'),
+
+  // Multi-key failover. A provider can hold several API keys; resolution rotates across them and
+  // takes a key out of rotation when it rate-limits, rather than rediscovering the same 429 on
+  // every request. See lib/llmKeyHealth.ts.
+  // Attempts are capped so one request can never fan out into a paid call per key in a large pool.
+  LLM_MAX_KEY_ATTEMPTS: z.string().default('3'),
+  // Used when a 429 carries no Retry-After / X-RateLimit-Reset header.
+  LLM_KEY_COOLDOWN_DEFAULT_SECONDS: z.string().default('60'),
+  // Ceiling for any cooldown, including a provider's own absurd Retry-After, and the penalty for a
+  // revoked key (401/403) or an exhausted one (402).
+  LLM_KEY_COOLDOWN_MAX_SECONDS: z.string().default('900'),
 
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
@@ -117,6 +130,11 @@ const envSchema = z.object({
   // still STORED, with the same low-confidence fallback a parse failure takes, which sets
   // needs_review; nothing is dropped. Ranked by trend_score, so the cap sheds the coldest items.
   // Sized generously (a normal run stores well under this) — it is a runaway backstop, not a filter.
+  // How many categorization/adjudication batches may be in flight at once. These used to fire via
+  // a bare Promise.all — a 37-item run burst 4 categorization calls plus up to 5 adjudication calls
+  // simultaneously, which is what trips a request-rate limiter even when the daily total is modest.
+  // The HTTP content-fetch layer has always been bounded this way; the LLM calls were not.
+  NEWS_INGESTION_LLM_CONCURRENCY: z.string().default('2'),
   NEWS_INGESTION_MAX_CATEGORIZE_ITEMS: z.string().default('400'),
   NEWS_INGESTION_CRON: z.string().default('0 */3 * * *'),
   // Raises the GitHub Search API's unauthenticated rate limit (10/min, 60/hr) — optional, the
@@ -301,6 +319,12 @@ export default {
   llm_model_content: env.LLM_MODEL_CONTENT,
   llm_model_fallback: env.LLM_MODEL_FALLBACK,
 
+  llm: {
+    max_key_attempts: Number(env.LLM_MAX_KEY_ATTEMPTS),
+    key_cooldown_default_seconds: Number(env.LLM_KEY_COOLDOWN_DEFAULT_SECONDS),
+    key_cooldown_max_seconds: Number(env.LLM_KEY_COOLDOWN_MAX_SECONDS),
+  },
+
   embedding_model: env.EMBEDDING_MODEL,
 
   jwt_secret: env.JWT_SECRET,
@@ -391,6 +415,7 @@ export default {
     hard_dup_threshold: Number(env.NEWS_INGESTION_HARD_DUP_THRESHOLD),
     adjudication_max_batches: Number(env.NEWS_INGESTION_ADJUDICATION_MAX_BATCHES),
     max_categorize_items: Number(env.NEWS_INGESTION_MAX_CATEGORIZE_ITEMS),
+    llm_concurrency: Number(env.NEWS_INGESTION_LLM_CONCURRENCY),
     cron: env.NEWS_INGESTION_CRON,
     github_token: env.GITHUB_TOKEN,
     mastodon_instances: env.NEWS_INGESTION_MASTODON_INSTANCES.split(',')

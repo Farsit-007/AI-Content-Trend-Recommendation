@@ -37,7 +37,7 @@ export function AuroraBackground({ className }: AuroraBackgroundProps) {
       />
       <div
         className={cn(
-          'absolute -bottom-1/3 left-1/3 size-[38rem] rounded-full bg-fuchsia-500/20 blur-3xl',
+          'absolute -bottom-1/3 left-1/3 size-[38rem] rounded-full bg-violet-400/20 blur-3xl',
           !reduceMotion && 'animate-aurora-drift',
         )}
         style={{ animationDuration: '26s', animationDelay: '-12s' }}

@@ -62,20 +62,17 @@ const YOUTUBE_IDEA = {
 };
 
 describe('POST /api/v1/content/generate', () => {
-  it('generates the default two formats for an authenticated user using the mocked LLM, without a real OpenRouter call', async () => {
+  it('generates the single default format for an authenticated user using the mocked LLM, without a real OpenRouter call', async () => {
     const admin = await createTestUser({ role: 'super_admin', email: 'admin-content-gen@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
 
     mockEmbedding();
-    // Content-keyed, not order-keyed — facebook_post/linkedin_post generate concurrently, and each
-    // resolves its model via an async DB read before the HTTP call, so which physical call reaches
-    // create() first is not guaranteed.
-    mockChatCompletionByPrompt([
-      { match: 'Write a Facebook post', response: FB_TEXT },
-      { match: 'Write a LinkedIn post', response: LI_TEXT },
-    ]);
+    // DEFAULT_FORMATS is deliberately a single format (contentGeneration.formats.ts) — omitting
+    // `formats` must cost exactly one LLM call, not one per available format.
+    mockChatCompletionByPrompt([{ match: 'Write a Facebook post', response: FB_TEXT }]);
 
+    // No `formats` — resolution must fall back to DEFAULT_FORMATS.
     const res = await request(app)
       .post('/api/v1/content/generate')
       .set('Authorization', `Bearer ${token}`)
@@ -84,14 +81,14 @@ describe('POST /api/v1/content/generate', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.topic).toBe('AI agents in content marketing');
     expect(res.body.data.facebook_post).toBe(FB_TEXT);
-    expect(res.body.data.linkedin_post).toBe(LI_TEXT);
+    expect(res.body.data).not.toHaveProperty('linkedin_post');
     expect(res.body.data).not.toHaveProperty('youtube_idea');
     expect(res.body.data).not.toHaveProperty('caption');
 
     // Confirms the route went through the mock, not a real network call to OpenRouter — and that
     // exactly one call happened per requested format.
     const counts = getOpenRouterCallCounts();
-    expect(counts.chatCompletionCalls).toBe(2);
+    expect(counts.chatCompletionCalls).toBe(1);
     expect(counts.embeddingCalls).toBe(1);
   });
 
@@ -204,7 +201,11 @@ describe('POST /api/v1/content/generate', () => {
     const firstRes = await request(app)
       .post('/api/v1/content/generate')
       .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing' });
+      .send({
+        team_id: team._id.toString(),
+        topic: 'AI agents in content marketing',
+        formats: ['facebook_post', 'linkedin_post'],
+      });
     expect(firstRes.status).toBe(200);
     expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(2);
 
@@ -240,7 +241,11 @@ describe('POST /api/v1/content/generate', () => {
     const res = await request(app)
       .post('/api/v1/content/generate')
       .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing' });
+      .send({
+        team_id: team._id.toString(),
+        topic: 'AI agents in content marketing',
+        formats: ['facebook_post', 'linkedin_post'],
+      });
 
     expect(res.status).toBe(502);
 
@@ -525,7 +530,11 @@ describe('POST /api/v1/content/generate — platform-aware style retrieval', () 
     const res = await request(app)
       .post('/api/v1/content/generate')
       .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing' });
+      .send({
+        team_id: team._id.toString(),
+        topic: 'AI agents in content marketing',
+        formats: ['facebook_post', 'linkedin_post'],
+      });
 
     expect(res.status).toBe(200);
     // Each format's chatCompletionForTask call now resolves its model via an async DB read before
@@ -561,7 +570,11 @@ describe('POST /api/v1/content/generate — platform-aware style retrieval', () 
       const res = await request(app)
         .post('/api/v1/content/generate')
         .set('Authorization', `Bearer ${token}`)
-        .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing' });
+        .send({
+        team_id: team._id.toString(),
+        topic: 'AI agents in content marketing',
+        formats: ['facebook_post', 'linkedin_post'],
+      });
 
       expect(res.status).toBe(200);
       expect(findSpy).toHaveBeenCalledTimes(1);
@@ -662,7 +675,11 @@ describe('POST /api/v1/content/generate — per-format prompt directives', () =>
     const res = await request(app)
       .post('/api/v1/content/generate')
       .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: 'AI agents in content marketing' });
+      .send({
+        team_id: team._id.toString(),
+        topic: 'AI agents in content marketing',
+        formats: ['facebook_post', 'linkedin_post'],
+      });
 
     expect(res.status).toBe(200);
     // See the platform-matched-examples test above for why this matches by content, not position.
@@ -707,7 +724,12 @@ describe('POST /api/v1/content/generate — fact-grounded generation', () => {
     const res = await request(app)
       .post('/api/v1/content/generate')
       .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic: newsItem.title, news_item_id: newsItem._id.toString() });
+      .send({
+        team_id: team._id.toString(),
+        topic: newsItem.title,
+        news_item_id: newsItem._id.toString(),
+        formats: ['facebook_post', 'linkedin_post'],
+      });
 
     expect(res.status).toBe(200);
     expect(getOpenRouterCallCounts().chatCompletionCalls).toBe(3);
@@ -968,7 +990,14 @@ describe('bake-off harness prompt-assembly fidelity', () => {
     const liveRes = await request(app)
       .post('/api/v1/content/generate')
       .set('Authorization', `Bearer ${token}`)
-      .send({ team_id: team._id.toString(), topic, style_pack_id: pack._id.toString(), formats: ['facebook_post'] });
+      .send({
+        team_id: team._id.toString(),
+        topic,
+        style_pack_id: pack._id.toString(),
+        formats: ['facebook_post'],
+        // runBakeoffMatrix defaults to Bangla; parity is only meaningful for the same language.
+        language: 'bangla',
+      });
     expect(liveRes.status).toBe(200);
     const liveSystemPrompt = getLastChatCompletionRequest().messages[0].content;
 

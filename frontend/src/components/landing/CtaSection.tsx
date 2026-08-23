@@ -14,7 +14,7 @@ export function CtaSection() {
   return (
     <section className="py-20 sm:py-24">
       <Reveal className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-        <div className="glass-card relative overflow-hidden rounded-3xl px-6 py-16 text-center sm:px-12">
+        <div className="glass-card relative overflow-hidden rounded-2xl px-6 py-16 text-center sm:px-12">
           <AuroraBackground />
           <GridPattern />
 

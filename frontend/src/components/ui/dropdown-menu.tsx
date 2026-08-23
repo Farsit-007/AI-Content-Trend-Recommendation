@@ -43,16 +43,21 @@ function DropdownMenuContent({
 function DropdownMenuItem({
   className,
   inset,
+  variant = "default",
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
   inset?: boolean
+  /** `destructive` tints the row and its icon red — for delete/revoke actions. */
+  variant?: "default" | "destructive"
 }) {
   return (
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       data-inset={inset}
+      data-variant={variant}
       className={cn(
         "relative flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "data-[variant=destructive]:text-destructive data-[variant=destructive]:data-[highlighted]:bg-destructive/10 data-[variant=destructive]:data-[highlighted]:text-destructive data-[variant=destructive]:[&_svg]:text-destructive",
         className
       )}
       {...props}
@@ -87,7 +92,7 @@ function DropdownMenuRadioItem({
     >
       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <CircleIcon className="size-2 fill-violet-500 text-violet-500 dark:fill-violet-400 dark:text-violet-400" />
+          <CircleIcon className="size-2 fill-brand text-brand" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}

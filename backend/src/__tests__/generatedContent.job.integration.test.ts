@@ -84,10 +84,11 @@ describe('POST /api/v1/generated-content/run — team-scoped, freshness-windowed
     expect(drafts).toHaveLength(1);
     expect(drafts[0]?.news_item_id).toBe(freshAi._id.toString());
 
-    // Stored draft's formats holds exactly the new default pair — no other format keys.
+    // The job generates DEFAULT_FORMATS, which is deliberately a single format — one LLM call per
+    // drafted item, not one per available format.
     const formats = drafts[0]?.formats;
     expect(formats?.facebook_post).toBe(CANNED_TEXT);
-    expect(formats?.linkedin_post).toBe(CANNED_TEXT);
+    expect(formats?.linkedin_post).toBeUndefined();
     expect(formats?.facebook_reel_script).toBeUndefined();
     expect(formats?.youtube_idea).toBeUndefined();
     expect(formats?.caption).toBeUndefined();

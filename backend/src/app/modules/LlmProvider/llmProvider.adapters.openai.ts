@@ -5,7 +5,9 @@ const MAX_EMBED_INPUT_CHARS = 6000;
 
 /** OpenAI's real API — no `baseURL` override, unlike the OpenRouter adapter. */
 export const openaiAdapter = (apiKey: string): LlmProviderAdapter => {
-  const client = new OpenAI({ apiKey, timeout: 60_000, maxRetries: 1 });
+  // maxRetries 0: key-pool failover in lib/modelResolution.ts owns retry policy — an SDK retry
+  // would re-send to the same rate-limited key.
+  const client = new OpenAI({ apiKey, timeout: 60_000, maxRetries: 0 });
 
   return {
     chatCompletion: async (model: string, messages: AdapterChatMessage[], temperature: number): Promise<string> => {

@@ -11,6 +11,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { ExpandableTextarea } from '@/components/ui/expandable-textarea';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ConfirmButton } from '@/components/shared/ConfirmButton';
 
 const PLATFORM_OPTIONS: { value: BrandVoicePlatform; label: string }[] = [
   { value: 'facebook', label: 'Facebook' },
@@ -19,6 +27,9 @@ const PLATFORM_OPTIONS: { value: BrandVoicePlatform; label: string }[] = [
 ];
 
 const EMPTY_STATE_COPY = 'Add 25–30 of your real posts — every generation copies your style from these.';
+
+/** Radix Select has no empty-string value, so "no category" needs its own sentinel. */
+const NO_CATEGORY = 'none';
 
 interface BrandVoiceSectionProps {
   teamId: string;
@@ -89,31 +100,37 @@ export function BrandVoiceSection({ teamId, canManageTeam, categories }: BrandVo
             expandTitle="Add brand voice example"
           />
           <div className="flex flex-wrap gap-2">
-            <select
+            <Select
               value={platform}
-              onChange={(e) => setPlatform(e.target.value as BrandVoicePlatform)}
-              className="h-9 rounded-md border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+              onValueChange={(value) => setPlatform(value as BrandVoicePlatform)}
             >
-              {PLATFORM_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value} className="bg-background text-foreground">
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="h-9 rounded-md border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+              <SelectTrigger className="w-40" aria-label="Platform">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PLATFORM_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={category || NO_CATEGORY}
+              onValueChange={(value) => setCategory(value === NO_CATEGORY ? '' : value)}
             >
-              <option value="" className="bg-background text-foreground">
-                No category
-              </option>
-              {categories.map((c) => (
-                <option key={c} value={c} className="bg-background text-foreground">
-                  {c}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-40" aria-label="Category">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_CATEGORY}>No category</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               value={engagementHint}
               onChange={(e) => setEngagementHint(e.target.value)}
@@ -157,17 +174,18 @@ export function BrandVoiceSection({ teamId, canManageTeam, categories }: BrandVo
                 </div>
               </div>
               {canManageTeam && (
-                <Button
+                <ConfirmButton
                   type="button"
                   variant="ghost"
                   size="icon-sm"
+                  aria-label="Delete brand voice example"
                   disabled={deleteMutation.isPending && deleteMutation.variables === example._id}
-                  onClick={() => {
-                    if (window.confirm('Delete this brand voice example?')) deleteMutation.mutate(example._id);
-                  }}
+                  title="Delete this brand voice example?"
+                  description="It stops informing generated drafts for this team."
+                  onConfirm={() => deleteMutation.mutate(example._id)}
                 >
                   <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
-                </Button>
+                </ConfirmButton>
               )}
             </li>
           ))}

@@ -14,7 +14,10 @@ export const openrouterAdapter = (apiKey: string): LlmProviderAdapter => {
     // posts — at 20s those requests died as timeouts and surfaced as "generation/refinement
     // failed" toasts even though the model would have answered.
     timeout: 60_000,
-    maxRetries: 1,
+    // 0, not the SDK default: key-pool failover in lib/modelResolution.ts owns retry policy now.
+    // An SDK-level retry would re-send to the *same* rate-limited key, doubling the latency and the
+    // quota damage of every 429 before our own failover even gets a turn.
+    maxRetries: 0,
     defaultHeaders: {
       'HTTP-Referer': config.web_url as string,
       'X-Title': 'Growth Studio',
