@@ -11,6 +11,7 @@ import { contentGenerationPaths } from './contentGenerationPaths';
 import { chatPaths } from './chatPaths';
 import { generatedContentPaths } from './generatedContentPaths';
 import { llmProviderPaths } from './llmProviderPaths';
+import { llmUsagePaths } from './llmUsagePaths';
 import { newsItemPaths } from './newsItemPaths';
 import { stylePackPaths } from './stylePackPaths';
 import {
@@ -18,6 +19,8 @@ import {
   AskChatRequest,
   AskChatResponse,
   ChatSourceRef,
+  LlmUsageBucket,
+  LlmUsageSummary,
   BrandVoiceExample,
   BrandVoiceExampleCreate,
   BrandVoiceExampleUpdate,
@@ -124,6 +127,7 @@ export const openApiDocument = {
     ...generatedContentPaths,
     ...stylePackPaths,
     ...llmProviderPaths,
+    ...llmUsagePaths,
   },
   components: {
     securitySchemes: {
@@ -152,6 +156,8 @@ export const openApiDocument = {
       AskChatRequest,
       AskChatResponse,
       ChatSourceRef,
+      LlmUsageBucket,
+      LlmUsageSummary,
       SourceSummary,
       IngestionSummary,
       SetNewsItemOverrideRequest,

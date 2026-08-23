@@ -11,7 +11,10 @@
  */
 import config from '../../config';
 import { chatCompletion } from '../../lib/llmClient';
-import { embedForTask, resolveProviderForLiteralModel } from '../../lib/modelResolution';
+import {
+  embedForTask,
+  resolveProviderForLiteralModel,
+} from '../../lib/modelResolution';
 import { getAdapter } from '../LlmProvider/llmProvider.adapters';
 import { LanguageStyle } from '../Team/team.interface';
 import { StylePack } from '../StylePack/stylePack.model';
@@ -19,9 +22,15 @@ import { VoiceOptions } from '../../lib/voiceProfile';
 import { FactSheet, getOrExtractFactSheet } from './contentGeneration.facts';
 import { FormatId } from './contentGeneration.formats';
 import { NewsItemContext } from './contentGeneration.interface';
-import { critiqueText, isCritiqueStructurallyEligible } from './contentGeneration.critique';
+import {
+  critiqueText,
+  isCritiqueStructurallyEligible,
+} from './contentGeneration.critique';
 import { buildMessages } from './contentGeneration.prompt';
-import { buildStyleContext, fetchStylePackExamples } from './contentGeneration.retrieval';
+import {
+  buildStyleContext,
+  fetchStylePackExamples,
+} from './contentGeneration.retrieval';
 import { resolveNewsItemContext } from './contentGeneration.service';
 
 const MAX_MODELS = 4;
@@ -74,7 +83,8 @@ export interface RunBakeoffMatrixOptions {
   critique?: 'off' | 'both';
 }
 
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 /** mulberry32 — small, dependency-free, deterministic PRNG; good enough for blinding order, not for cryptography. */
 const mulberry32 = (seed: number): (() => number) => {
@@ -117,18 +127,34 @@ interface TopicContext {
  * Validates matrix caps before any DB or LLM call. Never throws mid-run on a single cell's
  * failure — each cell's error is captured on the cell itself so the rest of the run completes.
  */
-export const runBakeoffMatrix = async (options: RunBakeoffMatrixOptions): Promise<BakeoffRun> => {
-  const { models, topics, formats, packSlug, language = 'bangla', seed = Date.now(), critique = 'off' } = options;
+export const runBakeoffMatrix = async (
+  options: RunBakeoffMatrixOptions,
+): Promise<BakeoffRun> => {
+  const {
+    models,
+    topics,
+    formats,
+    packSlug,
+    language = 'bangla',
+    seed = Date.now(),
+    critique = 'off',
+  } = options;
   const startedAt = new Date().toISOString();
 
   if (models.length === 0 || models.length > MAX_MODELS) {
-    throw new Error(`models must have between 1 and ${MAX_MODELS} entries (got ${models.length})`);
+    throw new Error(
+      `models must have between 1 and ${MAX_MODELS} entries (got ${models.length})`,
+    );
   }
   if (topics.length === 0 || topics.length > MAX_TOPICS) {
-    throw new Error(`topics must have between 1 and ${MAX_TOPICS} entries (got ${topics.length})`);
+    throw new Error(
+      `topics must have between 1 and ${MAX_TOPICS} entries (got ${topics.length})`,
+    );
   }
   if (formats.length === 0 || formats.length > MAX_FORMATS) {
-    throw new Error(`formats must have between 1 and ${MAX_FORMATS} entries (got ${formats.length})`);
+    throw new Error(
+      `formats must have between 1 and ${MAX_FORMATS} entries (got ${formats.length})`,
+    );
   }
 
   const pack = await StylePack.findOne({ slug: packSlug, is_active: true });
@@ -142,11 +168,19 @@ export const runBakeoffMatrix = async (options: RunBakeoffMatrixOptions): Promis
 
   const topicContexts: TopicContext[] = [];
   for (const topic of topics) {
-    const { embedding: newsItemEmbedding, context: newsContext } = await resolveNewsItemContext(topic.news_item_id);
-    const topicEmbedding = newsItemEmbedding ?? (await embedForTask('embedding', topic.topic));
+    const { embedding: newsItemEmbedding, context: newsContext } =
+      await resolveNewsItemContext(topic.news_item_id);
+    const topicEmbedding =
+      newsItemEmbedding ?? (await embedForTask('embedding', topic.topic));
     const factSheet =
-      topic.news_item_id && newsContext?.content && newsContext.content.length >= config.content_generation.facts_min_chars
-        ? (await getOrExtractFactSheet(topic.news_item_id, topic.topic, newsContext.content)) ?? undefined
+      topic.news_item_id &&
+      newsContext?.content &&
+      newsContext.content.length >= config.content_generation.facts_min_chars
+        ? ((await getOrExtractFactSheet(
+            topic.news_item_id,
+            topic.topic,
+            newsContext.content,
+          )) ?? undefined)
         : undefined;
     topicContexts.push({ topic, topicEmbedding, newsContext, factSheet });
   }
@@ -155,7 +189,12 @@ export const runBakeoffMatrix = async (options: RunBakeoffMatrixOptions): Promis
   for (const model of models) {
     for (const topicContext of topicContexts) {
       for (const format of formats) {
-        const styleContext = buildStyleContext(format, pack, stylePackExamples, topicContext.topicEmbedding);
+        const styleContext = buildStyleContext(
+          format,
+          pack,
+          stylePackExamples,
+          topicContext.topicEmbedding,
+        );
         const messages = buildMessages(
           format,
           topicContext.topic.topic,
@@ -180,8 +219,17 @@ export const runBakeoffMatrix = async (options: RunBakeoffMatrixOptions): Promis
           // catalog entry matches, exactly like chatCompletionForTask's bootstrap tier.
           baseOutput =
             routed.source === 'bootstrap'
-              ? await chatCompletion({ model: routed.model_id, messages, temperature: 0.7 })
-              : await getAdapter(routed.provider_type, routed.api_key).chatCompletion(routed.model_id, messages, 0.7);
+              ? await chatCompletion({
+                  model: routed.model_id,
+                  messages,
+                  temperature: 0.7,
+                })
+              : (
+                  await getAdapter(
+                    routed.provider_type,
+                    routed.api_key,
+                  ).chatCompletion(routed.model_id, messages, 0.7)
+                ).content;
           cells.push({
             model,
             topic: topicContext.topic.topic,
@@ -210,9 +258,17 @@ export const runBakeoffMatrix = async (options: RunBakeoffMatrixOptions): Promis
         // Only attempt a critiqued twin when the base generation actually succeeded — there's
         // nothing to critique from an errored cell. `critiqueText` itself never throws (it
         // soft-fails to the draft internally), so no separate try/catch is needed here.
-        if (critique === 'both' && baseOutput !== undefined && isCritiqueStructurallyEligible(format, pack)) {
+        if (
+          critique === 'both' &&
+          baseOutput !== undefined &&
+          isCritiqueStructurallyEligible(format, pack)
+        ) {
           const critiqueStartedAt = Date.now();
-          const critiquedOutput = await critiqueText(baseOutput, pack.style_card, voiceOptions);
+          const critiquedOutput = await critiqueText(
+            baseOutput,
+            pack.style_card,
+            voiceOptions,
+          );
           cells.push({
             model,
             topic: topicContext.topic.topic,
@@ -243,7 +299,10 @@ const RUBRIC_BLANK_ROW = '|  |  |  |  |  |';
  * position in `shuffledIndices`, never from `cell.model`, so there is no code path by which model
  * identity could leak into the text.
  */
-export const formatReviewMarkdown = (run: BakeoffRun, shuffledIndices: number[]): string => {
+export const formatReviewMarkdown = (
+  run: BakeoffRun,
+  shuffledIndices: number[],
+): string => {
   const lines: string[] = [
     `# Bangla Quality Bake-off Review — ${run.startedAt}`,
     '',
@@ -262,8 +321,18 @@ export const formatReviewMarkdown = (run: BakeoffRun, shuffledIndices: number[])
   shuffledIndices.forEach((cellIndex, position) => {
     const cell = run.cells[cellIndex];
     const label = labelForPosition(position);
-    lines.push('', `## ${label}`, '', `**Format:** ${cell.format} · **Topic:** ${cell.topic}`, '');
-    lines.push(cell.error ? `_Generation failed: ${cell.error}_` : (cell.output ?? '_(no output)_'));
+    lines.push(
+      '',
+      `## ${label}`,
+      '',
+      `**Format:** ${cell.format} · **Topic:** ${cell.topic}`,
+      '',
+    );
+    lines.push(
+      cell.error
+        ? `_Generation failed: ${cell.error}_`
+        : (cell.output ?? '_(no output)_'),
+    );
     lines.push('', RUBRIC_HEADER, RUBRIC_DIVIDER, RUBRIC_BLANK_ROW, '', '---');
   });
 
@@ -276,7 +345,10 @@ export interface LabelMapEntry {
 }
 
 /** Maps each blinded label back to its true model/cell — the reviewer never sees this file. */
-export const buildLabelMap = (run: BakeoffRun, shuffledIndices: number[]): LabelMapEntry[] =>
+export const buildLabelMap = (
+  run: BakeoffRun,
+  shuffledIndices: number[],
+): LabelMapEntry[] =>
   shuffledIndices.map((cellIndex, position) => ({
     label: labelForPosition(position),
     cell: run.cells[cellIndex],

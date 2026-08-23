@@ -1,4 +1,4 @@
-import { ChatMessage } from '../../lib/llmClient';
+import { AdapterChatMessage } from '../LlmProvider/llmProvider.adapters';
 import { VoiceOptions, languageInstruction } from '../../lib/voiceProfile';
 import {
   ChatContextItem,
@@ -13,11 +13,15 @@ import {
  * Block 0 is byte-identical for every request in the deployment; block 1 is stable for a given team;
  * only block 2 changes per turn. That ordering is what makes a provider-side cached prefix possible
  * — with the context interpolated into the persona (as it was), the prefix moved on every single
- * turn and nothing was ever cacheable. Phase 2 attaches the cache markers; this phase just stops
- * making them impossible.
+ * turn and nothing was ever cacheable.
  *
- * Emitting several system messages is safe on all three adapters: OpenAI and OpenRouter accept them
- * natively, and the Anthropic adapter already collects and joins them (`splitSystemMessage`).
+ * Blocks 0 and 1 are marked `cacheable`, which each adapter honours in its own way: Anthropic gets
+ * an explicit `cache_control` breakpoint at the end of the run, while OpenAI and OpenRouter cache
+ * stable prefixes automatically and have the hint stripped before the request is sent.
+ *
+ * Block 1 varies with the team's language, and a request may override that mid-conversation. That
+ * is fine and intended — the prefix is keyed per team *and* language, so a user toggling English
+ * ↔ বাংলা simply warms a second prefix rather than invalidating the first.
  */
 
 /** Block 0 — static. No team data, no context, no per-request values. */
@@ -73,11 +77,25 @@ const formatContext = (context: ChatContextItem[]): string => {
     .join('\n\n');
 };
 
-/** Block 2 — the per-turn context. */
-const buildContextBlock = (
+/**
+ * The final user turn: this turn's retrieved context, then the question.
+ *
+ * The context deliberately sits here rather than in a system block. It is the single most volatile
+ * and largest part of the prompt, so anywhere earlier it truncates the cacheable prefix at ~250
+ * tokens — below the 1024-token minimum both Anthropic and OpenAI require, which means no request
+ * ever cached anything. Behind the history instead, the prefix is
+ * `[persona, team, …history]`: stable within a conversation, and growing, so each turn extends the
+ * previous turn's cached prefix instead of invalidating it.
+ *
+ * Grounding is unaffected: the *rules* stay in the system persona, which keeps its authority; only
+ * the *data* moved. Putting retrieved passages in the user turn is the ordinary RAG layout.
+ */
+const buildUserTurn = (
+  question: string,
   context: ChatContextItem[],
   tier: ChatContextTier,
-): string => `${TIER_NOTE[tier]}\n\nContext:\n${formatContext(context)}`;
+): string =>
+  `${TIER_NOTE[tier]}\n\nContext:\n${formatContext(context)}\n\nQuestion: ${question}`;
 
 /**
  * The citation targets, numbered identically to the blocks the model sees, so a client can turn a
@@ -97,13 +115,20 @@ export const buildMessages = (
   history: IChatMessage[],
   voiceOptions: VoiceOptions,
   tier: ChatContextTier,
-): ChatMessage[] => [
-  { role: 'system', content: STATIC_PERSONA },
-  { role: 'system', content: buildTeamBlock(voiceOptions) },
-  { role: 'system', content: buildContextBlock(context, tier) },
-  ...history.map((msg): ChatMessage => ({
-    role: msg.role,
-    content: msg.content,
-  })),
-  { role: 'user', content: question },
+): AdapterChatMessage[] => [
+  // Everything marked `cacheable` forms the prefix, and it must stay contiguous: the first unmarked
+  // message ends it, and anything after that is re-read at full price on every turn.
+  { role: 'system', content: STATIC_PERSONA, cacheable: true },
+  { role: 'system', content: buildTeamBlock(voiceOptions), cacheable: true },
+  // History is cacheable because a turn that already happened never changes. This is where the
+  // prefix earns its keep: by turn three or four it is long enough to clear the providers' 1024-token
+  // minimum, which the two static blocks alone (~250 tokens) never do on their own.
+  ...history.map(
+    (msg): AdapterChatMessage => ({
+      role: msg.role,
+      content: msg.content,
+      cacheable: true,
+    }),
+  ),
+  { role: 'user', content: buildUserTurn(question, context, tier) },
 ];

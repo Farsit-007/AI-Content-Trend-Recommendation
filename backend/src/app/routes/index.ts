@@ -6,6 +6,7 @@ import { BrandVoiceExampleRoutes } from '../modules/BrandVoiceExample/brandVoice
 import { ChatRoutes } from '../modules/Chat/chat.route';
 import { ContentGenerationRoutes } from '../modules/ContentGeneration/contentGeneration.route';
 import { LlmProviderRoutes } from '../modules/LlmProvider/llmProvider.route';
+import { LlmUsageRoutes } from '../modules/LlmUsage/llmUsage.route';
 import { NewsItemRoutes } from '../modules/NewsItem/newsItem.route';
 import { StylePackRoutes } from '../modules/StylePack/stylePack.route';
 import { StatsRoutes } from '../modules/Stats/stats.route';
@@ -33,6 +34,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: '/style-packs', route: StylePackRoutes },
   { path: '/stats', route: StatsRoutes },
   { path: '/llm-providers', route: LlmProviderRoutes },
+  { path: '/llm-usage', route: LlmUsageRoutes },
   { path: '/activity-log', route: ActivityLogRoutes },
 ];
 

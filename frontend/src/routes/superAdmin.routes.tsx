@@ -5,7 +5,7 @@ import { adminPaths } from './admin.routes';
 
 /** Super admins get everything an admin has, plus exclusive curation of the shared style library
  *  and global control of the LLM provider/model registry. */
-export const supperAdminPaths: TUserPath[] = [
+export const superAdminPaths: TUserPath[] = [
   ...adminPaths,
   {
     name: 'Style Packs',

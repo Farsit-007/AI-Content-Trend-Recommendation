@@ -2,14 +2,33 @@ import { Types } from 'mongoose';
 import config from '../config';
 import { decrypt } from './crypto';
 import { logger } from './logger';
-import { chatCompletion, ChatMessage, LLM_MODELS } from './llmClient';
-import { embed, embedBatch } from './embeddings';
-import { AdapterChatMessage, getAdapter } from '../modules/LlmProvider/llmProvider.adapters';
-import { LlmModelCapability, LlmProviderType, LlmTask } from '../modules/LlmProvider/llmProvider.interface';
-import { LlmModel, LlmProvider, LlmTaskDefault } from '../modules/LlmProvider/llmProvider.model';
+import { chatCompletionWithUsage, ChatMessage, LLM_MODELS } from './llmClient';
+import { embedBatchWithUsage, embedWithUsage } from './embeddings';
+import {
+  AdapterChatMessage,
+  getAdapter,
+  LlmUsage,
+} from '../modules/LlmProvider/llmProvider.adapters';
+import { LlmUsageOperation } from '../modules/LlmUsage/llmUsage.interface';
+import { recordLlmUsageAsync } from '../modules/LlmUsage/llmUsage.service';
+import {
+  LlmModelCapability,
+  LlmProviderType,
+  LlmTask,
+} from '../modules/LlmProvider/llmProvider.interface';
+import {
+  LlmModel,
+  LlmProvider,
+  LlmTaskDefault,
+} from '../modules/LlmProvider/llmProvider.model';
 import { Team } from '../modules/Team/team.model';
 import { classifyLlmError } from './llmErrors';
-import { getCoolingDownKeyIds, markKeyCooldown, nextRotationOffset, rotate } from './llmKeyHealth';
+import {
+  getCoolingDownKeyIds,
+  markKeyCooldown,
+  nextRotationOffset,
+  rotate,
+} from './llmKeyHealth';
 
 export type { LlmTask } from '../modules/LlmProvider/llmProvider.interface';
 export { LLM_TASKS } from '../modules/LlmProvider/llmProvider.interface';
@@ -20,6 +39,12 @@ export interface ResolveContext {
   requestModelId?: string;
   /** Excludes a specific key from tier resolution — used by the failover retry to skip the key that just failed. */
   excludeKeyId?: string;
+  /**
+   * Pins key selection so repeated calls sharing this value reach the same credential. Set to the
+   * conversation id for chat; a provider caches a prompt prefix against the key that wrote it, so
+   * round-robining mid-conversation pays for a cache that is never read. See `nextRotationOffset`.
+   */
+  stickyKey?: string;
 }
 
 export interface ResolvedModel {
@@ -31,6 +56,15 @@ export interface ResolvedModel {
   api_key: string;
   /** Undefined only for the bootstrap tier — there is no `LlmProviderKey` document to reference. */
   key_id?: string;
+  /** `LlmModel._id`. Undefined at the bootstrap tier, which has no catalog entry. */
+  llm_model_id?: string;
+  /**
+   * Pricing carried through from the resolved `LlmModel`, in USD per 1M tokens. Threaded here
+   * rather than looked up when usage is recorded: `resolveTierCandidates` already has the document
+   * in hand, so passing it along keeps metering from adding a database read per provider call.
+   */
+  input_cost_per_1m_usd?: number;
+  output_cost_per_1m_usd?: number;
 }
 
 /**
@@ -60,7 +94,8 @@ const BOOTSTRAP_MODEL_BY_TASK: Record<LlmTask, string> = {
   embedding: config.embedding_model as string,
 };
 
-const requiredCapability = (task: LlmTask): LlmModelCapability => (task === 'embedding' ? 'embedding' : 'chat');
+const requiredCapability = (task: LlmTask): LlmModelCapability =>
+  task === 'embedding' ? 'embedding' : 'chat';
 
 const resolveBootstrap = (task: LlmTask): ResolvedModel => {
   // The bootstrap tier only exists while a legacy/test OPENROUTER_API_KEY is present in the
@@ -97,28 +132,43 @@ const resolveTierCandidates = async (
   task: LlmTask,
   source: 'request' | 'team' | 'global',
   excludeKeyId?: string,
+  stickyKey?: string,
 ): Promise<TierCandidates> => {
   if (!Types.ObjectId.isValid(llmModelId)) {
-    logger.warn({ task, source, llmModelId }, '[modelResolution] llm_model_id is not a valid ObjectId, falling through');
+    logger.warn(
+      { task, source, llmModelId },
+      '[modelResolution] llm_model_id is not a valid ObjectId, falling through',
+    );
     return { available: [], cooling: [] };
   }
 
   const model = await LlmModel.findById(llmModelId);
   if (!model || !model.is_active) {
-    logger.warn({ task, source, llmModelId }, '[modelResolution] LlmModel not found or inactive, falling through');
+    logger.warn(
+      { task, source, llmModelId },
+      '[modelResolution] LlmModel not found or inactive, falling through',
+    );
     return { available: [], cooling: [] };
   }
 
   const capability = requiredCapability(task);
   if (!model.capabilities.includes(capability)) {
     logger.warn(
-      { task, source, llmModelId, capability, modelCapabilities: model.capabilities },
+      {
+        task,
+        source,
+        llmModelId,
+        capability,
+        modelCapabilities: model.capabilities,
+      },
       '[modelResolution] LlmModel lacks the required capability for this task, falling through',
     );
     return { available: [], cooling: [] };
   }
 
-  const provider = await LlmProvider.findById(model.provider_id).select('+keys.encrypted_key');
+  const provider = await LlmProvider.findById(model.provider_id).select(
+    '+keys.encrypted_key',
+  );
   if (!provider || !provider.is_active) {
     logger.warn(
       { task, source, llmModelId, providerId: model.provider_id },
@@ -141,21 +191,34 @@ const resolveTierCandidates = async (
   // Round-robin the starting position so a multi-key pool actually spreads load. Picking
   // `keys[0]` every time means the first key absorbs all traffic and rate-limits on its own while
   // the rest of the pool sits idle.
-  const offset = await nextRotationOffset(provider._id.toString(), eligible.length);
+  const offset = await nextRotationOffset(
+    provider._id.toString(),
+    eligible.length,
+    stickyKey,
+  );
   const ordered = rotate(eligible, offset);
 
-  const coolingIds = await getCoolingDownKeyIds(ordered.map((k) => k._id.toString()));
+  const coolingIds = await getCoolingDownKeyIds(
+    ordered.map((k) => k._id.toString()),
+  );
   const toResolved = (k: (typeof ordered)[number]): ResolvedModel => ({
     source,
     provider_type: provider.provider_type,
     model_id: model.model_id,
     api_key: decrypt(k.encrypted_key),
     key_id: k._id.toString(),
+    llm_model_id: model._id.toString(),
+    input_cost_per_1m_usd: model.input_cost_per_1m_usd,
+    output_cost_per_1m_usd: model.output_cost_per_1m_usd,
   });
 
   return {
-    available: ordered.filter((k) => !coolingIds.has(k._id.toString())).map(toResolved),
-    cooling: ordered.filter((k) => coolingIds.has(k._id.toString())).map(toResolved),
+    available: ordered
+      .filter((k) => !coolingIds.has(k._id.toString()))
+      .map(toResolved),
+    cooling: ordered
+      .filter((k) => coolingIds.has(k._id.toString()))
+      .map(toResolved),
   };
 };
 
@@ -170,7 +233,12 @@ const tryResolveFromModelId = async (
   source: 'request' | 'team' | 'global',
   excludeKeyId?: string,
 ): Promise<ResolvedModel | null> => {
-  const { available, cooling } = await resolveTierCandidates(llmModelId, task, source, excludeKeyId);
+  const { available, cooling } = await resolveTierCandidates(
+    llmModelId,
+    task,
+    source,
+    excludeKeyId,
+  );
   return available[0] ?? cooling[0] ?? null;
 };
 
@@ -181,11 +249,19 @@ const tryResolveFromModelId = async (
  * reference at any tier soft-fails through to the next tier rather than throwing. If every DB
  * tier falls through and no bootstrap env key is set, this rejects with LlmNotConfiguredError.
  */
-export const resolveModelForTask = async (task: LlmTask, context: ResolveContext = {}): Promise<ResolvedModel> => {
+export const resolveModelForTask = async (
+  task: LlmTask,
+  context: ResolveContext = {},
+): Promise<ResolvedModel> => {
   const { teamId, requestModelId, excludeKeyId } = context;
 
   if (requestModelId) {
-    const resolved = await tryResolveFromModelId(requestModelId, task, 'request', excludeKeyId);
+    const resolved = await tryResolveFromModelId(
+      requestModelId,
+      task,
+      'request',
+      excludeKeyId,
+    );
     if (resolved) return resolved;
   }
 
@@ -193,14 +269,24 @@ export const resolveModelForTask = async (task: LlmTask, context: ResolveContext
     const team = await Team.findById(teamId).select('default_models');
     const teamModelId = team?.default_models?.[task];
     if (teamModelId) {
-      const resolved = await tryResolveFromModelId(teamModelId, task, 'team', excludeKeyId);
+      const resolved = await tryResolveFromModelId(
+        teamModelId,
+        task,
+        'team',
+        excludeKeyId,
+      );
       if (resolved) return resolved;
     }
   }
 
   const globalDefault = await LlmTaskDefault.findOne({ task });
   if (globalDefault) {
-    const resolved = await tryResolveFromModelId(globalDefault.llm_model_id.toString(), task, 'global', excludeKeyId);
+    const resolved = await tryResolveFromModelId(
+      globalDefault.llm_model_id.toString(),
+      task,
+      'global',
+      excludeKeyId,
+    );
     if (resolved) return resolved;
   }
 
@@ -216,8 +302,11 @@ export const resolveModelForTask = async (task: LlmTask, context: ResolveContext
  * stays in the list, because "every key is resting" must degrade to a likely-429 rather than to a
  * hard outage.
  */
-const buildCandidates = async (task: LlmTask, ctx: ResolveContext): Promise<ResolvedModel[]> => {
-  const { teamId, requestModelId, excludeKeyId } = ctx;
+const buildCandidates = async (
+  task: LlmTask,
+  ctx: ResolveContext,
+): Promise<ResolvedModel[]> => {
+  const { teamId, requestModelId, excludeKeyId, stickyKey } = ctx;
 
   const available: ResolvedModel[] = [];
   const cooling: ResolvedModel[] = [];
@@ -241,20 +330,44 @@ const buildCandidates = async (task: LlmTask, ctx: ResolveContext): Promise<Reso
   };
 
   if (requestModelId) {
-    collect(await resolveTierCandidates(requestModelId, task, 'request', excludeKeyId));
+    collect(
+      await resolveTierCandidates(
+        requestModelId,
+        task,
+        'request',
+        excludeKeyId,
+        stickyKey,
+      ),
+    );
   }
 
   if (teamId) {
     const team = await Team.findById(teamId).select('default_models');
     const teamModelId = team?.default_models?.[task];
     if (teamModelId) {
-      collect(await resolveTierCandidates(teamModelId, task, 'team', excludeKeyId));
+      collect(
+        await resolveTierCandidates(
+          teamModelId,
+          task,
+          'team',
+          excludeKeyId,
+          stickyKey,
+        ),
+      );
     }
   }
 
   const globalDefault = await LlmTaskDefault.findOne({ task });
   if (globalDefault) {
-    collect(await resolveTierCandidates(globalDefault.llm_model_id.toString(), task, 'global', excludeKeyId));
+    collect(
+      await resolveTierCandidates(
+        globalDefault.llm_model_id.toString(),
+        task,
+        'global',
+        excludeKeyId,
+        stickyKey,
+      ),
+    );
   }
 
   const ordered = [...available];
@@ -305,7 +418,11 @@ const runWithKeyFailover = async <T>(
 
       const classified = classifyLlmError(err);
       if (candidate.key_id && classified.cooldownMs > 0) {
-        await markKeyCooldown(candidate.key_id, classified.cooldownMs, classified.kind);
+        await markKeyCooldown(
+          candidate.key_id,
+          classified.cooldownMs,
+          classified.kind,
+        );
       }
 
       const context = {
@@ -323,26 +440,67 @@ const runWithKeyFailover = async <T>(
       };
 
       if (!classified.shouldFailover) {
-        logger.warn(context, '[modelResolution] provider call failed permanently — another key cannot help');
+        logger.warn(
+          context,
+          '[modelResolution] provider call failed permanently — another key cannot help',
+        );
         throw err;
       }
 
       if (index === pool.length - 1) {
-        logger.warn(context, '[modelResolution] provider call failed and the key pool is exhausted');
+        logger.warn(
+          context,
+          '[modelResolution] provider call failed and the key pool is exhausted',
+        );
         break;
       }
 
-      logger.warn(context, '[modelResolution] provider call failed, failing over to the next key');
+      logger.warn(
+        context,
+        '[modelResolution] provider call failed, failing over to the next key',
+      );
     }
   }
 
   throw firstErr;
 };
 
+/**
+ * Records one completed provider call against the usage ledger.
+ *
+ * Fire-and-forget by construction: metering describes a call that already succeeded, so a Mongo
+ * hiccup must not turn a delivered answer into an error. `recordLlmUsageAsync` swallows its own
+ * failures; nothing here is awaited.
+ */
+const meter = (
+  task: LlmTask,
+  operation: LlmUsageOperation,
+  resolved: ResolvedModel,
+  opts: { teamId?: string },
+  usage: LlmUsage | undefined,
+  startedAt: number,
+): void => {
+  recordLlmUsageAsync({
+    teamId: opts.teamId,
+    task,
+    operation,
+    tier: resolved.source,
+    providerType: resolved.provider_type,
+    model: resolved.model_id,
+    keyId: resolved.key_id,
+    usage,
+    durationMs: Date.now() - startedAt,
+    inputCostPer1m: resolved.input_cost_per_1m_usd,
+    outputCostPer1m: resolved.output_cost_per_1m_usd,
+  });
+};
+
 export interface TaskCallOptions {
   teamId?: string;
   requestModelId?: string;
   temperature?: number;
+  /** See `ResolveContext.stickyKey` — set to the conversation id for chat. */
+  stickyKey?: string;
 }
 
 /**
@@ -359,17 +517,27 @@ export const chatCompletionForTask = async (
 ): Promise<string> => {
   const temperature = opts.temperature ?? 0.7;
 
-  return runWithKeyFailover(task, opts, 'chat completion', (resolved) =>
+  return runWithKeyFailover(task, opts, 'chat completion', async (resolved) => {
+    const startedAt = Date.now();
     // The bootstrap tier keeps delegating to the static client, including its own
     // LLM_MODEL_FALLBACK retry — behavioural identity for a deployment with no providers configured.
-    resolved.source === 'bootstrap'
-      ? chatCompletion({ model: resolved.model_id, messages: messages as ChatMessage[], temperature })
-      : getAdapter(resolved.provider_type, resolved.api_key).chatCompletion(
-          resolved.model_id,
-          messages,
-          temperature,
-        ),
-  );
+    const result =
+      resolved.source === 'bootstrap'
+        ? await chatCompletionWithUsage({
+            model: resolved.model_id,
+            messages: messages as ChatMessage[],
+            temperature,
+          })
+        : await getAdapter(
+            resolved.provider_type,
+            resolved.api_key,
+          ).chatCompletion(resolved.model_id, messages, temperature);
+
+    // Only a successful call is metered. A failed one costs nothing on most providers, and the
+    // failover loop already logs it with the classification that explains what went wrong.
+    meter(task, 'chat', resolved, opts, result.usage, startedAt);
+    return result.content;
+  });
 };
 
 /**
@@ -393,19 +561,39 @@ export async function* streamChatCompletionForTask(
 ): AsyncGenerator<string> {
   const temperature = opts.temperature ?? 0.7;
 
-  const openStream = async (r: ResolvedModel): Promise<AsyncIterable<string> | null> => {
+  // Filled by the adapter's `onUsage` callback after the final chunk. A stream cannot report its
+  // token counts up front — they only exist once generation has finished.
+  let streamUsage: LlmUsage | undefined;
+  const startedAt = Date.now();
+
+  const openStream = async (
+    r: ResolvedModel,
+  ): Promise<AsyncIterable<string> | null> => {
     if (r.source === 'bootstrap') return null;
     const adapter = getAdapter(r.provider_type, r.api_key);
     if (!adapter.streamChatCompletion) return null;
-    return adapter.streamChatCompletion(r.model_id, messages, temperature);
+    return adapter.streamChatCompletion(
+      r.model_id,
+      messages,
+      temperature,
+      (usage) => {
+        streamUsage = usage;
+      },
+    );
   };
 
   // Opening the stream gets the full pool treatment; everything after the first token does not.
   // `runWithKeyFailover` is deliberately not reused here — it would have to own the iteration too,
   // and a retry once tokens are flowing would splice two different completions into one answer.
-  const candidates = (await buildCandidates(task, opts)).slice(0, Math.max(1, config.llm.max_key_attempts));
+  const candidates = (await buildCandidates(task, opts)).slice(
+    0,
+    Math.max(1, config.llm.max_key_attempts),
+  );
 
-  type PrimedStream = { iterator: AsyncIterator<string>; first: IteratorResult<string> } | null;
+  type PrimedStream = {
+    iterator: AsyncIterator<string>;
+    first: IteratorResult<string>;
+  } | null;
 
   /**
    * Opens the stream *and pulls its first chunk*.
@@ -428,19 +616,26 @@ export async function* streamChatCompletionForTask(
   let primed: PrimedStream = null;
   let opened = false;
   let firstErr: unknown;
+  /** The candidate that actually served the stream — the one metering must attribute spend to. */
+  let servedBy: ResolvedModel | undefined;
 
   for (let index = 0; index < candidates.length; index += 1) {
     const candidate = candidates[index];
     try {
       primed = await primeStream(candidate);
       opened = true;
+      servedBy = candidate;
       break;
     } catch (err) {
       if (firstErr === undefined) firstErr = err;
 
       const classified = classifyLlmError(err);
       if (candidate.key_id && classified.cooldownMs > 0) {
-        await markKeyCooldown(candidate.key_id, classified.cooldownMs, classified.kind);
+        await markKeyCooldown(
+          candidate.key_id,
+          classified.cooldownMs,
+          classified.kind,
+        );
       }
 
       const context = {
@@ -457,14 +652,23 @@ export async function* streamChatCompletionForTask(
       };
 
       if (!classified.shouldFailover) {
-        logger.warn(context, '[modelResolution] stream failed to open permanently — another key cannot help');
+        logger.warn(
+          context,
+          '[modelResolution] stream failed to open permanently — another key cannot help',
+        );
         throw err;
       }
       if (index === candidates.length - 1) {
-        logger.warn(context, '[modelResolution] stream failed to open and the key pool is exhausted');
+        logger.warn(
+          context,
+          '[modelResolution] stream failed to open and the key pool is exhausted',
+        );
         break;
       }
-      logger.warn(context, '[modelResolution] stream failed to open, failing over to the next key');
+      logger.warn(
+        context,
+        '[modelResolution] stream failed to open, failing over to the next key',
+      );
     }
   }
 
@@ -481,11 +685,26 @@ export async function* streamChatCompletionForTask(
 
   // Past this point the answer has started reaching the client, so a failure is surfaced rather
   // than retried: splicing a second completion onto a half-sent one would corrupt the answer.
-  if (!primed.first.done) {
-    yield primed.first.value;
-  }
-  for (let next = await primed.iterator.next(); !next.done; next = await primed.iterator.next()) {
-    yield next.value;
+  //
+  // `finally` rather than a trailing statement: a client that disconnects mid-answer makes the
+  // consumer stop iterating, which calls `.return()` on this generator and skips everything after
+  // the loop. Those tokens were still generated and still billed, so an abandoned stream has to be
+  // metered too — otherwise the calls users cancel are exactly the ones that vanish from the ledger.
+  try {
+    if (!primed.first.done) {
+      yield primed.first.value;
+    }
+    for (
+      let next = await primed.iterator.next();
+      !next.done;
+      next = await primed.iterator.next()
+    ) {
+      yield next.value;
+    }
+  } finally {
+    if (servedBy) {
+      meter(task, 'stream', servedBy, opts, streamUsage, startedAt);
+    }
   }
 }
 
@@ -495,12 +714,24 @@ export interface EmbedTaskCallOptions {
 }
 
 /** Single-text embedding resolved dynamically for `task`. Mirrors `chatCompletionForTask` exactly. */
-export const embedForTask = async (task: LlmTask, text: string, opts: EmbedTaskCallOptions = {}): Promise<number[]> => {
-  return runWithKeyFailover(task, opts, 'embedding', (resolved) =>
-    resolved.source === 'bootstrap'
-      ? embed(text)
-      : getAdapter(resolved.provider_type, resolved.api_key).embed(resolved.model_id, text),
-  );
+export const embedForTask = async (
+  task: LlmTask,
+  text: string,
+  opts: EmbedTaskCallOptions = {},
+): Promise<number[]> => {
+  return runWithKeyFailover(task, opts, 'embedding', async (resolved) => {
+    const startedAt = Date.now();
+    const result =
+      resolved.source === 'bootstrap'
+        ? await embedWithUsage(text)
+        : await getAdapter(resolved.provider_type, resolved.api_key).embed(
+            resolved.model_id,
+            text,
+          );
+
+    meter(task, 'embed', resolved, opts, result.usage, startedAt);
+    return result.vector;
+  });
 };
 
 /** Batch embedding resolved dynamically for `task`. Mirrors `chatCompletionForTask` exactly. */
@@ -511,11 +742,20 @@ export const embedBatchForTask = async (
 ): Promise<number[][]> => {
   if (texts.length === 0) return [];
 
-  return runWithKeyFailover(task, opts, 'batch embedding', (resolved) =>
-    resolved.source === 'bootstrap'
-      ? embedBatch(texts)
-      : getAdapter(resolved.provider_type, resolved.api_key).embedBatch(resolved.model_id, texts),
-  );
+  return runWithKeyFailover(task, opts, 'batch embedding', async (resolved) => {
+    const startedAt = Date.now();
+    const result =
+      resolved.source === 'bootstrap'
+        ? await embedBatchWithUsage(texts)
+        : await getAdapter(resolved.provider_type, resolved.api_key).embedBatch(
+            resolved.model_id,
+            texts,
+          );
+
+    // One row per batch, not per text — the batch is what the provider billed as a single call.
+    meter(task, 'embed_batch', resolved, opts, result.usage, startedAt);
+    return result.vectors;
+  });
 };
 
 /**
@@ -526,11 +766,21 @@ export const embedBatchForTask = async (
  * `model_id`; falls back to OpenRouter + the bootstrap key if not found, preserving 100% of
  * today's OpenRouter-only bake-off behavior when the catalog is empty.
  */
-export const resolveProviderForLiteralModel = async (modelId: string): Promise<ResolvedModel> => {
-  const model = await LlmModel.findOne({ model_id: modelId, is_active: true, capabilities: 'chat' });
+export const resolveProviderForLiteralModel = async (
+  modelId: string,
+): Promise<ResolvedModel> => {
+  const model = await LlmModel.findOne({
+    model_id: modelId,
+    is_active: true,
+    capabilities: 'chat',
+  });
   if (model) {
-    const provider = await LlmProvider.findById(model.provider_id).select('+keys.encrypted_key');
-    const key = provider?.is_active ? provider.keys.find((k) => k.is_active) : undefined;
+    const provider = await LlmProvider.findById(model.provider_id).select(
+      '+keys.encrypted_key',
+    );
+    const key = provider?.is_active
+      ? provider.keys.find((k) => k.is_active)
+      : undefined;
     if (provider && key) {
       return {
         source: 'global',

@@ -30,6 +30,13 @@ export interface ILlmModel {
   display_name: string;
   capabilities: LlmModelCapability[];
   is_active: boolean;
+  /**
+   * USD per 1M tokens, for cost estimation in the usage ledger (`LlmUsage`). Both optional: a model
+   * with no pricing still records token counts, it just contributes no `estimated_cost_usd`. That is
+   * the honest default — a missing price must read as "unpriced", never as "free".
+   */
+  input_cost_per_1m_usd?: number;
+  output_cost_per_1m_usd?: number;
   created_at: Date;
 }
 

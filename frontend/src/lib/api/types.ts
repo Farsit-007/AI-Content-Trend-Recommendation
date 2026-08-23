@@ -51,6 +51,13 @@ export interface AuthUser {
   name: string;
   role: 'super_admin' | 'user';
   team_ids?: string[];
+  /**
+   * Subset of `team_ids` where this user is the team's admin, from `GET /auth/me`.
+   *
+   * The backend has always enforced `requireTeamAdmin` with this; sending it lets the UI stop
+   * showing a team admin the same navigation as a plain member. See `lib/capabilities.ts`.
+   */
+  team_admin_team_ids?: string[];
   created_at?: string;
 }
 

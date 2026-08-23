@@ -2,12 +2,17 @@ jest.mock('../app/modules/Chat/chat.vectorRetrieval');
 
 import config from '../app/config';
 import { NewsItem } from '../app/modules/NewsItem/newsItem.model';
-import { fetchNewsContext, NewsCandidate } from '../app/modules/Chat/chat.retrieval';
+import {
+  fetchNewsContext,
+  NewsCandidate,
+} from '../app/modules/Chat/chat.retrieval';
 import { TeamChatContext } from '../app/modules/Chat/chat.teamContext';
 import { findChatContextByVector } from '../app/modules/Chat/chat.vectorRetrieval';
 import { clearTestDb, connectTestDb, disconnectTestDb } from './support/db';
 
-const mockedVectorSearch = findChatContextByVector as jest.MockedFunction<typeof findChatContextByVector>;
+const mockedVectorSearch = findChatContextByVector as jest.MockedFunction<
+  typeof findChatContextByVector
+>;
 
 /**
  * The `$vectorSearch` stage itself cannot run here — Atlas Vector Search has no equivalent in
@@ -34,7 +39,11 @@ const aiTeam = (overrides: Partial<TeamChatContext> = {}): TeamChatContext => ({
 });
 
 let seq = 0;
-const seedItem = async (title: string, embedding: number[], category = 'AI') => {
+const seedItem = async (
+  title: string,
+  embedding: number[],
+  category = 'AI',
+) => {
   seq += 1;
   return NewsItem.create({
     source: 'hackernews',
@@ -84,13 +93,16 @@ describe('chat context retrieval — vector path routing', () => {
 
   it('passes the configured window as the pre-filter cutoff', async () => {
     config.chat.vector_search_enabled = true;
-    mockedVectorSearch.mockResolvedValueOnce([{ title: 'x', trend_score: 1, embedding: oneHot(0) }]);
+    mockedVectorSearch.mockResolvedValueOnce([
+      { title: 'x', trend_score: 1, embedding: oneHot(0) },
+    ]);
 
     const before = Date.now();
     await fetchNewsContext(oneHot(0), aiTeam());
 
     const [, since] = mockedVectorSearch.mock.calls[0];
-    const expected = before - config.chat.context_window_days * 24 * 3600 * 1000;
+    const expected =
+      before - config.chat.context_window_days * 24 * 3600 * 1000;
     expect(Math.abs((since as Date).getTime() - expected)).toBeLessThan(5_000);
   });
 
@@ -98,20 +110,30 @@ describe('chat context retrieval — vector path routing', () => {
     // The whole point of the team-scoping work: a post-filter would spend `limit` on other teams'
     // items. The scope has to arrive as a $vectorSearch pre-filter argument.
     config.chat.vector_search_enabled = true;
-    mockedVectorSearch.mockResolvedValueOnce([{ title: 'x', trend_score: 1, embedding: oneHot(0) }]);
+    mockedVectorSearch.mockResolvedValueOnce([
+      { title: 'x', trend_score: 1, embedding: oneHot(0) },
+    ]);
 
-    await fetchNewsContext(oneHot(0), aiTeam({ subscribedCategories: ['AI', 'DevOps'] }));
+    await fetchNewsContext(
+      oneHot(0),
+      aiTeam({ subscribedCategories: ['AI', 'DevOps'] }),
+    );
 
     const [, , , scopeFilter] = mockedVectorSearch.mock.calls[0];
     expect(scopeFilter).toEqual({
-      $or: [{ category: { $in: ['AI', 'DevOps'] } }, { category_group: { $in: ['AI', 'DevOps'] } }],
+      $or: [
+        { category: { $in: ['AI', 'DevOps'] } },
+        { category_group: { $in: ['AI', 'DevOps'] } },
+      ],
     });
   });
 
   it('falls back to the in-memory pool when vector search throws', async () => {
     // The realistic failure: the Atlas index doesn't exist, or lacks the declared filter fields.
     config.chat.vector_search_enabled = true;
-    mockedVectorSearch.mockRejectedValueOnce(new Error('index not found: news_items_vector_index'));
+    mockedVectorSearch.mockRejectedValueOnce(
+      new Error('index not found: news_items_vector_index'),
+    );
     await seedItem('Fallback story', oneHot(0));
 
     const result = await fetchNewsContext(oneHot(0), aiTeam());

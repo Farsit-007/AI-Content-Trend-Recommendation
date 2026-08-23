@@ -1,4 +1,5 @@
 import AppError from '../../errors/AppError';
+import { cached, invalidate } from '../../lib/cache';
 import { httpStatus } from '../../utils/httpStatus';
 import { User } from '../User/user.model';
 import { IRequestUser } from '../User/user.interface';
@@ -79,19 +80,27 @@ const getTeamById = async (teamId: string) => {
   return { team, members, team_ready };
 };
 
+/** Short on purpose — see the comment inside `isTeamReady`. */
+const TEAM_READY_TTL_SECONDS = 60;
+
 /**
  * A team is "ready" once it has told the system what it cares about (subscribed_categories)
  * and what it sounds like (BrandVoiceExample) — both already-modeled signals, no new fields.
  * Computed on read, never stored, so it can never drift from the underlying data.
  */
-const isTeamReady = async (teamId: string): Promise<boolean> => {
-  const team = await Team.findById(teamId).select('subscribed_categories').lean();
-  if (!team || team.subscribed_categories.length === 0) {
-    return false;
-  }
-  const hasBrandVoice = await BrandVoiceExample.exists({ team_id: teamId });
-  return Boolean(hasBrandVoice);
-};
+const isTeamReady = async (teamId: string): Promise<boolean> =>
+  // Two queries, and it ran on *every* feed and chat request — the single hottest uncached read in
+  // the system. Cached briefly rather than long: readiness flips when a team completes setup, and a
+  // stale `false` shows them an empty-state screen they have just fixed. A minute is short enough
+  // that nobody files a bug about it, and long enough to collapse a page's worth of requests.
+  cached('team:ready', teamId, TEAM_READY_TTL_SECONDS, async () => {
+    const team = await Team.findById(teamId).select('subscribed_categories').lean();
+    if (!team || team.subscribed_categories.length === 0) {
+      return false;
+    }
+    const hasBrandVoice = await BrandVoiceExample.exists({ team_id: teamId });
+    return Boolean(hasBrandVoice);
+  });
 
 /**
  * Referential check on `default_models`. Request validation already rejects unknown task *keys*
@@ -149,6 +158,14 @@ const updateTeam = async (
   if (!team) {
     throw new AppError(httpStatus.NOT_FOUND, 'Team not found');
   }
+
+  // Explicit invalidation on the write path, not a shorter TTL: a settings change is exactly the
+  // moment a stale read is most visible, because the user is looking at the screen they just saved.
+  await Promise.all([
+    invalidate('team:ready', teamId),
+    invalidate('team', teamId),
+    invalidate('team:voice', teamId),
+  ]);
 
   void ActivityLogService.recordActivity({
     team_id: teamId,

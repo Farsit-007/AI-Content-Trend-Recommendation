@@ -1,13 +1,14 @@
 import { Shield, Users, Building2, Database } from 'lucide-react';
 import type { TUserPath } from '@/types/sidebar.type';
 import { Admin, AdminCatalog, AdminTeams, AdminUsers } from './lazyPages';
-import { userPaths } from './user.routes';
+import { teamAdminPaths } from './teamAdmin.routes';
 
-/** super_admin gets everything a user has, plus the role-guarded platform admin console.
+/** super_admin gets everything a team admin has (which includes the member set), plus the
+ *  role-guarded platform admin console.
  *  Team-scoped admin rights (a team's own team_admin) live in Team Settings instead — see
  *  TeamMembersSection — not here, since those never need a distinct global route. */
 export const adminPaths: TUserPath[] = [
-  ...userPaths,
+  ...teamAdminPaths,
   {
     name: 'Pipeline',
     path: 'admin/pipeline',

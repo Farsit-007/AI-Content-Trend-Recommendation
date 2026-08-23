@@ -32,6 +32,13 @@ export interface NewsItemDto {
   impact_note?: string;
   high_opportunity?: boolean;
   is_overridden?: boolean;
+  /**
+   * Which of three sources supplied `opportunity_score`, so the feed can explain its own ranking:
+   * `override` a human set it, `team` measured against this team's brand voice, `baseline` the
+   * platform-wide fallback for a team with no voice yet. The API has always returned this; nothing
+   * rendered it, so the ranking looked arbitrary.
+   */
+  score_source?: 'override' | 'team' | 'baseline';
   needs_review?: boolean;
   /** Present only on items surfaced by the optional semantic "nearly relevant" tier (off by
    *  default), not an exact/broad-group category match. */

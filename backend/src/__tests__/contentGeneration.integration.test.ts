@@ -837,11 +837,19 @@ describe('POST /api/v1/content/generate — fact-grounded generation', () => {
 describe('POST /api/v1/content/refine', () => {
   const REVISED_TEXT = 'A shorter, punchier revision of the draft.';
 
-  it('applies the instruction and returns the revised text with zero cache side effects', async () => {
+  it('applies the instruction and returns the revised text without doing retrieval work', async () => {
+    // Asserts on the *retrieval* caches specifically, not a global key count. Refine is a pure text
+    // transform: it must not embed a topic or build a fact sheet. It may legitimately populate
+    // unrelated read-through caches (the team's voice profile), and a global count would fail on
+    // those and read as a regression in this endpoint.
     const admin = await createTestUser({ role: 'super_admin', email: 'admin-refine-1@example.test' });
     const team = await createTestTeam({ createdBy: admin._id.toString() });
     const token = createAuthToken(admin);
-    const keysBefore = await redis.keys('*');
+    const retrievalKeys = async () => [
+      ...(await redis.keys('embed:topic:*')),
+      ...(await redis.keys('facts:*')),
+    ];
+    const keysBefore = await retrievalKeys();
 
     mockChatCompletion(REVISED_TEXT);
 
@@ -858,8 +866,8 @@ describe('POST /api/v1/content/refine', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.revised_text).toBe(REVISED_TEXT);
 
-    const keysAfter = await redis.keys('*');
-    expect(keysAfter.length).toBe(keysBefore.length);
+    const keysAfter = await retrievalKeys();
+    expect(keysAfter).toEqual(keysBefore);
   });
 
   it('rejects youtube_idea', async () => {

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Sparkles } from 'lucide-react';
+import { Check, Sparkles } from 'lucide-react';
 import {
   DEFAULT_FORMATS,
   generateContent,
@@ -36,7 +36,11 @@ interface EditorEntry {
   previousText?: string | YoutubeIdea;
 }
 
-export default function Generate() {
+/**
+ * `embedded` is set when Studio renders this as a tab — it already shows the page header, so a
+ * second one would stack two titles. Standalone rendering (a direct route, a test) keeps its own.
+ */
+export default function Generate({ embedded = false }: { embedded?: boolean } = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const teamId = useTeamId();
@@ -49,6 +53,9 @@ export default function Generate() {
   const [llmModelId, setLlmModelId] = useState<string | undefined>(undefined);
   const [selectedFormats, setSelectedFormats] = useState<FormatId[]>(DEFAULT_FORMATS);
   const [editor, setEditor] = useState<Partial<Record<FormatId, EditorEntry>>>({});
+  /** Set once a generation has been persisted, so Save does not create a second copy of it. */
+  const [savedDraftId, setSavedDraftId] = useState<string | undefined>(undefined);
+  const queryClient = useQueryClient();
 
   const teamQuery = useQuery({
     queryKey: ['team', teamId],
@@ -88,11 +95,40 @@ export default function Generate() {
       // Cleared up front so a re-run doesn't leave the previous run's cards on screen while the new
       // ones trickle in — the two sets would be indistinguishable.
       setEditor({});
+      setSavedDraftId(undefined);
+
+      const produced: GeneratedFormats = {};
 
       await generateContentStream(payload, {
-        onFormat: (format, value) => setEditor((prev) => ({ ...prev, [format]: { text: value } })),
+        onFormat: (format, value) => {
+          setEditor((prev) => ({ ...prev, [format]: { text: value } }));
+          produced[format] = value;
+        },
         onFormatError: (format, message) => toast.error(`${format}: ${message}`),
       });
+
+      // Autosave. Until now generated text lived only in React state until the user clicked Save,
+      // so a closed tab, a navigation, or a refresh threw away output that had already been paid
+      // for. Persisting as soon as the stream finishes makes that impossible to lose.
+      //
+      // Recording the id is what keeps this from doubling the Library: with a draft already saved,
+      // the explicit Save button steps aside rather than creating a second copy of the same
+      // generation. Failure is a warning, not an error — the text is still on screen and Save still
+      // works, so the user loses nothing.
+      if (Object.keys(produced).length === 0) return;
+
+      try {
+        const saved = await saveDraft({
+          team_id: payload.team_id,
+          news_item_id: payload.news_item_id,
+          topic: payload.topic,
+          formats: produced,
+        });
+        setSavedDraftId(saved._id);
+        queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      } catch {
+        toast.warning('Generated, but could not autosave — use Save draft to keep it.');
+      }
     },
     onError: (err: Error) => toast.error(err.message || 'Generation failed'),
   });
@@ -130,7 +166,7 @@ export default function Generate() {
     mutationFn: saveDraft,
     onSuccess: () => {
       toast.success('Draft saved', {
-        action: { label: 'View drafts', onClick: () => navigate('/dashboard/drafts') },
+        action: { label: 'View drafts', onClick: () => navigate('/dashboard/studio?tab=library') },
       });
     },
     onError: (err: Error) => toast.error(err.message || 'Save failed'),
@@ -206,7 +242,7 @@ export default function Generate() {
   if (!teamId) {
     return (
       <div className="flex flex-col gap-4">
-        <PageHeader title="Generate" icon={Sparkles} guideKey="generate" />
+        {!embedded && <PageHeader title="Generate" icon={Sparkles} guideKey="generate" />}
         <div className="glass-card rounded-xl">
           <EmptyState
             icon={Sparkles}
@@ -222,12 +258,14 @@ export default function Generate() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Generate"
-        icon={Sparkles}
-        guideKey="generate"
-        description="Turn a story or a topic into ready-to-post drafts, in your team's voice."
-      />
+      {!embedded && (
+        <PageHeader
+          title="Generate"
+          icon={Sparkles}
+          guideKey="generate"
+          description="Turn a story or a topic into ready-to-post drafts, in your team's voice."
+        />
+      )}
 
       <div data-tour="generate-controls">
       <GenerateControls
@@ -284,14 +322,30 @@ export default function Generate() {
             )}
           </div>
 
-          <Button
-            onClick={handleSaveDraft}
-            disabled={saveMutation.isPending}
-            variant="outline"
-            className="w-fit"
-          >
-            {saveMutation.isPending ? 'Saving…' : 'Save draft'}
-          </Button>
+          {savedDraftId ? (
+            // Already persisted by the autosave above. Offering Save here again would file a second
+            // copy of the same generation, so the affordance becomes a way to go look at it.
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Check className="size-3.5 text-emerald-400" />
+              Saved to your Library.
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard/studio?tab=library')}
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                View it
+              </button>
+            </p>
+          ) : (
+            <Button
+              onClick={handleSaveDraft}
+              disabled={saveMutation.isPending}
+              variant="outline"
+              className="w-fit"
+            >
+              {saveMutation.isPending ? 'Saving…' : 'Save draft'}
+            </Button>
+          )}
         </>
       )}
     </div>

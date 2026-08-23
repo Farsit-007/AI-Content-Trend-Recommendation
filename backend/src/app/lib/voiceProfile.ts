@@ -1,5 +1,6 @@
 import { LanguageStyle } from '../modules/Team/team.interface';
 import { Team } from '../modules/Team/team.model';
+import { cached } from './cache';
 
 /**
  * Effective writing options for one LLM call. Resolution order for language:
@@ -23,14 +24,24 @@ const LANGUAGE_INSTRUCTIONS: Record<LanguageStyle, string> = {
 export const languageInstruction = (language: LanguageStyle): string =>
   LANGUAGE_INSTRUCTIONS[language];
 
+const VOICE_TTL_SECONDS = 300;
+
 export const resolveVoiceOptions = async (
   teamId: string,
   languageOverride?: LanguageStyle,
 ): Promise<VoiceOptions> => {
-  const team = await Team.findById(teamId).catch(() => null);
-  const profile = team?.voice_profile;
+  // Only the stored profile is cached, never the resolved result: `languageOverride` is per-request,
+  // and folding it into the cached value would serve one caller's override to the next caller.
+  const profile = await cached('team:voice', teamId, VOICE_TTL_SECONDS, async () => {
+    const team = await Team.findById(teamId).select('voice_profile').lean().catch(() => null);
+    return {
+      default_language: team?.voice_profile?.default_language ?? null,
+      custom_instructions: team?.voice_profile?.custom_instructions ?? null,
+    };
+  });
+
   return {
-    language: languageOverride ?? profile?.default_language ?? 'bangla',
-    custom_instructions: profile?.custom_instructions || undefined,
+    language: languageOverride ?? profile.default_language ?? 'bangla',
+    custom_instructions: profile.custom_instructions || undefined,
   };
 };

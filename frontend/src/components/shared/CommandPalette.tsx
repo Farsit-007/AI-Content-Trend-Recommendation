@@ -5,6 +5,7 @@ import { Moon, Sparkles, Sun } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/context/theme-context';
 import { getDashboardPaths } from '@/routes';
+import { useTeamId } from '@/lib/useTeamId';
 import { sidebarItemsGenerator } from '@/utils/sidebarItemsGenerator';
 import {
   CommandDialog,
@@ -29,9 +30,16 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const activeTeamId = useTeamId();
+  // Whether this viewer admins the team currently in context — not merely whether they admin some
+  // team, which would show team-management nav while looking at a team they only belong to.
+  const isTeamAdmin = Boolean(
+    activeTeamId && user?.team_admin_team_ids?.includes(activeTeamId),
+  );
+
   const { theme, toggleTheme } = useTheme();
 
-  const navItems = useMemo(() => sidebarItemsGenerator(getDashboardPaths(user?.role)), [user?.role]);
+  const navItems = useMemo(() => sidebarItemsGenerator(getDashboardPaths(user?.role, isTeamAdmin)), [user?.role, isTeamAdmin]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

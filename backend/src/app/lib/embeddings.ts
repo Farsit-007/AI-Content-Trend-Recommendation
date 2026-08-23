@@ -1,6 +1,11 @@
 import config from '../config';
 import { logger } from './logger';
 import { openrouter } from './openrouterClient';
+import {
+  EmbedBatchResult,
+  EmbedResult,
+} from '../modules/LlmProvider/llmProvider.adapters';
+import { mapOpenAiUsage } from '../modules/LlmProvider/llmProvider.adapters.usage';
 
 /**
  * Conservative char cap for embedding input. The model's actual limit is 8192 *tokens*; using
@@ -12,7 +17,7 @@ import { openrouter } from './openrouterClient';
  */
 const MAX_INPUT_CHARS = 6000;
 
-export const embed = async (text: string): Promise<number[]> => {
+export const embedWithUsage = async (text: string): Promise<EmbedResult> => {
   const response = await openrouter.embeddings.create({
     model: config.embedding_model as string,
     input: text.slice(0, MAX_INPUT_CHARS),
@@ -22,8 +27,12 @@ export const embed = async (text: string): Promise<number[]> => {
   if (!Array.isArray(vector)) {
     throw new Error('OpenRouter embedding response did not contain a vector');
   }
-  return vector;
+  return { vector, usage: mapOpenAiUsage(response.usage) };
 };
+
+/** Vector-only wrapper — the shape every existing caller outside `modelResolution.ts` expects. */
+export const embed = async (text: string): Promise<number[]> =>
+  (await embedWithUsage(text)).vector;
 
 /**
  * Batches multiple texts into one embeddings call. Callers with high item counts (e.g. news
@@ -31,8 +40,10 @@ export const embed = async (text: string): Promise<number[]> => {
  * with concurrent requests and the provider intermittently answers with a malformed/error body
  * under that burst load. One request per batch keeps concurrent request volume bounded.
  */
-export const embedBatch = async (texts: string[]): Promise<number[][]> => {
-  if (texts.length === 0) return [];
+export const embedBatchWithUsage = async (
+  texts: string[],
+): Promise<EmbedBatchResult> => {
+  if (texts.length === 0) return { vectors: [] };
 
   const response = await openrouter.embeddings.create({
     model: config.embedding_model as string,
@@ -40,9 +51,22 @@ export const embedBatch = async (texts: string[]): Promise<number[][]> => {
   });
 
   const vectors = response.data?.map((entry) => entry.embedding);
-  if (!Array.isArray(vectors) || vectors.length !== texts.length || vectors.some((v) => !Array.isArray(v))) {
-    logger.error({ response }, '[embeddings] OpenRouter batch response did not contain the expected vectors');
-    throw new Error('OpenRouter embedding response did not contain the expected vectors');
+  if (
+    !Array.isArray(vectors) ||
+    vectors.length !== texts.length ||
+    vectors.some((v) => !Array.isArray(v))
+  ) {
+    logger.error(
+      { response },
+      '[embeddings] OpenRouter batch response did not contain the expected vectors',
+    );
+    throw new Error(
+      'OpenRouter embedding response did not contain the expected vectors',
+    );
   }
-  return vectors;
+  return { vectors, usage: mapOpenAiUsage(response.usage) };
 };
+
+/** Vectors-only wrapper — the shape every existing caller outside `modelResolution.ts` expects. */
+export const embedBatch = async (texts: string[]): Promise<number[][]> =>
+  (await embedBatchWithUsage(texts)).vectors;

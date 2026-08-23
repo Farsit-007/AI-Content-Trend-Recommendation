@@ -13,6 +13,8 @@ const ACTIONS: IActivityLogEntry['action'][] = [
   'team.member_role_changed',
   'news.category_corrected',
   'llm.key_revealed',
+  'user.updated',
+  'user.deleted',
 ];
 
 const activityLogSchema = new Schema<IActivityLogEntry>({
@@ -22,7 +24,7 @@ const activityLogSchema = new Schema<IActivityLogEntry>({
   actor_email: { type: String, required: true },
   action: { type: String, enum: ACTIONS, required: true },
   summary: { type: String, required: true },
-  target_type: { type: String, enum: ['generated_content', 'team', 'news_item', 'llm_provider_key'] },
+  target_type: { type: String, enum: ['generated_content', 'team', 'news_item', 'llm_provider_key', 'user'] },
   target_id: { type: String },
   metadata: { type: Schema.Types.Mixed },
   created_at: { type: Date, default: Date.now },

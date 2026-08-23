@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth';
-import { llmRateLimiter } from '../../middleware/rateLimit';
+import { llmRateLimiter, llmTokenBudget } from '../../middleware/rateLimit';
 import { validation } from '../../middleware/validation';
 import { ChatController } from './chat.controller';
 import { ChatValidation } from './chat.validation';
@@ -11,7 +11,7 @@ router.use(requireAuth);
 
 // Asking a question costs an embedding call plus a completion — rate limited per team, unlike the
 // two read-only history endpoints below.
-router.post('/', llmRateLimiter, validation(ChatValidation.askChatValidation), ChatController.askChat);
+router.post('/', llmRateLimiter, llmTokenBudget, validation(ChatValidation.askChatValidation), ChatController.askChat);
 
 // Streaming twin of the route above — same auth, validation and per-team LLM budget, delivered over
 // SSE. Kept as a separate path rather than content-negotiated on `POST /`, so the buffered endpoint
@@ -19,6 +19,7 @@ router.post('/', llmRateLimiter, validation(ChatValidation.askChatValidation), C
 router.post(
   '/stream',
   llmRateLimiter,
+  llmTokenBudget,
   validation(ChatValidation.askChatValidation),
   ChatController.askChatStream,
 );

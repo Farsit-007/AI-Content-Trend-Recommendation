@@ -250,6 +250,15 @@ const envSchema = z
     // Brand-voice examples are *style* references, not facts, so they only join the context when the
     // question is plausibly about voice. Same 0-1 cosine scale as the low-relevance threshold above.
     CHAT_VOICE_MIN_SIMILARITY: z.string().default('0.3'),
+    // Ceiling on the retrieved context, in approximate tokens. Replaces the old fixed
+    // '5 items x 300 chars': a budget degrades gracefully as items grow, where a fixed count
+    // silently doubles the prompt once the corpus starts carrying full article text.
+    CHAT_CONTEXT_TOKEN_BUDGET: z.string().default('2000'),
+    // Turns kept verbatim before older ones are folded into a rolling summary.
+    CHAT_HISTORY_VERBATIM_TURNS: z.string().default('6'),
+    // Per-team daily token ceiling across every task. 0 disables it. Requests are the wrong unit
+    // for protecting a bill: one question with a huge context costs what fifty small ones do.
+    RATE_LIMIT_LLM_DAILY_TOKENS: z.string().default('0'),
 
     NEWS_INGESTION_CATEGORY_CONFIDENCE_THRESHOLD: z.string().default('0.6'),
     NEWS_INGESTION_OPPORTUNITY_WEIGHT_RELEVANCE: z.string().default('0.4'),
@@ -403,6 +412,7 @@ export default {
     llm: {
       window_ms: Number(env.RATE_LIMIT_LLM_WINDOW_MINUTES) * 60_000,
       max: Number(env.RATE_LIMIT_LLM_MAX),
+      daily_tokens: Number(env.RATE_LIMIT_LLM_DAILY_TOKENS),
     },
   },
 
@@ -441,6 +451,8 @@ export default {
     context_max_items: Number(env.CHAT_CONTEXT_MAX_ITEMS),
     draft_pool_cap: Number(env.CHAT_DRAFT_POOL_CAP),
     voice_min_similarity: Number(env.CHAT_VOICE_MIN_SIMILARITY),
+    context_token_budget: Number(env.CHAT_CONTEXT_TOKEN_BUDGET),
+    history_verbatim_turns: Number(env.CHAT_HISTORY_VERBATIM_TURNS),
   },
 
   news_ingestion: {

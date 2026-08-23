@@ -3,6 +3,7 @@ import { cosineSimilarity } from '../../lib/similarity';
 import { BrandVoiceExample } from '../BrandVoiceExample/brandVoiceExample.model';
 import { GeneratedContent } from '../GeneratedContent/generatedContent.model';
 import { IGeneratedContentFormats } from '../GeneratedContent/generatedContent.interface';
+import { budgetContext, dedupeAgainstHistory } from './chat.budget';
 import { ChatContextItem, ChatContextTier } from './chat.interface';
 import { fetchNewsContext } from './chat.retrieval';
 import { TeamChatContext } from './chat.teamContext';
@@ -40,6 +41,8 @@ export interface TeamCorpusResult {
     newsCount: number;
     draftCount: number;
     voiceCount: number;
+    contextTokens: number;
+    droppedForBudget: number;
   };
 }
 
@@ -267,6 +270,8 @@ export const buildTeamCorpus = async (
   question: string,
   questionEmbedding: number[],
   teamContext: TeamChatContext,
+  /** Already-sent message text, so context the conversation carries is not paid for twice. */
+  historyContents: string[] = [],
 ): Promise<TeamCorpusResult> => {
   const [news, drafts, voice, draftCount] = await Promise.all([
     fetchNewsContext(questionEmbedding, teamContext),
@@ -284,10 +289,21 @@ export const buildTeamCorpus = async (
     config.chat.context_max_items,
   );
 
+  // Order matters: drop what the conversation already carries *before* spending budget on it,
+  // otherwise a duplicate passage can push a genuinely new item out of the prompt.
+  const budgeted = budgetContext(
+    dedupeAgainstHistory(fused, historyContents),
+    config.chat.context_token_budget,
+  );
+
   return {
-    context: [buildTeamProfileItem(teamContext, draftCount), ...fused],
+    // The team profile is pinned outside the budget: it is a handful of lines and it is the only
+    // thing that can answer "what are we subscribed to?".
+    context: [buildTeamProfileItem(teamContext, draftCount), ...budgeted.items],
     tier: news.tier,
     diagnostics: {
+      contextTokens: budgeted.approxTokens,
+      droppedForBudget: budgeted.dropped,
       newsPoolSize: news.poolSize,
       newsTopSimilarity: news.topSimilarity,
       newsCount: news.context.length,

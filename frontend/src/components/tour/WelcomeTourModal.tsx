@@ -3,6 +3,7 @@ import { Compass, Sparkles } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useTour } from '@/context/tour-context';
 import { getDashboardPaths } from '@/routes';
+import { useTeamId } from '@/lib/useTeamId';
 import { sidebarItemsGenerator } from '@/utils/sidebarItemsGenerator';
 import { buildSidebarTour, SIDEBAR_TOUR_ID } from '@/lib/tours';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,13 @@ import {
  *  Navbar's "Take a tour" button, so nothing here is a user's only chance to see it. */
 export function WelcomeTourModal() {
   const { user } = useAuth();
+  const activeTeamId = useTeamId();
+  // Whether this viewer admins the team currently in context — not merely whether they admin some
+  // team, which would show team-management nav while looking at a team they only belong to.
+  const isTeamAdmin = Boolean(
+    activeTeamId && user?.team_admin_team_ids?.includes(activeTeamId),
+  );
+
   const { hasSeenWelcome, markWelcomeSeen, startTour } = useTour();
   const [open, setOpen] = useState(false);
 
@@ -37,7 +45,7 @@ export function WelcomeTourModal() {
   const handleStart = () => {
     markWelcomeSeen();
     setOpen(false);
-    const items = sidebarItemsGenerator(getDashboardPaths(user?.role));
+    const items = sidebarItemsGenerator(getDashboardPaths(user?.role, isTeamAdmin));
     startTour(buildSidebarTour(items), SIDEBAR_TOUR_ID);
   };
 

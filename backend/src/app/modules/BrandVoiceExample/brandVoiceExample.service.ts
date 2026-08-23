@@ -1,5 +1,6 @@
 import QueryBuilder from '../../builder/QueryBuilder';
 import AppError from '../../errors/AppError';
+import { invalidate } from '../../lib/cache';
 import { embedForTask } from '../../lib/modelResolution';
 import { httpStatus } from '../../utils/httpStatus';
 import { IRequestUser } from '../User/user.interface';
@@ -26,6 +27,10 @@ const createBrandVoiceExample = async (payload: Partial<IBrandVoiceExample>, req
   const embedding =
     payload.embedding ?? (await embedForTask('embedding', payload.content as string, { teamId: payload.team_id }));
   const result = await BrandVoiceExample.create({ ...payload, embedding });
+  // Readiness is derived from whether this team has *any* example, so the first one flips it.
+  // Awaited, unlike the rescore below: the user's next request is the feed reload that would
+  // otherwise still show the not-ready empty state they just resolved.
+  await invalidate('team:ready', payload.team_id as string);
   // Every one of this team's news scores was measured against the pool this example just changed, so
   // they are all stale. Fire-and-forget: the example is saved either way, and a stale score degrades
   // to the platform baseline rather than breaking anything.
@@ -86,7 +91,11 @@ const deleteBrandVoiceExample = async (id: string, requestingUser: IRequestUser)
   if (!existing) return null;
 
   const result = await BrandVoiceExample.findByIdAndDelete(id);
-  if (result) void NewsItemTeamScoreService.rescoreTeam(result.team_id);
+  if (result) {
+    // Removing the last example flips readiness back off.
+    await invalidate('team:ready', result.team_id);
+    void NewsItemTeamScoreService.rescoreTeam(result.team_id);
+  }
   return result;
 };
 

@@ -3,11 +3,13 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 import config from '../../config';
 import AppError from '../../errors/AppError';
 import { logger } from '../../lib/logger';
+import { ActivityLogService } from '../ActivityLog/activityLog.service';
+import { PLATFORM_SCOPE } from '../ActivityLog/activityLog.interface';
 import { isMailConfigured, sendPasswordResetMail } from '../../lib/mailer';
 import { httpStatus } from '../../utils/httpStatus';
 import { TeamMembership } from '../Team/team.model';
 import { TeamService } from '../Team/team.service';
-import { IAuthPayload, UserRole } from './user.interface';
+import { IAuthPayload, IRequestUser, UserRole } from './user.interface';
 import { User } from './user.model';
 
 const BCRYPT_COST = 10;
@@ -229,8 +231,90 @@ const getMe = async (userId: string) => {
   if (!user) {
     throw new AppError(httpStatus.NOT_FOUND, 'User not found');
   }
-  const teamIds = await TeamService.getTeamIdsForUser(userId);
-  return { user, team_ids: teamIds };
+  // `team_admin_team_ids` is the subset of `team_ids` where this user is the team's admin. The
+  // middleware has always computed it for `requireTeamAdmin`, but it never reached the client — so
+  // the frontend had no way to distinguish a team admin from a member and showed both the identical
+  // navigation, even though the backend enforces different rights.
+  const [teamIds, teamAdminTeamIds] = await Promise.all([
+    TeamService.getTeamIdsForUser(userId),
+    TeamService.getTeamAdminTeamIdsForUser(userId),
+  ]);
+  return { user, team_ids: teamIds, team_admin_team_ids: teamAdminTeamIds };
+};
+
+
+/**
+ * Neither of the two mutations below may leave the platform without a super admin.
+ *
+ * That is not a theoretical concern: super_admin is the only tier that can create users or manage
+ * providers, so losing the last one locks everybody out of administering the deployment with no
+ * in-app way back — recovery would mean editing the database by hand.
+ */
+const assertNotLastSuperAdmin = async (userId: string): Promise<void> => {
+  const target = await User.findById(userId).select('role');
+  if (target?.role !== 'super_admin') return;
+
+  const remaining = await User.countDocuments({ role: 'super_admin', _id: { $ne: userId } });
+  if (remaining === 0) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'This is the last super admin — promote another user first, or the platform becomes unadministrable.',
+    );
+  }
+};
+
+const updateUser = async (
+  userId: string,
+  payload: { name?: string; role?: UserRole },
+  requestingUser: IRequestUser,
+) => {
+  if (payload.role && payload.role !== 'super_admin') {
+    await assertNotLastSuperAdmin(userId);
+  }
+
+  const user = await User.findByIdAndUpdate(userId, payload, { new: true, runValidators: true });
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, 'User not found');
+  }
+
+  void ActivityLogService.recordActivity({
+    team_id: PLATFORM_SCOPE,
+    actor: requestingUser,
+    action: 'user.updated',
+    summary: `Updated ${user.email} (${Object.keys(payload).join(', ')})`,
+    target_type: 'user',
+    target_id: userId,
+  });
+
+  return user;
+};
+
+const deleteUser = async (userId: string, requestingUser: IRequestUser) => {
+  // Deleting yourself is always a mistake and sometimes an unrecoverable one — you would lose the
+  // session mid-request with no account to sign back in with.
+  if (userId === requestingUser.id) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'You cannot delete your own account');
+  }
+  await assertNotLastSuperAdmin(userId);
+
+  const user = await User.findByIdAndDelete(userId);
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, 'User not found');
+  }
+
+  // Memberships would otherwise linger and keep listing a deleted user as a team member.
+  await TeamMembership.deleteMany({ user_id: userId });
+
+  void ActivityLogService.recordActivity({
+    team_id: PLATFORM_SCOPE,
+    actor: requestingUser,
+    action: 'user.deleted',
+    summary: `Deleted ${user.email}`,
+    target_type: 'user',
+    target_id: userId,
+  });
+
+  return user;
 };
 
 export const UserService = {
@@ -242,4 +326,6 @@ export const UserService = {
   forgotPassword,
   resetPassword,
   getMe,
+  updateUser,
+  deleteUser,
 };

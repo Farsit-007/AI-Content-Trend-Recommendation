@@ -2,6 +2,7 @@ import { NavLink, Link, useLocation } from 'react-router-dom';
 import { Home, LogOut, Sparkles } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { getDashboardPaths } from '@/routes';
+import { useTeamId } from '@/lib/useTeamId';
 import { sidebarItemsGenerator } from '@/utils/sidebarItemsGenerator';
 import {
   Sidebar,
@@ -28,9 +29,16 @@ const roleLabel: Record<string, string> = {
  *  Collapses to an icon rail on desktop and opens as a sheet on mobile. */
 export function AppSidebar() {
   const { user, logout } = useAuth();
+  const activeTeamId = useTeamId();
+  // Whether this viewer admins the team currently in context — not merely whether they admin some
+  // team, which would show team-management nav while looking at a team they only belong to.
+  const isTeamAdmin = Boolean(
+    activeTeamId && user?.team_admin_team_ids?.includes(activeTeamId),
+  );
+
   const { pathname } = useLocation();
   const { setOpenMobile } = useSidebar();
-  const items = sidebarItemsGenerator(getDashboardPaths(user?.role));
+  const items = sidebarItemsGenerator(getDashboardPaths(user?.role, isTeamAdmin));
 
   return (
     <Sidebar collapsible="icon">

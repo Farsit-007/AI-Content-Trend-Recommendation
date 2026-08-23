@@ -223,7 +223,27 @@ embeddings into Node per question.
 
 ### Phase 2 — Token & cost engineering · ~12 h
 
-**2.1 Capture usage.** Every adapter returns `{ content, usage: { prompt_tokens, completion_tokens, cached_tokens? } }`. Persist to a new `llm_usage` collection: `{ team_id, task, provider_id, model, prompt_tokens, completion_tokens, cached_tokens, estimated_cost_usd, created_at }`, plus a daily per-team rollup. **Without this, every other optimization here is unmeasurable.** Do it first.
+**2.1 Capture usage.** — **DONE.** Every adapter returns `{ content|vector|vectors, usage }`;
+streaming reports via an `onUsage` callback (a generator can't return usage alongside its yields),
+with `stream_options: { include_usage: true }` on the OpenAI-shaped providers and
+`message_start` + `message_delta` merged for Anthropic. `modelResolution.ts` unwraps and meters all
+four call sites; its public signatures are unchanged.
+
+New `LlmUsage` module: `llm_usage` event rows (90-day TTL) plus a permanent `llm_usage_daily`
+`$inc` rollup keyed `{team_id, date, task, model}`. Optional `input_cost_per_1m_usd` /
+`output_cost_per_1m_usd` on `LlmModel` feed `estimated_cost_usd`. `GET /llm-usage` reads the rollup,
+scoped so a non-super-admin can only ever see their own team. Documented in OpenAPI.
+
+Three honesty rules are enforced by tests, because each is a way a cost dashboard can quietly lie:
+a provider reporting nothing records `usage_reported: false`, never zero tokens; an unpriced model
+contributes no cost, never `$0`; cached tokens are not discounted, so the estimate is a defensible
+ceiling. Metering is fire-and-forget and swallows its own failures — plus `flushLlmUsage()` for
+shutdown and tests. An abandoned stream is metered in a `finally`, so cancelled answers don't vanish
+from the ledger.
+
+**Not done:** no admin UI for setting per-model pricing — the fields are settable via
+`POST`/`PATCH /llm-providers/:id/models` but the AI Providers page has no input for them. Small
+follow-up; belongs with Phase 5.
 
 **2.2 Restructure the prompt for provider caching.** Split the single system string into an ordered, cache-friendly message list:
 
@@ -238,6 +258,38 @@ embeddings into Node per question.
 Then: Anthropic `cache_control: {type: "ephemeral"}` on blocks 0–1; OpenAI caches ≥1024-token stable
 prefixes automatically once the prefix stops moving; Gemini explicit context caching. Blocks 0–1 are
 also what make a per-team system prompt cheap.
+
+> **STATUS: mechanism shipped, but it does not yet fire. Two blockers found in audit.**
+>
+> Shipped and tested (635/635, 53 suites): `cacheable?: boolean` on `AdapterChatMessage`; the
+> Anthropic adapter sends `system` as a block array with one `cache_control` breakpoint at the end
+> of the *leading contiguous* cacheable run; OpenAI/OpenRouter/bootstrap strip the hint before the
+> wire; `chat.prompt.ts` marks blocks 0–1. Pinned by `chat.prompt.test.ts` (prefix byte-stability
+> across turns) and 7 adapter cases.
+>
+> **Blocker A — the prefix is too short to qualify.** Persona ≈215 tokens + team block ≈30 ≈ **250
+> tokens**, against a **1024-token minimum** for both Anthropic's explicit breakpoint and
+> OpenAI/OpenRouter's automatic caching. Below the minimum the marker is silently ignored. So for a
+> typical team the cache never engages — not broken, ineffective by construction.
+>
+> **Blocker B — key rotation destroys cache locality.** `nextRotationOffset`
+> (`llmKeyHealth.ts:146`) does a global Redis `INCR` on *every* call, so consecutive turns of one
+> conversation are served by different API keys. Prompt caches are scoped per key/account, so a
+> multi-key provider pays the cache write repeatedly and rarely reads. The rotation predates this
+> work and the two features were never reconciled.
+>
+> **The fix for A is a reorder**, not more markers: move the volatile context block *after* history
+> so the prefix becomes `[persona, team, history…]`, which grows and stays stable within a
+> conversation and crosses 1024 tokens after a few turns. That moves retrieved context into the
+> final user turn — a standard RAG layout, but a change to grounding semantics, so it needs a
+> decision rather than a silent edit.
+>
+> **The fix for B** is a sticky rotation offset keyed on `conversation_id` for the `chat` task only,
+> leaving pure round-robin for categorization/dedup/etc. That trades some rate-limit spreading for
+> cache locality — also a deliberate decision.
+>
+> Either way `cached_prompt_tokens` (Phase 2.1) is already recording, so both are measurable rather
+> than arguable.
 
 **2.3 Budget the context.** Replace the fixed "5 items × 300 chars" (`chat.retrieval.ts:9`, `:52`) with
 a token budget (`CHAT_CONTEXT_TOKEN_BUDGET`, default ~2000): fill highest-fused-rank first, per-item
@@ -403,6 +455,35 @@ a **release checklist you run by hand** before each deploy, not a safety net tha
 - Load test `/news-items` and `/chat` at expected concurrency; record p95.
 
 ---
+
+## 4b. Implementation log (running)
+
+Verified after each step: backend `typecheck` clean, `npm test` green, `lint` 0 errors / 185 warnings
+(unchanged baseline).
+
+| Phase | State | Notes |
+|---|---|---|
+| 0 | **blocked — operator only** | Needs real secrets: `TRUST_PROXY_HOPS`, `SENTRY_DSN`, `SMTP_*`, `OPENROUTER_API_KEY`, credential rotation. Cannot be done from here. |
+| 1 | done (1.5 blocked) | 1.5 needs an Atlas index drop/recreate — operator step. |
+| 2.1 | done | Usage ledger + rollup + `GET /llm-usage`. |
+| 2.2 | done | Prompt reorder (context → final user turn) so the prefix grows with history; two Anthropic cache breakpoints; sticky key routing by conversation. |
+| 2.3 | done | `chat.budget.ts` — token budget + history dedup, replacing the fixed item count. |
+| 2.4 | done | `chat.history.ts` — rolling extractive summary; boundary snaps so an exchange is never split. |
+| 2.5 | done | Question embeddings reuse the existing Redis `getOrEmbedTopic` cache. |
+| 2.6 | done | Chat input capped at 4000 chars. |
+| 2.7 | done | `max_tokens` on OpenAI + OpenRouter (Anthropic already had it). |
+| 2.8 | done | `llmUsage.budget.ts` + `llmTokenBudget` middleware, off by default (`RATE_LIMIT_LLM_DAILY_TOKENS=0`). |
+| 3 | done | `lib/cache.ts` (versioned, degrade-open, SCAN-based invalidation, per-domain hit rates on `/health`); applied to `isTeamReady` and `resolveVoiceOptions` with write-path invalidation. |
+| 4 | done | `/dashboard/studio` with Compose/Library tabs (2.28 kB shell, both halves still separately code-split); `/generate` + `/drafts` redirect; streamed output autosaves so a closed tab no longer discards paid work, and Save steps aside afterwards instead of filing a duplicate. |
+| 5 | done | `team_admin` is a real tier: `getMe` now returns `team_admin_team_ids`, `lib/capabilities.ts` + `useCan()` replace scattered role checks, an **AI usage** page reads the Phase 2.1 ledger, `supperAdmin.routes.tsx` renamed, and `PATCH`/`DELETE /users/:id` close the create-and-read-only gap (guarded against removing the last super admin or yourself). |
+| 6 | partial | 6.2 done — the feed now explains its own ranking via `score_source`, which the API always returned and nothing rendered. 6.5 was **already satisfied** (three matching compound indexes exist; a fourth would cost writes for nothing). 6.1/6.3/6.4 not done — see below. |
+| 7 | not done | Chat UI parity (markdown, stop, citation chips, regenerate). |
+| 8 | not done | Request-id middleware, `Dockerfile.prod`, scheduler guard. |
+
+**Verified at this checkpoint:** backend **661/661** across 55 suites, frontend **27/27**, both typecheck
+clean, backend lint 0 errors / 185 warnings (unchanged baseline), frontend lint 0 errors / 1
+pre-existing warning, production build succeeds.
+
 
 ## 5. Sequencing — by phase, not by calendar
 

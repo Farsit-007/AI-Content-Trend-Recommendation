@@ -175,7 +175,11 @@ function DraftPreviewDialog({
   );
 }
 
-export default function Drafts() {
+/**
+ * `embedded` is set when Studio renders this as a tab — it already shows the page header, so a
+ * second one would stack two titles. Standalone rendering (a direct route, a test) keeps its own.
+ */
+export default function Drafts({ embedded = false }: { embedded?: boolean } = {}) {
   const teamId = useTeamId();
   const queryClient = useQueryClient();
 
@@ -375,7 +379,7 @@ export default function Drafts() {
   if (!teamId) {
     return (
       <div className="flex flex-col gap-4">
-        <PageHeader title="Drafts" icon={Inbox} guideKey="drafts" />
+        {!embedded && <PageHeader title="Drafts" icon={Inbox} guideKey="drafts" />}
         <div className="glass-card rounded-xl">
           <EmptyState
             icon={Inbox}
@@ -389,12 +393,14 @@ export default function Drafts() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Drafts"
-        icon={Inbox}
-        guideKey="drafts"
-        description="Everything generated for this team — review, approve, or dismiss. Approving is a one-way move forward."
-      />
+      {!embedded && (
+        <PageHeader
+          title="Drafts"
+          icon={Inbox}
+          guideKey="drafts"
+          description="Everything generated for this team — review, approve, or dismiss. Approving is a one-way move forward."
+        />
+      )}
 
       <section data-tour="drafts-list" className="glass-card rounded-xl p-5">
         <DataTable

@@ -3,7 +3,6 @@ import AppError from '../../errors/AppError';
 import config from '../../config';
 import {
   chatCompletionForTask,
-  embedForTask,
   streamChatCompletionForTask,
 } from '../../lib/modelResolution';
 import { logger } from '../../lib/logger';
@@ -23,8 +22,10 @@ import {
 import { ChatMessage } from './chat.model';
 import { buildMessages, buildSourceRefs } from './chat.prompt';
 import { buildTeamCorpus } from './chat.corpus';
+import { compactHistory } from './chat.history';
 import { fetchConversationHistory } from './chat.retrieval';
 import { resolveTeamChatContext } from './chat.teamContext';
+import { getOrEmbedTopic } from '../ContentGeneration/contentGeneration.embedCache';
 
 const assertTeamAccess = (teamId: string, requestingUser: IRequestUser) => {
   if (requestingUser.role === 'super_admin') return;
@@ -61,6 +62,7 @@ const logRetrievalQuality = (
     diagnostics: Record<string, number>;
   },
   streaming: boolean,
+  summarizedCount = 0,
 ) => {
   logger.info(
     {
@@ -72,6 +74,7 @@ const logRetrievalQuality = (
         corpus.diagnostics.newsTopSimilarity <
         config.chat.context_low_relevance_threshold,
       streaming,
+      summarizedHistoryMessages: summarizedCount,
     },
     '[Chat] context retrieval quality',
   );
@@ -109,22 +112,24 @@ const askChat = async (
   }
 
   const [questionEmbedding, history, teamContext] = await Promise.all([
-    embedForTask('embedding', payload.message, { teamId: payload.team_id }),
+    getOrEmbedTopic(payload.message, payload.team_id),
     fetchConversationHistory(payload.team_id, conversationId),
     resolveTeamChatContext(payload.team_id, payload.language),
   ]);
 
+  const compacted = compactHistory(history);
   const corpus = await buildTeamCorpus(
     payload.message,
     questionEmbedding,
     teamContext,
+    compacted.messages.map((m) => m.content),
   );
-  logRetrievalQuality(payload.team_id, corpus, false);
+  logRetrievalQuality(payload.team_id, corpus, false, compacted.summarizedCount);
 
   const messages = buildMessages(
     payload.message,
     corpus.context,
-    history,
+    compacted.messages,
     {
       language: teamContext.language,
       custom_instructions: teamContext.customInstructions,
@@ -144,6 +149,7 @@ const askChat = async (
     reply = await chatCompletionForTask('chat', messages, {
       teamId: payload.team_id,
       temperature: 0.7,
+      stickyKey: conversationId,
     });
   } catch (err) {
     logger.error(
@@ -234,23 +240,25 @@ const askChatStream = async (
   }
 
   const [questionEmbedding, history, teamContext] = await Promise.all([
-    embedForTask('embedding', payload.message, { teamId: payload.team_id }),
+    getOrEmbedTopic(payload.message, payload.team_id),
     fetchConversationHistory(payload.team_id, conversationId),
     resolveTeamChatContext(payload.team_id, payload.language),
   ]);
 
+  const compacted = compactHistory(history);
   const corpus = await buildTeamCorpus(
     payload.message,
     questionEmbedding,
     teamContext,
+    compacted.messages.map((m) => m.content),
   );
-  logRetrievalQuality(payload.team_id, corpus, true);
+  logRetrievalQuality(payload.team_id, corpus, true, compacted.summarizedCount);
   handlers.onContext?.(corpus.tier, buildSourceRefs(corpus.context));
 
   const messages = buildMessages(
     payload.message,
     corpus.context,
-    history,
+    compacted.messages,
     {
       language: teamContext.language,
       custom_instructions: teamContext.customInstructions,
@@ -265,6 +273,7 @@ const askChatStream = async (
     for await (const delta of streamChatCompletionForTask('chat', messages, {
       teamId: payload.team_id,
       temperature: 0.7,
+      stickyKey: conversationId,
     })) {
       if (handlers.isCancelled()) break;
       reply += delta;

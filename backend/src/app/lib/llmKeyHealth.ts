@@ -140,11 +140,36 @@ export const getKeyFailureCounts = async (
  *
  * Falls back to 0 (today's fixed order) if Redis cannot answer.
  */
+/** FNV-1a. Small, dependency-free, and well-spread enough to distribute conversations over a pool. */
+const hashToRange = (value: string, range: number): number => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash % range;
+};
+
 export const nextRotationOffset = async (
   providerId: string,
   poolSize: number,
+  /**
+   * When set, the offset is derived from this string instead of the global counter, so every call
+   * sharing it lands on the same key.
+   *
+   * This exists for prompt caching. A provider caches a prefix against the credential that wrote
+   * it, so pure round-robin means consecutive turns of one conversation write a cache on key A and
+   * then look for it on key B — paying the write every turn and never reading. Pinning by
+   * conversation keeps that locality while *different* conversations still spread across the pool,
+   * so the rate-limit headroom the pool exists for is preserved in aggregate.
+   *
+   * Only passed for conversational tasks. One-shot work (categorization, dedup, embeddings) has no
+   * cross-call prefix worth preserving and keeps the pure round-robin.
+   */
+  stickyKey?: string,
 ): Promise<number> => {
   if (poolSize <= 1) return 0;
+  if (stickyKey) return hashToRange(stickyKey, poolSize);
   try {
     const counter = await redis.incr(rotationKey(providerId));
     // Keep the counter from growing without bound over the process's lifetime.

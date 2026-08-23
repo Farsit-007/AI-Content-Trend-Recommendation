@@ -21,6 +21,24 @@ import { cn } from '@/lib/utils';
 import { ScorePill } from './ScorePill';
 import { Stat } from './Stat';
 
+/**
+ * How the opportunity score for an item was arrived at. Short labels, because this sits in a dense
+ * metadata row — the full explanation is the tooltip.
+ */
+const SCORE_SOURCE_LABEL: Record<'override' | 'team' | 'baseline', string> = {
+  override: 'set by hand',
+  team: 'your voice',
+  baseline: 'platform avg',
+};
+
+const SCORE_SOURCE_HINT: Record<'override' | 'team' | 'baseline', string> = {
+  override: 'Someone on your team set this score manually.',
+  team: "Scored against your team's own brand-voice examples.",
+  baseline:
+    'Platform-wide fallback — your team has no brand-voice examples yet, so this is measured against every team pooled together. Add examples in Team Settings for a score that reflects you.',
+};
+
+
 interface NewsCardProps {
   item: NewsItemDto;
   onClick: () => void;
@@ -145,6 +163,14 @@ export function NewsCard({ item, onClick, tourTarget }: NewsCardProps) {
         <ScorePill icon={Flame} label="Trend" value={item.trend_score} variant="trend" />
         {typeof item.opportunity_score === 'number' && (
           <ScorePill icon={Target} label="Opportunity" value={item.opportunity_score} variant="opportunity" />
+        )}
+        {/* Why this score, in three words. Without it the ranking reads as arbitrary — and a
+            `baseline` item in particular is scored against every team's voice pooled together,
+            which is worth knowing before acting on it. */}
+        {item.score_source && (
+          <span title={SCORE_SOURCE_HINT[item.score_source]} className="text-[11px] opacity-70">
+            {SCORE_SOURCE_LABEL[item.score_source]}
+          </span>
         )}
       </div>
 

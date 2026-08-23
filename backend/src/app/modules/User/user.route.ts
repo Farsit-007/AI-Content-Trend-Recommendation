@@ -42,4 +42,8 @@ const userRouter = Router();
 userRouter.use(requireAuth, requireSuperAdmin);
 userRouter.post('/', validation(UserValidation.createUserValidation), UserController.createUser);
 userRouter.get('/', UserController.listUsers);
+// Closes the create-and-read-only gap: until now an account could be created but never renamed,
+// re-roled, or removed, so the admin console could only ever grow.
+userRouter.patch('/:id', validation(UserValidation.updateUserValidation), UserController.updateUser);
+userRouter.delete('/:id', UserController.deleteUser);
 export const UserRoutes = userRouter;

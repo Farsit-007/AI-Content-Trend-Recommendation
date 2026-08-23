@@ -46,7 +46,20 @@ const resetPasswordValidation = z.object({
   }),
 });
 
+
+const updateUserValidation = z.object({
+  body: z
+    .object({
+      name: z.string().min(1).optional(),
+      role: z.enum(['super_admin', 'user']).optional(),
+    })
+    // An empty body is a no-op that still writes an activity log entry and returns 200, which reads
+    // as a successful change that never happened.
+    .refine((body) => Object.keys(body).length > 0, 'Provide at least one field to update'),
+});
+
 export const UserValidation = {
+  updateUserValidation,
   createUserValidation,
   loginValidation,
   refreshTokenValidation,

@@ -5,6 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { useTeamContext } from "@/context/team-context";
 import { useTour } from "@/context/tour-context";
 import { getDashboardPaths } from "@/routes";
+import { useTeamId } from '@/lib/useTeamId';
 import { sidebarItemsGenerator } from "@/utils/sidebarItemsGenerator";
 import { buildSidebarTour, SIDEBAR_TOUR_ID } from "@/lib/tours";
 import { Button } from "@/components/ui/button";
@@ -60,13 +61,20 @@ function TeamSwitcher() {
  *  `SidebarTrigger` collapses it on desktop and opens it on mobile. */
 export function Navbar() {
   const { user } = useAuth();
+  const activeTeamId = useTeamId();
+  // Whether this viewer admins the team currently in context — not merely whether they admin some
+  // team, which would show team-management nav while looking at a team they only belong to.
+  const isTeamAdmin = Boolean(
+    activeTeamId && user?.team_admin_team_ids?.includes(activeTeamId),
+  );
+
   const { startTour, isTourCompleted } = useTour();
   // Once the whole-system tour has been run or dismissed, this stops occupying prime topbar real
   // estate. It remains reachable from the Guide page and from each page's help dialog.
   const showTakeTour = !isTourCompleted(SIDEBAR_TOUR_ID);
 
   const handleTakeTour = () => {
-    const items = sidebarItemsGenerator(getDashboardPaths(user?.role));
+    const items = sidebarItemsGenerator(getDashboardPaths(user?.role, isTeamAdmin));
     startTour(buildSidebarTour(items), SIDEBAR_TOUR_ID);
   };
 

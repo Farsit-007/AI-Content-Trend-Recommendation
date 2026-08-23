@@ -4,6 +4,7 @@ import { RedisStore } from 'rate-limit-redis';
 import config from '../config';
 import { redis } from '../lib/redis';
 import { httpStatus } from '../utils/httpStatus';
+import { getBudgetStatus } from '../modules/LlmUsage/llmUsage.budget';
 
 /**
  * Three tiers of rate limiting, all backed by the Redis this deployment already runs so the counters
@@ -84,6 +85,49 @@ export const llmRateLimiter = build({
   },
   message: {
     success: false,
-    message: "This team has reached its daily AI generation limit. It resets in 24 hours.",
+    message: 'This team has reached its daily AI generation limit. It resets in 24 hours.',
   },
 });
+
+/**
+ * Per-team daily **token** ceiling, alongside the request counter above (Phase 2.8).
+ *
+ * Both exist because they catch different abuse. The request limiter stops a loop hammering the
+ * endpoint; this stops a small number of very expensive calls — one question carrying a full
+ * context costs what fifty trivial ones do, so a request quota can be entirely respected while the
+ * bill runs away.
+ *
+ * Enforced *before* the call, since a refusal is only useful if it prevents the spend. That means it
+ * checks what has already been recorded, so the call that crosses the line is allowed through and
+ * the next one is refused — a bounded overshoot of one request, which is the price of not blocking
+ * on a token count nobody can know in advance.
+ *
+ * Disabled when `RATE_LIMIT_LLM_DAILY_TOKENS` is 0 (the default), so an existing deployment is
+ * unaffected until an operator opts in.
+ */
+export const llmTokenBudget: RequestHandler = (req, res, next) => {
+  if (!config.rate_limit.enabled || config.rate_limit.llm.daily_tokens <= 0) {
+    next();
+    return;
+  }
+
+  const body = req.body as { team_id?: unknown } | undefined;
+  const teamId =
+    typeof body?.team_id === 'string' ? body.team_id : (req.user?.team_ids?.[0] ?? null);
+
+  void getBudgetStatus(teamId).then((status) => {
+    if (!status.exceeded) {
+      // Advisory headers, mirroring what the request limiter's `draft-7` headers do for requests.
+      res.setHeader('X-Token-Budget-Limit', String(status.limit));
+      res.setHeader('X-Token-Budget-Remaining', String(status.remaining));
+      next();
+      return;
+    }
+
+    res.status(httpStatus.TOO_MANY_REQUESTS).json({
+      success: false,
+      message:
+        'This team has used its daily AI token budget. It resets at midnight UTC — or ask an admin to raise the limit.',
+    });
+  });
+};

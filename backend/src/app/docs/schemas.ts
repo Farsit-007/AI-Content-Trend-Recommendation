@@ -792,6 +792,19 @@ export const LlmModel = {
       items: { type: 'string', enum: ['chat', 'embedding'] },
     },
     is_active: { type: 'boolean', default: true },
+    input_cost_per_1m_usd: {
+      type: 'number',
+      minimum: 0,
+      description:
+        'USD per 1M input tokens. Optional — an unpriced model still meters tokens in the usage ledger, it just contributes no estimated cost. Absent means unpriced, never free.',
+      example: 0.15,
+    },
+    output_cost_per_1m_usd: {
+      type: 'number',
+      minimum: 0,
+      description: 'USD per 1M output tokens. Optional, same semantics as input_cost_per_1m_usd.',
+      example: 0.6,
+    },
     created_at: { type: 'string', format: 'date-time' },
   },
   required: ['provider_id', 'model_id', 'display_name', 'capabilities'],
@@ -808,6 +821,19 @@ export const LlmModelCreate = {
       minItems: 1,
     },
     is_active: { type: 'boolean' },
+    input_cost_per_1m_usd: {
+      type: 'number',
+      minimum: 0,
+      description:
+        'USD per 1M input tokens. Optional — an unpriced model still meters tokens in the usage ledger, it just contributes no estimated cost. Absent means unpriced, never free.',
+      example: 0.15,
+    },
+    output_cost_per_1m_usd: {
+      type: 'number',
+      minimum: 0,
+      description: 'USD per 1M output tokens. Optional, same semantics as input_cost_per_1m_usd.',
+      example: 0.6,
+    },
   },
   required: ['model_id', 'display_name', 'capabilities'],
 } as const;
@@ -863,4 +889,51 @@ export const LlmModelActive = {
     provider_name: { type: 'string', example: 'Anthropic (primary)' },
   },
   required: ['_id', 'model_id', 'display_name', 'provider_id'],
+} as const;
+
+export const LlmUsageBucket = {
+  type: 'object',
+  description: 'One grouped slice of the usage rollup — keyed by task name in by_task, or by UTC day in by_day.',
+  properties: {
+    key: { type: 'string', example: 'chat' },
+    calls: { type: 'integer', example: 42 },
+    prompt_tokens: { type: 'integer', example: 51240 },
+    completion_tokens: { type: 'integer', example: 8130 },
+    cached_prompt_tokens: { type: 'integer', example: 40960 },
+    estimated_cost_usd: { type: 'number', example: 0.0143 },
+  },
+  required: ['key', 'calls', 'prompt_tokens', 'completion_tokens', 'cached_prompt_tokens', 'estimated_cost_usd'],
+} as const;
+
+export const LlmUsageSummary = {
+  type: 'object',
+  description:
+    'Token and cost totals over the requested window, read from the pre-aggregated daily rollup rather than raw call rows.',
+  properties: {
+    totals: {
+      type: 'object',
+      properties: {
+        calls: { type: 'integer' },
+        calls_without_usage: {
+          type: 'integer',
+          description:
+            'Calls the provider reported no token counts for. Their tokens are unknown, not zero — treat the totals as a floor when this is non-zero.',
+        },
+        prompt_tokens: { type: 'integer' },
+        completion_tokens: { type: 'integer' },
+        cached_prompt_tokens: {
+          type: 'integer',
+          description: 'Portion of prompt_tokens served from the provider prompt cache, where reported.',
+        },
+        estimated_cost_usd: {
+          type: 'number',
+          description:
+            'Sum over models that have pricing configured. Models with no configured price contribute 0 — unpriced, not free. Cached tokens are not discounted, so this is a ceiling.',
+        },
+      },
+    },
+    by_task: { type: 'array', items: { $ref: '#/components/schemas/LlmUsageBucket' } },
+    by_day: { type: 'array', items: { $ref: '#/components/schemas/LlmUsageBucket' } },
+  },
+  required: ['totals', 'by_task', 'by_day'],
 } as const;

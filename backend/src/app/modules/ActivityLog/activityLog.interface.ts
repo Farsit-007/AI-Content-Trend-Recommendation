@@ -17,11 +17,14 @@ export type ActivityAction =
   | 'team.member_removed'
   | 'team.member_role_changed'
   | 'news.category_corrected'
-  | 'llm.key_revealed';
+  | 'llm.key_revealed'
+  // Platform-scoped, like llm.key_revealed — recorded under PLATFORM_SCOPE, not a real team.
+  | 'user.updated'
+  | 'user.deleted';
 
 /**
- * Sentinel `team_id` for platform-scoped actions that belong to no team (currently only
- * `llm.key_revealed`). Keeps the trail in one queryable collection without leaking a super-admin
+ * Sentinel `team_id` for platform-scoped actions that belong to no team (`llm.key_revealed` and
+ * the `user.*` account-management actions). Keeps the trail in one queryable collection without leaking a super-admin
  * action into any real team's activity feed, since every read path filters by a concrete team id.
  */
 export const PLATFORM_SCOPE = '__platform__';
@@ -34,7 +37,7 @@ export interface IActivityLogEntry {
   action: ActivityAction;
   /** Human-readable one-liner for the feed, e.g. `Generated facebook_post for "AI agents"`. */
   summary: string;
-  target_type?: 'generated_content' | 'team' | 'news_item' | 'llm_provider_key';
+  target_type?: 'generated_content' | 'team' | 'news_item' | 'llm_provider_key' | 'user';
   target_id?: string;
   metadata?: Record<string, unknown>;
   created_at: Date;

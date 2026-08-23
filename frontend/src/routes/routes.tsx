@@ -10,7 +10,7 @@ import { routeGenerator } from "@/utils/routesGenerator";
 // Public pages are lazy too. Landing is the heaviest page in the app (aurora background, bento grid,
 // testimonials, motion) and every authenticated user pays for it on first load otherwise.
 import { About, ForgotPassword, Landing, Login, ResetPassword } from "./lazyPages";
-import { supperAdminPaths } from "./supperAdmin.routes";
+import { superAdminPaths } from "./superAdmin.routes";
 
 const suspended = (element: ReactNode) => (
   <Suspense fallback={<RouteFallback />}>{element}</Suspense>
@@ -47,7 +47,7 @@ export const router = createBrowserRouter([
           {
             path: "/dashboard",
             element: <MainLayout />,
-            children: routeGenerator(supperAdminPaths),
+            children: routeGenerator(superAdminPaths),
           },
         ],
       },

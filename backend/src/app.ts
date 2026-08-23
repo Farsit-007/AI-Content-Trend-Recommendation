@@ -7,6 +7,7 @@ import { pinoHttp } from 'pino-http';
 import config from './app/config';
 import { logger } from './app/lib/logger';
 import { pingRedis } from './app/lib/redis';
+import { cacheStats } from './app/lib/cache';
 import { globalRateLimiter } from './app/middleware/rateLimit';
 import { notFound } from './app/middleware/notFound';
 import { globalErrorHandler } from './app/middleware/globalErrorHandler';
@@ -81,6 +82,10 @@ app.get('/health', async (_req: Request, res: Response) => {
     mongo: mongoUp ? 'up' : 'down',
     redis: redisUp ? 'up' : 'down',
     uptime_seconds: Math.round(process.uptime()),
+    // Per-domain cache hit rates. Reported here because a cache that never hits is invisible
+    // otherwise — it looks exactly like a working one, just slower. Process-local, so these reset
+    // on deploy and read low right after one.
+    cache: cacheStats(),
   });
 });
 
